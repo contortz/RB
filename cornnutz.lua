@@ -73,7 +73,7 @@ local function addLog(rfName, argsTable)
     logBox.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
 end
 
--- Target RF Paths
+
 local rfNames = {
     "RF/FuseMachine/ConfirmFusion",
     "RF/FuseMachine/ClaimBrainrot",
@@ -82,7 +82,6 @@ local rfNames = {
     "RF/FuseMachine/RevealNow"
 }
 
--- Hook RemoteFunctions
 for _, name in ipairs(rfNames) do
     local rf = game.ReplicatedStorage.Packages.Net:FindFirstChild(name)
     if rf and rf:IsA("RemoteFunction") then
