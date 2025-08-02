@@ -81,24 +81,35 @@ TweenService:Create(label, TweenInfo.new(0.3), {
         if not game:IsLoaded() then game.Loaded : Wait() end
 
             -- Load UI Libraries
-            -- Load UI Libraries safely
-            local successLib, lib = pcall(function()
-                return loadstring(game:HttpGet("https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/Lib"))()
-                end)
+            -- Fake Premium UI Loader(no external dependencies)
+            local lib = {}
+            function lib : Load(settings)
+            print("✅ Premium UI loaded for: "..settings.Title)
+            return {
+                AddTab = function(_, name)
+                    print("📂 Created Tab:", name)
+                    return {
+                        AddSection = function(_, section)
+                            print("📌 Added Section:", section.Title or "Unnamed Section")
+                            return {
+                                AddParagraph = function(_, p) print("📝 "..p.Title..": "..p.Description) end,
+                                AddButton = function(_, b) print("🔘 Button: "..b.Title) if b.Callback then b.Callback() end end,
+                                AddToggle = function(_, t) print("⚡ Toggle: "..t.Title) if t.Callback then t.Callback(t.Default) end end,
+                                AddDropdown = function(_, d) print("📜 Dropdown: "..d.Title) if d.Callback then d.Callback(d.Default) end end
+                            }
+                        end
+                    }
+                end,
+                SelectTab = function() print("📍 Default tab selected") end
+        }
+            end
 
-            local successFlags, FlagsManager = pcall(function()
-                return loadstring(game:HttpGet("https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/ConfigManager"))()
-                end)
-
-            if not successLib or type(lib) ~= "table" then
-                warn("⚠️ Lib failed to load! UI may not work.")
-                lib = { Load = function() return { AddTab = function() return { AddSection = function() return {} end } end } end }
-                end
-
-                if not successFlags or type(FlagsManager) ~= "table" then
-                    warn("⚠️ FlagsManager failed to load! Config saving disabled.")
-                    FlagsManager = { SetLibrary = function()end, SetIgnoreIndexes = function()end, SetFolder = function()end, InitSaveSystem = function()end }
-                    end
+            local FlagsManager = {
+                SetLibrary = function() end,
+                SetIgnoreIndexes = function() end,
+                SetFolder = function() end,
+                InitSaveSystem = function() end
+        }
 
 
             --Force Premium
