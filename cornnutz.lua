@@ -11,15 +11,30 @@ local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 400, 0, 500)
 mainFrame.Position = UDim2.new(0.5, -200, 0.5, -250)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.Visible = true
 mainFrame.Parent = screenGui
 
 -- Title
 local titleLabel = Instance.new("TextLabel")
-titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.Size = UDim2.new(1, -30, 0, 30) -- leave space for minimize
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
 titleLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 titleLabel.Text = "⭐ BrainRotz by Dreamz ⭐"
 titleLabel.Parent = mainFrame
+
+-- Minimize Button
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+minimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeBtn.Text = "-"
+minimizeBtn.Parent = mainFrame
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+end)
 
 --------------------------------------------------------------------
 -- Instant Proximity
@@ -70,60 +85,11 @@ tpBaseBtn.MouseButton1Click:Connect(function()
 end)
 
 --------------------------------------------------------------------
--- Tween to Base
-local tweenBaseBtn = Instance.new("TextButton")
-tweenBaseBtn.Size = UDim2.new(1, -20, 0, 30)
-tweenBaseBtn.Position = UDim2.new(0, 10, 0, 130)
-tweenBaseBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-tweenBaseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-tweenBaseBtn.Text = "Tween to Base"
-tweenBaseBtn.Parent = mainFrame
-
-tweenBaseBtn.MouseButton1Click:Connect(function()
-    local base = findBase()
-    if base and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        local dist = (base.Position - hrp.Position).Magnitude
-        local tweenInfo = TweenInfo.new(dist / 16, Enum.EasingStyle.Linear)
-        game:GetService("TweenService"):Create(hrp, tweenInfo, {CFrame = base.CFrame}):Play()
-    end
-end)
-
---------------------------------------------------------------------
--- WalkSpeed
-local wsBtn = Instance.new("TextButton")
-wsBtn.Size = UDim2.new(1, -20, 0, 30)
-wsBtn.Position = UDim2.new(0, 10, 0, 170)
-wsBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-wsBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-wsBtn.Text = "WalkSpeed (50)"
-wsBtn.Parent = mainFrame
-
-wsBtn.MouseButton1Click:Connect(function()
-    local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
-    if hum then hum.WalkSpeed = 50 end
-end)
-
---------------------------------------------------------------------
--- Noclip (CollisionGroup method)
-local PhysicsService = game:GetService("PhysicsService")
-pcall(function()
-    PhysicsService:CreateCollisionGroup("NoClipGroup")
-    PhysicsService:CollisionGroupSetCollidable("NoClipGroup", "Default", false)
-end)
-
+-- Noclip (Brute Force Loop)
 local noclipEnabled = false
-local function applyNoclipGroup(char)
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then
-            PhysicsService:SetPartCollisionGroup(part, noclipEnabled and "NoClipGroup" or "Default")
-        end
-    end
-end
-
 local noclipBtn = Instance.new("TextButton")
 noclipBtn.Size = UDim2.new(1, -20, 0, 30)
-noclipBtn.Position = UDim2.new(0, 10, 0, 210)
+noclipBtn.Position = UDim2.new(0, 10, 0, 130)
 noclipBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 noclipBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 noclipBtn.Text = "Noclip (OFF)"
@@ -132,14 +98,16 @@ noclipBtn.Parent = mainFrame
 noclipBtn.MouseButton1Click:Connect(function()
     noclipEnabled = not noclipEnabled
     noclipBtn.Text = "Noclip (" .. (noclipEnabled and "ON" or "OFF") .. ")"
-    if player.Character then
-        applyNoclipGroup(player.Character)
-    end
 end)
 
-player.CharacterAdded:Connect(function(char)
-    char:WaitForChild("HumanoidRootPart")
-    applyNoclipGroup(char)
+game:GetService("RunService").Stepped:Connect(function()
+    if noclipEnabled and player.Character then
+        for _, part in ipairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
 end)
 
 --------------------------------------------------------------------
@@ -147,7 +115,7 @@ end)
 local infJumpEnabled = false
 local infJumpBtn = Instance.new("TextButton")
 infJumpBtn.Size = UDim2.new(1, -20, 0, 30)
-infJumpBtn.Position = UDim2.new(0, 10, 0, 250)
+infJumpBtn.Position = UDim2.new(0, 10, 0, 170)
 infJumpBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 infJumpBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 infJumpBtn.Text = "Infinite Jump (OFF)"
@@ -161,64 +129,5 @@ end)
 game:GetService("UserInputService").JumpRequest:Connect(function()
     if infJumpEnabled and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
         player.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
-    end
-end)
-
---------------------------------------------------------------------
--- God Mode
-local godEnabled = false
-local godBtn = Instance.new("TextButton")
-godBtn.Size = UDim2.new(1, -20, 0, 30)
-godBtn.Position = UDim2.new(0, 10, 0, 290)
-godBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-godBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-godBtn.Text = "God Mode (OFF)"
-godBtn.Parent = mainFrame
-
-godBtn.MouseButton1Click:Connect(function()
-    godEnabled = not godEnabled
-    godBtn.Text = "God Mode (" .. (godEnabled and "ON" or "OFF") .. ")"
-end)
-
-game:GetService("RunService").Heartbeat:Connect(function()
-    if godEnabled and player.Character and player.Character:FindFirstChildOfClass("Humanoid") then
-        local hum = player.Character:FindFirstChildOfClass("Humanoid")
-        hum.Health = hum.MaxHealth
-    end
-end)
-
---------------------------------------------------------------------
--- ESP
-local espEnabled = false
-local espFolder = Instance.new("Folder", game.CoreGui)
-espFolder.Name = "ESPFolder"
-
-local espBtn = Instance.new("TextButton")
-espBtn.Size = UDim2.new(1, -20, 0, 30)
-espBtn.Position = UDim2.new(0, 10, 0, 330)
-espBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-espBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-espBtn.Text = "ESP (OFF)"
-espBtn.Parent = mainFrame
-
-local function createESP(plr)
-    if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then return end
-    local box = Instance.new("BoxHandleAdornment")
-    box.Adornee = plr.Character.HumanoidRootPart
-    box.Size = Vector3.new(4,6,1)
-    box.Color3 = Color3.fromRGB(255,0,0)
-    box.Transparency = 0.5
-    box.AlwaysOnTop = true
-    box.Parent = espFolder
-end
-
-espBtn.MouseButton1Click:Connect(function()
-    espEnabled = not espEnabled
-    espBtn.Text = "ESP (" .. (espEnabled and "ON" or "OFF") .. ")"
-    espFolder:ClearAllChildren()
-    if espEnabled then
-        for _, plr in pairs(game.Players:GetPlayers()) do
-            if plr ~= player then createESP(plr) end
-        end
     end
 end)
