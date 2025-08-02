@@ -8,10 +8,11 @@ local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
 -- Dependencies
-local PlotController = require(ReplicatedStorage.Controllers.PlotController)
-local plotsTable = debug.getupvalue(PlotController.Start, 2) -- tbl_upvr_2 in decomp
+local Packages = ReplicatedStorage:WaitForChild("Packages")
+local Observers = require(Packages.Observers)
 
--- ESP Folder
+-- Storage for ESP tracking
+local activePlots = {} -- [PlotClient] = true
 local espFolder = Instance.new("Folder")
 espFolder.Name = "MachineESPFolder"
 espFolder.Parent = CoreGui
@@ -86,18 +87,35 @@ local function createESPBox(model)
     label.Parent = nameTag
 end
 
+-- Hook when plots appear (Observers.observeTag like in decomp)
+Observers.observeTag("Plot", function(plotModel)
+    -- PlotClient is created in PlotController when tag fires
+    task.spawn(function()
+        -- Wait until it has a Channel
+        while not plotModel:GetAttribute("Loaded") do
+            task.wait()
+        end
+        -- Get UID and synchronizer channel
+        local UID = plotModel.Name
+        local plotClient = {
+            PlotModel = plotModel,
+            Channel = require(Packages.Synchronizer):Wait(UID)
+        }
+        activePlots[plotClient] = true
+    end)
+end)
+
 -- Update ESP
 RunService.Heartbeat:Connect(function()
     if not ESPEnabled then return end
     espFolder:ClearAllChildren()
 
-    for _, plot in pairs(plotsTable) do
-        local channel = plot.Channel
-        local animals = channel:Get("AnimalList")
+    for plotClient in pairs(activePlots) do
+        local animals = plotClient.Channel:Get("AnimalList")
         if type(animals) == "table" then
             for index, data in pairs(animals) do
                 if data.Steal == "FuseMachine" then
-                    local podium = plot.PlotModel.AnimalPodiums:FindFirstChild(index)
+                    local podium = plotClient.PlotModel.AnimalPodiums:FindFirstChild(index)
                     if podium and podium.Base then
                         local animalModel = podium.Base:FindFirstChildWhichIsA("Model")
                         if animalModel and animalModel.PrimaryPart then
