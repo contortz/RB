@@ -1,105 +1,170 @@
-local Players = game: GetService("Players") local TweenService = game : GetService("TweenService") local Lighting = game : GetService("Lighting") local player = Players.LocalPlayer local RunService = game : GetService("RunService") local UserInputService = game : GetService("UserInputService") local player = game.Players.LocalPlayer local localplr = game.Players.LocalPlayer local blur = Instance.new("BlurEffect", Lighting) blur.Size = 0 TweenService : Create(blur, TweenInfo.new(0.5), {
-    Size = 24
-    }) : Play() local screenGui = Instance.new("ScreenGui", player: WaitForChild("PlayerGui")) screenGui.Name = "StellarLoader"
-    screenGui.ResetOnSpawn = false screenGui.IgnoreGuiInset = true local frame = Instance.new("Frame", screenGui) frame.Size = UDim2.new(1, 0, 1, 0) frame.BackgroundTransparency = 1 local bg = Instance.new("Frame", frame) bg.Size = UDim2.new(1, 0, 1, 0) bg.BackgroundColor3 = Color3.fromRGB(10, 10, 20) bg.BackgroundTransparency = 1 bg.ZIndex = 0 TweenService : Create(bg, TweenInfo.new(0.5), {
-        BackgroundTransparency = 0.3
-        }) : Play() local word = "STELLAR"
-    local letters = {}
-    local
-    function tweenOutAndDestroy() for _, label in ipairs(letters) do TweenService : Create(label, TweenInfo.new(0.3), {
-            TextTransparency = 1,
-            TextSize = 20
-        }) : Play() end TweenService : Create(bg, TweenInfo.new(0.5), {
-            BackgroundTransparency = 1
-            }) : Play() TweenService : Create(blur, TweenInfo.new(0.5), {
-                Size = 0
-                }) : Play() wait(0.6) screenGui : Destroy() blur : Destroy() end
-    for
-        i = 1, #word do local char = word: sub(i, i) local label = Instance.new("TextLabel") label.Text = char label.Font = Enum.Font.GothamBlack label.TextColor3 = Color3.new(1, 1, 1) label.TextStrokeTransparency = 1 label.TextTransparency = 1 label.TextScaled = false label.TextSize = 30 label.Size = UDim2.new(0, 60, 0, 60) label.AnchorPoint = Vector2.new(0.5, 0.5) label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 0) label.BackgroundTransparency = 1 label.Parent = frame local gradient = Instance.new("UIGradient") gradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 170, 255)),
-            --biru muda cerah ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 100, 160)) --biru muda gelap
-            }) gradient.Rotation = 90 gradient.Parent = label local tweenIn = TweenService : Create(label, TweenInfo.new(0.3), {
-                TextTransparency = 0,
-                TextSize = 60
-                }) tweenIn : Play() table.insert(letters, label) wait(0.25) end wait(2) tweenOutAndDestroy() repeat task.wait() until game.Players.LocalPlayer and game.Players.LocalPlayer.Character
-        if
-            not game : IsLoaded() then game.Loaded : Wait() end local lib = loadstring(game : HttpGet("https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/Lib"))() local FlagsManager = loadstring(game : HttpGet("https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/ConfigManager"))() local GetService, cloneref = game.GetService, cloneref or
-            function(r) return r end local services = setmetatable({}, {
-                __index = function(self, service) local r = cloneref(GetService(game, service)) self[service] = r
-                return r end
-                }) local genv = getgenv and getgenv() or shared or _G or {}
-local LRM_UserNote = "Owner"
-local
-function RoleChecker()
-return "Premium Version"
-end
-local main = lib: Load({
-    Title = game: GetService("MarketplaceService") : GetProductInfo(109983668079237).Name..
-    ' 〢 discord.gg/stellar 〢 '..RoleChecker(),
-    ToggleButton = "rbxassetid://105059922903197",
-    BindGui = Enum.KeyCode.RightControl,
-    }) local tabs = {
-        Information = main: AddTab("Information"),
-        General = main : AddTab("General"),
-        Config = main : AddTab("Config"),
-}
-main: SelectTab() local Sections = {
-Welcome = tabs.Information:AddSection({
-    Defualt = true,
-    Locked = false
-}),
-Discord = tabs.Information : AddSection({
-    Defualt = true,
-    Locked = false
-}),
+local Players = game:GetService("Players")
+local TweenService = game : GetService("TweenService")
+local Lighting = game : GetService("Lighting")
+local RunService = game : GetService("RunService")
+local UserInputService = game : GetService("UserInputService")
+local player = Players.LocalPlayer
+local localplr = player
 
-    Main = tabs.General : AddSection({
-        Title = "Instant Proximity",
-        Description = "",
-        Defualt = false,
-        Locked = false
-    }),
-    Teleport = tabs.General: AddSection({
-        Title = "Teleport",
-        Description = "",
-        Defualt = false,
-        Locked = false
-    }),
-    MiscTabs = tabs.General: AddSection({
-        Title = "Character",
-        Description = "",
-        Defualt = false,
-        Locked = false
-    }),
-    Shop = tabs.General: AddSection({
-        Title = "Shop",
-        Description = "",
-        Defualt = false,
-        Locked = false
-    }),
-    VisualTabs = tabs.General: AddSection({
-        Title = "Visual",
-        Description = "",
-        Defualt = false,
-        Locked = false
-    }),
-}
-Sections.Discord: AddParagraph({
-    Title = "Found a bug?",
-    Description = "Please report by joining our Discord."
-    }) Sections.Discord : AddButton({
-        Title = "Copy Discord Invite",
-        Callback = function() setclipboard("https://discord.gg/FmMuvkaWvG") lib: Notification("Discord", "Copied invite to clipboard, just paste it.", 5) end,
-        }) genv.WelcomeParagraph = Sections.Welcome : AddParagraph({
-            Title = "Loading...",
-            Description = "Please wait.. If you've been stuck on this for a long time please join our discord and report it."
-            }) genv.WelcomeParagraph : SetTitle("Information") genv.WelcomeParagraph : SetDesc([
-                [Welcome to StellarHub!Thank you
-                    for choosing StellarHub.We 're always working on improvements and features. If you experience issues or have feedback, don'
-                        t hesitate to join our Discord server.Recent Updates : [+] Switched to new UI(thanks to 3 itx)[+] Added Shop, Visual, Character Join the Discord
-                        for help, suggestions, and the latest updates.
-                ]
-            ] ) local ipp = false local pp = {}--proximity prompts local tableofconnections = {}
+-- Blur Effect
+local blur = Instance.new("BlurEffect", Lighting)
+blur.Size = 0
+TweenService:Create(blur, TweenInfo.new(0.5), { Size = 24 }) : Play()
+
+--ScreenGui Setup
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "StellarLoader"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(1, 0, 1, 0)
+frame.BackgroundTransparency = 1
+
+local bg = Instance.new("Frame", frame)
+bg.Size = UDim2.new(1, 0, 1, 0)
+bg.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+bg.BackgroundTransparency = 1
+bg.ZIndex = 0
+TweenService:Create(bg, TweenInfo.new(0.5), { BackgroundTransparency = 0.3 }) : Play()
+
+--Text Animation
+local word = "STELLAR"
+local letters = {}
+
+local function tweenOutAndDestroy()
+for _, label in ipairs(letters) do
+TweenService:Create(label, TweenInfo.new(0.3), {
+    TextTransparency = 1,
+    TextSize = 20
+    }) : Play()
+    end
+    TweenService : Create(bg, TweenInfo.new(0.5), { BackgroundTransparency = 1 }) : Play()
+    TweenService : Create(blur, TweenInfo.new(0.5), { Size = 0 }) : Play()
+    wait(0.6)
+    screenGui : Destroy()
+    blur : Destroy()
+    end
+
+    for i = 1, #word do
+        local char = word:sub(i, i)
+        local label = Instance.new("TextLabel")
+        label.Text = char
+        label.Font = Enum.Font.GothamBlack
+        label.TextColor3 = Color3.new(1, 1, 1)
+        label.TextStrokeTransparency = 1
+        label.TextTransparency = 1
+        label.TextScaled = false
+        label.TextSize = 30
+        label.Size = UDim2.new(0, 60, 0, 60)
+        label.AnchorPoint = Vector2.new(0.5, 0.5)
+        label.Position = UDim2.new(0.5, (i - (#word / 2 + 0.5)) * 65, 0.5, 0)
+        label.BackgroundTransparency = 1
+        label.Parent = frame
+
+        local gradient = Instance.new("UIGradient")
+        gradient.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(100, 170, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 100, 160))
+            })
+        gradient.Rotation = 90
+        gradient.Parent = label
+
+        TweenService : Create(label, TweenInfo.new(0.3), { TextTransparency = 0, TextSize = 60 }) : Play()
+        table.insert(letters, label)
+        wait(0.25)
+        end
+
+        wait(2)
+        tweenOutAndDestroy()
+        repeat task.wait() until player and player.Character
+        if not game:IsLoaded() then game.Loaded : Wait() end
+
+            -- Load UI Libraries
+            local lib = loadstring(game : HttpGet("https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/Lib"))()
+            local FlagsManager = loadstring(game : HttpGet("https://raw.githubusercontent.com/x2zu/OPEN-SOURCE-UI-ROBLOX/refs/heads/main/X2ZU%20UI%20ROBLOX%20OPEN%20SOURCE/ConfigManager"))()
+
+            --Force Premium
+            local LRM_UserNote = "Premium"
+            function RoleChecker()
+            return "Premium Version"
+            end
+
+            -- Main UI
+            local main = lib:Load({
+                Title = game:GetService("MarketplaceService") : GetProductInfo(109983668079237).Name ..
+                        ' 〢 discord.gg/stellar 〢 ' ..RoleChecker(),
+                ToggleButton = "rbxassetid://105059922903197",
+                BindGui = Enum.KeyCode.RightControl,
+                })
+
+            --Tabs
+            local tabs = {
+                Information = main:AddTab("Information"),
+                General = main : AddTab("General"),
+                Config = main : AddTab("Config"),
+        }
+    main:SelectTab()
+
+            --Sections(all unlocked)
+            local Sections = {
+                Welcome = tabs.Information:AddSection({
+                    Defualt = true,
+                    Locked = false
+                }),
+                Discord = tabs.Information : AddSection({
+                    Defualt = true,
+                    Locked = false
+                }),
+                Main = tabs.General : AddSection({
+                    Title = "Instant Proximity",
+                    Description = "",
+                    Defualt = false,
+                    Locked = false
+                }),
+                Teleport = tabs.General:AddSection({
+                    Title = "Teleport",
+                    Description = "",
+                    Defualt = false,
+                    Locked = false
+                }),
+                MiscTabs = tabs.General:AddSection({
+                    Title = "Character",
+                    Description = "",
+                    Defualt = false,
+                    Locked = false
+                }),
+                Shop = tabs.General:AddSection({
+                    Title = "Shop",
+                    Description = "",
+                    Defualt = false,
+                    Locked = false
+                }),
+                VisualTabs = tabs.General:AddSection({
+                    Title = "Visual",
+                    Description = "",
+                    Defualt = false,
+                    Locked = false
+                }),
+        }
+
+            --Discord Info
+            Sections.Discord:AddParagraph({
+                Title = "Found a bug?",
+                Description = "Please report by joining our Discord."
+                })
+            Sections.Discord : AddButton({
+                Title = "Copy Discord Invite",
+                Callback = function()
+                    setclipboard("https://discord.gg/FmMuvkaWvG")
+                    lib:Notification("Discord", "Copied invite to clipboard, just paste it.", 5)
+                end,
+                })
+
+            Sections.Welcome:AddParagraph({
+                Title = "Information",
+                Description = "Welcome to StellarHub Premium! All features unlocked."
+                }) local ipp = false local pp = {}--proximity prompts local tableofconnections = {}
 
                     function dop(p) if p.Base.Spawn.PromptAttachment: FindFirstChild("ProximityPrompt") then local c = p.Base.Spawn.PromptAttachment.ProximityPrompt table.insert(pp, c) if ipp then c.HoldDuration = 0 table.insert(tableofconnections, c: GetPropertyChangedSignal("HoldDuration") : Connect(function() if c.HoldDuration~= 0 and ipp then c.HoldDuration = 0 end end)) end end table.insert(tableofconnections, p.Base.Spawn.PromptAttachment.ChildAdded: Connect(function(c) if c: IsA("ProximityPrompt") then table.insert(pp, c) if ipp then c.HoldDuration = 0 end table.insert(tableofconnections, c: GetPropertyChangedSignal("HoldDuration") : Connect(function() if c.HoldDuration~= 0 and ipp then c.HoldDuration = 0 end end)) end end)) end
                     for _, plot in pairs(workspace : WaitForChild("Plots") : GetChildren()) do
