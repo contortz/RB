@@ -4,16 +4,17 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 
 -- Dependencies
-local Packages = ReplicatedStorage:WaitForChild("Packages")
-local Synchronizer = require(Packages:WaitForChild("Synchronizer"))
+local PlotController = require(ReplicatedStorage.Controllers.PlotController)
+local plotsTable = debug.getupvalue(PlotController.Start, 2) -- tbl_upvr_2 in decomp
 
 -- ESP Folder
-local espFolder = Instance.new("Folder", game:GetService("CoreGui"))
+local espFolder = Instance.new("Folder")
 espFolder.Name = "MachineESPFolder"
+espFolder.Parent = CoreGui
 
 -- UI
 local screenGui = Instance.new("ScreenGui")
@@ -45,7 +46,6 @@ toggleESPBtn.Text = "ESP: OFF"
 toggleESPBtn.Parent = mainFrame
 
 local ESPEnabled = false
-
 toggleESPBtn.MouseButton1Click:Connect(function()
     ESPEnabled = not ESPEnabled
     toggleESPBtn.Text = "ESP: " .. (ESPEnabled and "ON" or "OFF")
@@ -57,7 +57,7 @@ end)
 -- Create ESP Box + Name
 local function createESPBox(model)
     if not model or not model.PrimaryPart then return end
-    
+
     local box = Instance.new("BoxHandleAdornment")
     box.Name = "MachineESPBox"
     box.Adornee = model.PrimaryPart
@@ -91,19 +91,17 @@ RunService.Heartbeat:Connect(function()
     if not ESPEnabled then return end
     espFolder:ClearAllChildren()
 
-    for _, plot in ipairs(Workspace:WaitForChild("Plots"):GetChildren()) do
-        if plot:FindFirstChild("UID") then
-            local channel = Synchronizer:Wait(plot.UID.Value)
-            local animals = channel:Get("AnimalList")
-            if type(animals) == "table" then
-                for index, data in pairs(animals) do
-                    if data.Steal == "FuseMachine" then
-                        local podium = plot.PlotModel.AnimalPodiums:FindFirstChild(index)
-                        if podium and podium.Base then
-                            local animalModel = podium.Base:FindFirstChildWhichIsA("Model")
-                            if animalModel and animalModel.PrimaryPart then
-                                createESPBox(animalModel)
-                            end
+    for _, plot in pairs(plotsTable) do
+        local channel = plot.Channel
+        local animals = channel:Get("AnimalList")
+        if type(animals) == "table" then
+            for index, data in pairs(animals) do
+                if data.Steal == "FuseMachine" then
+                    local podium = plot.PlotModel.AnimalPodiums:FindFirstChild(index)
+                    if podium and podium.Base then
+                        local animalModel = podium.Base:FindFirstChildWhichIsA("Model")
+                        if animalModel and animalModel.PrimaryPart then
+                            createESPBox(animalModel)
                         end
                     end
                 end
