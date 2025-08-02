@@ -69,7 +69,7 @@ bigBoxBtn.MouseButton1Click:Connect(function()
         and workspace.FuseMachine.Hitboxes:FindFirstChild("Hitbox")
 
     if fuseHitbox and fuseHitbox:IsA("BasePart") then
-        fuseHitbox.Size = Vector3.new(9999, 9999, 9999)
+        fuseHitbox.Size = Vector3.new(99999999, 99999999, 99999999)
         fuseHitbox.CFrame = player.Character.HumanoidRootPart.CFrame
         addLog("✅ Enlarged & moved FuseMachine hitbox to player.")
 
