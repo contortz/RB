@@ -10,8 +10,8 @@ screenGui.ResetOnSpawn = false
 
 -- Main Frame
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 420, 0, 400) -- Taller for extra buttons
-mainFrame.Position = UDim2.new(0.5, -210, 0.5, -200)
+mainFrame.Size = UDim2.new(0, 420, 0, 360)
+mainFrame.Position = UDim2.new(0.5, -210, 0.5, -180)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.Parent = screenGui
 mainFrame.Active = true
@@ -22,12 +22,12 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 30)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.fromRGB(255, 255, 255)
-title.Text = "📜 Net Logger"
+title.Text = "📜 Net Logger + Fuse Test"
 title.Parent = mainFrame
 
 -- Scroll Area
 local logBox = Instance.new("ScrollingFrame")
-logBox.Size = UDim2.new(1, -10, 1, -120) -- Leave space for buttons
+logBox.Size = UDim2.new(1, -10, 1, -80)
 logBox.Position = UDim2.new(0, 5, 0, 35)
 logBox.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
 logBox.ScrollBarThickness = 6
@@ -39,112 +39,84 @@ layout.Parent = logBox
 layout.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- Add Log Function
-local function addLog(method, remote, args)
-    local container = Instance.new("Frame")
-    container.Size = UDim2.new(1, -5, 0, 25)
-    container.BackgroundTransparency = 1
-    container.Parent = logBox
-
+local function addLog(text)
     local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(0.7, 0, 1, 0)
+    label.Size = UDim2.new(1, -5, 0, 25)
     label.BackgroundTransparency = 1
     label.TextColor3 = Color3.fromRGB(200, 200, 200)
     label.Font = Enum.Font.Code
     label.TextSize = 14
     label.TextXAlignment = Enum.TextXAlignment.Left
-    label.Text = string.format("[%s] %s", method, remote.Name)
-    label.Parent = container
-
-    local copyBtn = Instance.new("TextButton")
-    copyBtn.Size = UDim2.new(0.3, 0, 1, 0)
-    copyBtn.Position = UDim2.new(0.7, 0, 0, 0)
-    copyBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    copyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    copyBtn.TextSize = 14
-    copyBtn.Text = "Copy Args"
-    copyBtn.Parent = container
-
-    copyBtn.MouseButton1Click:Connect(function()
-        setclipboard(table.concat(args, ", "))
-    end)
-
+    label.Text = text
+    label.Parent = logBox
     logBox.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
 end
 
--- Hook FireServer
-local oldFireServer
-oldFireServer = hookfunction(Instance.new("RemoteEvent").FireServer, function(self, ...)
-    local args = {...}
-    pcall(addLog, "FireServer", self, args)
-    return oldFireServer(self, ...)
-end)
-
--- Hook InvokeServer
-local oldInvokeServer
-oldInvokeServer = hookfunction(Instance.new("RemoteFunction").InvokeServer, function(self, ...)
-    local args = {...}
-    pcall(addLog, "InvokeServer", self, args)
-    return oldInvokeServer(self, ...)
-end)
-
 --------------------------------------------------------------------
--- 🔵 Huge Hitbox Delivery
-local hugeHitboxBtn = Instance.new("TextButton")
-hugeHitboxBtn.Size = UDim2.new(1, -10, 0, 35)
-hugeHitboxBtn.Position = UDim2.new(0, 5, 1, -80)
-hugeHitboxBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 120)
-hugeHitboxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-hugeHitboxBtn.TextSize = 16
-hugeHitboxBtn.Text = "Huge Hitbox Delivery"
-hugeHitboxBtn.Parent = mainFrame
+-- 🔵 Huge Box Auto Trigger
+local bigBoxBtn = Instance.new("TextButton")
+bigBoxBtn.Size = UDim2.new(1, -10, 0, 35)
+bigBoxBtn.Position = UDim2.new(0, 5, 1, -80)
+bigBoxBtn.BackgroundColor3 = Color3.fromRGB(70, 120, 70)
+bigBoxBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+bigBoxBtn.TextSize = 16
+bigBoxBtn.Text = "⚡ Huge Box Auto-Trigger"
+bigBoxBtn.Parent = mainFrame
 
-hugeHitboxBtn.MouseButton1Click:Connect(function()
+bigBoxBtn.MouseButton1Click:Connect(function()
     local fuseHitbox = workspace:FindFirstChild("FuseMachine")
         and workspace.FuseMachine:FindFirstChild("Hitboxes")
         and workspace.FuseMachine.Hitboxes:FindFirstChild("Hitbox")
 
-    if fuseHitbox and fuseHitbox:IsA("BasePart") and player.Character then
+    if fuseHitbox and fuseHitbox:IsA("BasePart") then
         fuseHitbox.Size = Vector3.new(9999, 9999, 9999)
-        fuseHitbox.CFrame = player.Character:FindFirstChild("HumanoidRootPart").CFrame
-        addLog("Modify", {Name="FuseMachine"}, {"Hitbox enlarged + moved"})
+        fuseHitbox.CFrame = player.Character.HumanoidRootPart.CFrame
+        addLog("✅ Enlarged & moved FuseMachine hitbox to player.")
+
+        local rf = game.ReplicatedStorage.Packages.Net:FindFirstChild("RF/FuseMachine/Delivery")
+        if rf then
+            pcall(function()
+                rf:InvokeServer(fuseHitbox)
+                addLog("⚡ Invoked Delivery after Huge Box resize.")
+            end)
+        else
+            addLog("❌ Delivery Remote not found.")
+        end
     else
-        addLog("Error", {Name="FuseMachine"}, {"Hitbox not found"})
+        addLog("❌ FuseMachine Hitbox not found.")
     end
 end)
 
 --------------------------------------------------------------------
--- 🔴 Direct Delivery Invoke
-local directInvokeBtn = Instance.new("TextButton")
-directInvokeBtn.Size = UDim2.new(1, -10, 0, 35)
-directInvokeBtn.Position = UDim2.new(0, 5, 1, -40)
-directInvokeBtn.BackgroundColor3 = Color3.fromRGB(120, 70, 70)
-directInvokeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-directInvokeBtn.TextSize = 16
-directInvokeBtn.Text = "Direct Delivery Invoke"
-directInvokeBtn.Parent = mainFrame
+-- 🔴 Player to FuseMachine Teleport
+local tpToFuseBtn = Instance.new("TextButton")
+tpToFuseBtn.Size = UDim2.new(1, -10, 0, 35)
+tpToFuseBtn.Position = UDim2.new(0, 5, 1, -40)
+tpToFuseBtn.BackgroundColor3 = Color3.fromRGB(120, 70, 70)
+tpToFuseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpToFuseBtn.TextSize = 16
+tpToFuseBtn.Text = "🚀 Teleport Player to FuseMachine"
+tpToFuseBtn.Parent = mainFrame
 
-directInvokeBtn.MouseButton1Click:Connect(function()
-    local rf = game:GetService("ReplicatedStorage"):WaitForChild("Packages")
-        :WaitForChild("Net"):FindFirstChild("RF/FuseMachine/Delivery")
+tpToFuseBtn.MouseButton1Click:Connect(function()
+    local fuseHitbox = workspace:FindFirstChild("FuseMachine")
+        and workspace.FuseMachine:FindFirstChild("Hitboxes")
+        and workspace.FuseMachine.Hitboxes:FindFirstChild("Hitbox")
 
-    if rf then
-        local hitbox = workspace:FindFirstChild("FuseMachine")
-            and workspace.FuseMachine:FindFirstChild("Hitboxes")
-            and workspace.FuseMachine.Hitboxes:FindFirstChild("Hitbox")
+    if fuseHitbox and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        player.Character.HumanoidRootPart.CFrame = fuseHitbox.CFrame
+        addLog("🚀 Teleported player to FuseMachine.")
 
-        if hitbox then
-            local success, err = pcall(function()
-                rf:InvokeServer(hitbox)
+        local rf = game.ReplicatedStorage.Packages.Net:FindFirstChild("RF/FuseMachine/Delivery")
+        if rf then
+            pcall(function()
+                rf:InvokeServer(fuseHitbox)
+                addLog("⚡ Invoked Delivery after teleport.")
             end)
-            if success then
-                addLog("InvokeServer", rf, {"Delivery invoked"})
-            else
-                addLog("InvokeServer", rf, {"Error: "..tostring(err)})
-            end
         else
-            addLog("Error", {Name="FuseMachine"}, {"Hitbox missing"})
+            addLog("❌ Delivery Remote not found.")
         end
     else
-        addLog("Error", {Name="RF/FuseMachine/Delivery"}, {"Remote not found"})
+        addLog("❌ FuseMachine Hitbox or player not found.")
     end
 end)
