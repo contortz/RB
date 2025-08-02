@@ -18,7 +18,7 @@ local titleLabel = Instance.new("TextLabel")
 titleLabel.Size = UDim2.new(1, 0, 0, 30)
 titleLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-titleLabel.Text = "⭐ StellarHub Premium ⭐"
+titleLabel.Text = "⭐ BrainRotz by Dreamz ⭐"
 titleLabel.Parent = mainFrame
 
 --------------------------------------------------------------------
@@ -209,4 +209,46 @@ espBtn.MouseButton1Click:Connect(function()
             if plr ~= player then createESP(plr) end
         end
     end
+end)
+
+--------------------------------------------------------------------
+-- Minimize Icon
+local minimizeIcon = Instance.new("TextButton")
+minimizeIcon.Size = UDim2.new(0, 30, 0, 30)
+minimizeIcon.Position = UDim2.new(1, -40, 0, 10)
+minimizeIcon.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+minimizeIcon.TextColor3 = Color3.fromRGB(255, 255, 255)
+minimizeIcon.Text = "-"
+minimizeIcon.Parent = screenGui
+
+local dragging = false
+local dragInput, dragStart, startPos
+minimizeIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = minimizeIcon.Position
+    end
+end)
+minimizeIcon.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        minimizeIcon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                          startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+minimizeIcon.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+minimizeIcon.MouseButton1Click:Connect(function()
+    mainFrame.Visible = not mainFrame.Visible
+    minimizeIcon.Text = mainFrame.Visible and "-" or "+"
 end)
