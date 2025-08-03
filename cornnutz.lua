@@ -129,8 +129,8 @@ local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
-title.Text = "ESP Menu"
-title.TextSize = 16
+title.Text = "BrainRotz by Dreamz"
+title.TextSize = 12
 
 -- Avoid In Machine Toggle
 local toggleAvoidBtn = Instance.new("TextButton", frame)
