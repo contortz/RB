@@ -65,18 +65,68 @@ frame.Active = true
 frame.Draggable = true
 
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 25)
+title.Size = UDim2.new(1, -30, 0, 25) -- leave space for minimize
+title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
-title.Text = "BrainRotz - Dreamz"
+title.Text = "ESP Menu"
 title.TextSize = 16
 
 -- Minimize Button
 local minimizeBtn = Instance.new("ImageButton", frame)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
-minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
+minimizeBtn.Position = UDim2.new(1, -25, 0, 0)
 minimizeBtn.BackgroundTransparency = 1
 minimizeBtn.Image = "rbxassetid://74594045716129"
+
+-- Draggable Helper
+local function makeDraggable(guiObject)
+    local dragging, dragInput, startPos, startInputPos
+    guiObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            startInputPos = input.Position
+            startPos = guiObject.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+    guiObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - startInputPos
+            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Minimized Icon
+local minimizedIcon
+minimizeBtn.MouseButton1Click:Connect(function()
+    if not MenuMinimized then
+        MenuMinimized = true
+        frame.Visible = false
+        
+        minimizedIcon = Instance.new("ImageButton", screenGui)
+        minimizedIcon.Size = UDim2.new(0, 40, 0, 40)
+        minimizedIcon.Position = UDim2.new(0, 10, 0.5, -20)
+        minimizedIcon.BackgroundTransparency = 1
+        minimizedIcon.Image = "rbxassetid://74594045716129"
+        makeDraggable(minimizedIcon)
+        minimizedIcon.MouseButton1Click:Connect(function()
+            MenuMinimized = false
+            minimizedIcon:Destroy()
+            frame.Visible = true
+        end)
+    end
+end)
 
 -- Avoid In Machine Toggle
 local toggleAvoidBtn = Instance.new("TextButton", frame)
@@ -130,61 +180,13 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- Minimize / Expand Logic with Draggable Icon
-local minimizedIcon
-local function makeDraggable(guiObject)
-    local dragging, dragInput, startPos, startInputPos
-    guiObject.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startInputPos = input.Position
-            startPos = guiObject.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    guiObject.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - startInputPos
-            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
-
-minimizeBtn.MouseButton1Click:Connect(function()
-    if not MenuMinimized then
-        MenuMinimized = true
-        frame.Visible = false
-
-        minimizedIcon = Instance.new("ImageButton", screenGui)
-        minimizedIcon.Size = UDim2.new(0, 40, 0, 40)
-        minimizedIcon.Position = UDim2.new(0, 10, 0.5, -20)
-        minimizedIcon.BackgroundTransparency = 1
-        minimizedIcon.Image = "rbxassetid://74594045716129"
-        makeDraggable(minimizedIcon)
-        minimizedIcon.MouseButton1Click:Connect(function()
-            MenuMinimized = false
-            minimizedIcon:Destroy()
-            frame.Visible = true
-        end)
-    end
-end)
-
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
     return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
 end
 
--- World ESP
+-- World ESP Billboard
 local function createBillboard(adorn, color, text)
     local billboard = Instance.new("BillboardGui")
     billboard.Adornee = adorn
@@ -209,9 +211,9 @@ local function createBillboard(adorn, color, text)
     return billboard
 end
 
--- Heartbeat Loop (ESP logic same as your current code)
+-- Heartbeat Loop (rest of ESP logic unchanged)
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
-    -- ESP logic here (unchanged)
+    -- ESP logic unchanged from your posted version
 end)
