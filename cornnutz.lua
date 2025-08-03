@@ -128,7 +128,7 @@ local function isInMachine(overhead)
     return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
 end
 
--- Billboard
+-- World ESP
 local function createBillboard(adorn, color, text)
     local billboard = Instance.new("BillboardGui")
     billboard.Adornee = adorn
@@ -145,6 +145,7 @@ local function createBillboard(adorn, color, text)
     textLabel.Text = text
     textLabel.Parent = billboard
 
+    -- Black stroke
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.new(0, 0, 0)
     stroke.Thickness = 2
@@ -158,60 +159,85 @@ RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
 
-    if MostExpensiveOnly then
-        -- Per Base: find max in each AnimalPodiums
-        for _, plot in ipairs(Workspace:GetChildren()) do
-            local podiums = plot:FindFirstChild("AnimalPodiums")
-            if podiums then
-                local maxAnimal, maxGen = nil, -math.huge
-                for _, podium in ipairs(podiums:GetDescendants()) do
-                    if podium.Name == "AnimalOverhead" then
-                        local rarityLabel = podium:FindFirstChild("Rarity")
-                        local rarity = rarityLabel and rarityLabel.Text
-                        if rarity and RarityColors[rarity] then
-                            if AvoidInMachine and isInMachine(podium) then continue end
-                            local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text) or 0
-                            if gen > maxGen then
-                                maxGen, maxAnimal = gen, podium
+    local maxAnimal, maxGen = nil, -math.huge
+    local maxBlock, maxPrice = nil, -math.huge
+
+    for _, podium in ipairs(Workspace:GetDescendants()) do
+        if podium.Name == "AnimalOverhead" then
+            local rarityLabel = podium:FindFirstChild("Rarity")
+            local rarity = rarityLabel and rarityLabel.Text
+            if rarity and RarityColors[rarity] then
+                if AvoidInMachine and isInMachine(podium) then continue end
+                local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text) or 0
+                if MostExpensiveOnly then
+                    if gen > maxGen then
+                        maxGen, maxAnimal = gen, podium
+                    end
+                else
+                    if EnabledRarities[rarity] then
+                        local displayName = podium:FindFirstChild("DisplayName")
+                        if displayName then
+                            local model = podium.Parent and podium.Parent.Parent
+                            if model and model:IsA("BasePart") then
+                                local bb = createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. podium.Generation.Text)
+                                bb.Parent = worldESPFolder
                             end
                         end
                     end
                 end
-                if maxAnimal then
-                    local rarity = maxAnimal.Rarity.Text
-                    local displayName = maxAnimal.DisplayName.Text
-                    local model = maxAnimal.Parent and maxAnimal.Parent.Parent
-                    if model and model:IsA("BasePart") then
-                        createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text).Parent = worldESPFolder
+            end
+        elseif podium.Name:find("Lucky Block") then
+            local rarity
+            for r in pairs(RarityColors) do
+                if podium.Name:find(r) then
+                    rarity = r
+                    break
+                end
+            end
+            if rarity then
+                local data = AnimalsData[podium.Name]
+                local price = data and data.Price or 0
+                if MostExpensiveOnly then
+                    if price > maxPrice then
+                        maxPrice, maxBlock = price, podium
+                    end
+                else
+                    if EnabledRarities[rarity] then
+                        local model = podium.PrimaryPart
+                        if model then
+                            local bb = createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price))
+                            bb.Parent = worldESPFolder
+                        end
                     end
                 end
             end
         end
-    else
-        -- Default: draw all
-        for _, podium in ipairs(Workspace:GetDescendants()) do
-            if podium.Name == "AnimalOverhead" then
-                local rarityLabel = podium:FindFirstChild("Rarity")
-                local rarity = rarityLabel and rarityLabel.Text
-                if rarity and RarityColors[rarity] and EnabledRarities[rarity] then
-                    if AvoidInMachine and isInMachine(podium) then continue end
-                    local displayName = podium:FindFirstChild("DisplayName")
-                    local generation = podium:FindFirstChild("Generation")
-                    local model = podium.Parent and podium.Parent.Parent
-                    if model and model:IsA("BasePart") then
-                        createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. generation.Text).Parent = worldESPFolder
-                    end
+    end
+
+    -- Draw most expensive only if toggle is ON
+    if MostExpensiveOnly then
+        if maxAnimal then
+            local rarity = maxAnimal.Rarity.Text
+            local displayName = maxAnimal.DisplayName.Text
+            local model = maxAnimal.Parent and maxAnimal.Parent.Parent
+            if model and model:IsA("BasePart") then
+                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text)
+                bb.Parent = worldESPFolder
+            end
+        end
+        if maxBlock then
+            local rarity
+            for r in pairs(RarityColors) do
+                if maxBlock.Name:find(r) then
+                    rarity = r
+                    break
                 end
-            elseif podium.Name:find("Lucky Block") then
-                for r in pairs(RarityColors) do
-                    if podium.Name:find(r) and EnabledRarities[r] then
-                        local data = AnimalsData[podium.Name]
-                        local price = data and data.Price or 0
-                        if podium.PrimaryPart then
-                            createBillboard(podium.PrimaryPart, RarityColors[r], podium.Name .. " | $" .. formatPrice(price)).Parent = worldESPFolder
-                        end
-                    end
-                end
+            end
+            local data = AnimalsData[maxBlock.Name]
+            local price = data and data.Price or 0
+            if maxBlock.PrimaryPart then
+                local bb = createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price))
+                bb.Parent = worldESPFolder
             end
         end
     end
@@ -221,7 +247,8 @@ RunService.Heartbeat:Connect(function()
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                 local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m").Parent = playerESPFolder
+                local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
+                bb.Parent = playerESPFolder
             end
         end
     end
