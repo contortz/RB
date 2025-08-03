@@ -67,8 +67,31 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
+-- Add floating label
+local function addBillboard(model, text, color)
+    if not model or not model.PrimaryPart then return end
+    local tag = "Billboard_" .. model:GetDebugId()
+    if worldESPFolder:FindFirstChild(tag) then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = tag
+    billboard.Adornee = model.PrimaryPart
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.AlwaysOnTop = true
+    billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
+    billboard.Parent = worldESPFolder
+
+    local label = Instance.new("TextLabel", billboard)
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = color
+    label.TextStrokeTransparency = 0
+    label.TextScaled = true
+    label.Text = text
+end
+
 -- UI Highlight
-local function highlightViewportFrame(vpf, rarity)
+local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
     if not EnabledRarities[rarity] then return end
     local stroke = vpf:FindFirstChild("Highlight")
     if not stroke then
@@ -76,29 +99,40 @@ local function highlightViewportFrame(vpf, rarity)
         stroke.Name = "Highlight"
         stroke.Thickness = 2
         stroke.Transparency = 0
-        stroke.Color = RarityColors[rarity]
         stroke.Parent = vpf
-    else
-        stroke.Color = RarityColors[rarity]
     end
+    stroke.Color = inMachine and Color3.new(0, 0, 0) or RarityColors[rarity]
+
+    -- Add label overlay in UI
+    local overlay = vpf:FindFirstChild("ESPOverlay") or Instance.new("TextLabel")
+    overlay.Name = "ESPOverlay"
+    overlay.Size = UDim2.new(1, 0, 0, 20)
+    overlay.Position = UDim2.new(0, 0, 1, 0)
+    overlay.BackgroundTransparency = 1
+    overlay.TextScaled = true
+    overlay.TextColor3 = Color3.new(1, 1, 1)
+    overlay.TextStrokeTransparency = 0
+    overlay.Text = name .. " - $" .. tostring(price)
+    overlay.Parent = vpf
 end
 
 -- Workspace Highlight
-local function highlightWorldModel(model, rarity)
+local function highlightWorldModel(model, rarity, name, price, inMachine)
     if not EnabledRarities[rarity] or not model:IsA("Model") or not model.PrimaryPart then return end
-
     local tag = "WorldESP_" .. model:GetDebugId()
-    if worldESPFolder:FindFirstChild(tag) then return end
+    if not worldESPFolder:FindFirstChild(tag) then
+        local box = Instance.new("BoxHandleAdornment")
+        box.Name = tag
+        box.Adornee = model.PrimaryPart
+        box.Size = model:GetExtentsSize()
+        box.AlwaysOnTop = true
+        box.ZIndex = 10
+        box.Color3 = inMachine and Color3.new(0, 0, 0) or RarityColors[rarity]
+        box.Transparency = 0.5
+        box.Parent = worldESPFolder
+    end
 
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = tag
-    box.Adornee = model.PrimaryPart
-    box.Size = model:GetExtentsSize()
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Color3 = RarityColors[rarity]
-    box.Transparency = 0.5
-    box.Parent = worldESPFolder
+    addBillboard(model, name .. " - $" .. tostring(price), inMachine and Color3.new(0, 0, 0) or RarityColors[rarity])
 end
 
 -- Heartbeat loop
@@ -115,7 +149,8 @@ RunService.Heartbeat:Connect(function()
                     if model then
                         local data = AnimalsData[model.Name]
                         if data and data.Rarity then
-                            highlightViewportFrame(vpf, data.Rarity)
+                            local inMachine = uiRoot.Name == "FuseMachine"
+                            highlightViewportFrame(vpf, data.Rarity, data.DisplayName or model.Name, data.Price or "?", inMachine)
                         end
                     end
                 end
@@ -128,7 +163,7 @@ RunService.Heartbeat:Connect(function()
         if model:IsA("Model") and model.PrimaryPart then
             local data = AnimalsData[model.Name]
             if data and data.Rarity then
-                highlightWorldModel(model, data.Rarity)
+                highlightWorldModel(model, data.Rarity, data.DisplayName or model.Name, data.Price or "?", false)
             end
         end
     end
