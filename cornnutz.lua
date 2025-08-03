@@ -6,8 +6,11 @@ local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
--- Animal data
+-- Modules
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
+local AnimalsShared = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Animals"))
+local Synchronizer = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Synchronizer"))
+local NumberUtils = require(ReplicatedStorage:WaitForChild("Utils"):WaitForChild("NumberUtils"))
 
 -- Rarity colors
 local RarityColors = {
@@ -16,17 +19,17 @@ local RarityColors = {
     Epic = Color3.fromRGB(170, 0, 255),
     Legendary = Color3.fromRGB(255, 215, 0),
     Mythic = Color3.fromRGB(255, 85, 0),
-    ["Brainrot God"] = Color3.fromRGB(255, 0, 0),
+    ["Brain Rot Gods"] = Color3.fromRGB(255, 0, 0),
     Secret = Color3.fromRGB(0, 255, 255)
 }
 
+-- Enabled rarities
 local EnabledRarities = {}
-for rarity in pairs(RarityColors) do EnabledRarities[rarity] = true end
+for rarity in pairs(RarityColors) do
+    EnabledRarities[rarity] = (rarity == "Brain Rot Gods" or rarity == "Secret") -- Default ON for these
+end
 
--- ESP folders
-local uiESPFolder = Instance.new("Folder", CoreGui)
-uiESPFolder.Name = "UIRarityESP"
-
+-- ESP Folders
 local worldESPFolder = Instance.new("Folder", CoreGui)
 worldESPFolder.Name = "WorldRarityESP"
 
@@ -50,6 +53,7 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "Rarity ESP"
 title.TextSize = 16
 
+-- Rarity toggles
 local y = 30
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
@@ -57,7 +61,7 @@ for rarity in pairs(RarityColors) do
     button.Position = UDim2.new(0, 5, 0, y)
     button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
     button.TextColor3 = Color3.new(1, 1, 1)
-    button.Text = rarity .. ": ON"
+    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
 
     button.MouseButton1Click:Connect(function()
         EnabledRarities[rarity] = not EnabledRarities[rarity]
@@ -67,15 +71,22 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- Add floating label
+-- Helper: Find PrimaryPart safely
+local function getPrimary(model)
+    return model.PrimaryPart or model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("Base")
+end
+
+-- Helper: Create ESP Billboard
 local function addBillboard(model, text, color)
-    if not model or not model.PrimaryPart then return end
+    local primary = getPrimary(model)
+    if not primary then return end
+
     local tag = "Billboard_" .. model:GetDebugId()
     if worldESPFolder:FindFirstChild(tag) then return end
 
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag
-    billboard.Adornee = model.PrimaryPart
+    billboard.Adornee = primary
     billboard.Size = UDim2.new(0, 200, 0, 50)
     billboard.AlwaysOnTop = true
     billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
@@ -90,80 +101,33 @@ local function addBillboard(model, text, color)
     label.Text = text
 end
 
--- UI Highlight
-local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
-    if not EnabledRarities[rarity] then return end
-    local stroke = vpf:FindFirstChild("Highlight")
-    if not stroke then
-        stroke = Instance.new("UIStroke")
-        stroke.Name = "Highlight"
-        stroke.Thickness = 2
-        stroke.Transparency = 0
-        stroke.Parent = vpf
-    end
-    stroke.Color = inMachine and Color3.new(0, 0, 0) or RarityColors[rarity]
-
-    -- Add label overlay in UI
-    local overlay = vpf:FindFirstChild("ESPOverlay") or Instance.new("TextLabel")
-    overlay.Name = "ESPOverlay"
-    overlay.Size = UDim2.new(1, 0, 0, 20)
-    overlay.Position = UDim2.new(0, 0, 1, 0)
-    overlay.BackgroundTransparency = 1
-    overlay.TextScaled = true
-    overlay.TextColor3 = Color3.new(1, 1, 1)
-    overlay.TextStrokeTransparency = 0
-    overlay.Text = name .. " - $" .. tostring(price)
-    overlay.Parent = vpf
-end
-
--- Workspace Highlight
-local function highlightWorldModel(model, rarity, name, price, inMachine)
-    if not EnabledRarities[rarity] or not model:IsA("Model") or not model.PrimaryPart then return end
-    local tag = "WorldESP_" .. model:GetDebugId()
-    if not worldESPFolder:FindFirstChild(tag) then
-        local box = Instance.new("BoxHandleAdornment")
-        box.Name = tag
-        box.Adornee = model.PrimaryPart
-        box.Size = model:GetExtentsSize()
-        box.AlwaysOnTop = true
-        box.ZIndex = 10
-        box.Color3 = inMachine and Color3.new(0, 0, 0) or RarityColors[rarity]
-        box.Transparency = 0.5
-        box.Parent = worldESPFolder
-    end
-
-    addBillboard(model, name .. " - $" .. tostring(price), inMachine and Color3.new(0, 0, 0) or RarityColors[rarity])
-end
-
--- Heartbeat loop
+-- ESP Loop
 RunService.Heartbeat:Connect(function()
-    uiESPFolder:ClearAllChildren()
     worldESPFolder:ClearAllChildren()
 
-    -- Check FuseMachine + Index ViewportFrames
-    for _, uiRoot in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
-        if uiRoot then
-            for _, vpf in ipairs(uiRoot:GetDescendants()) do
-                if vpf:IsA("ViewportFrame") and vpf:FindFirstChild("WorldModel") then
-                    local model = vpf.WorldModel:FindFirstChildWhichIsA("Model")
-                    if model then
-                        local data = AnimalsData[model.Name]
-                        if data and data.Rarity then
-                            local inMachine = uiRoot.Name == "FuseMachine"
-                            highlightViewportFrame(vpf, data.Rarity, data.DisplayName or model.Name, data.Price or "?", inMachine)
+    for _, plot in ipairs(Workspace:WaitForChild("Plots"):GetChildren()) do
+        if plot:FindFirstChild("UID") then
+            local channel = Synchronizer:Wait(plot.UID.Value)
+            local animals = channel:Get("AnimalList")
+
+            if type(animals) == "table" then
+                for index, data in pairs(animals) do
+                    local animalInfo = AnimalsData[data.Index]
+                    if animalInfo and EnabledRarities[animalInfo.Rarity] then
+                        if data.Steal == "FuseMachine" then continue end -- Avoid In Machine
+                        
+                        local podium = plot.PlotModel.AnimalPodiums:FindFirstChild(index)
+                        if podium and podium.Base then
+                            local model = podium.Base:FindFirstChildWhichIsA("Model")
+                            if model then
+                                local price = NumberUtils:ToString(
+                                    AnimalsShared:GetPrice(data.Index, plot:GetOwner() or player)
+                                )
+                                addBillboard(model, animalInfo.DisplayName .. " - $" .. price, RarityColors[animalInfo.Rarity])
+                            end
                         end
                     end
                 end
-            end
-        end
-    end
-
-    -- Check Workspace for known animal models
-    for _, model in ipairs(Workspace:GetDescendants()) do
-        if model:IsA("Model") and model.PrimaryPart then
-            local data = AnimalsData[model.Name]
-            if data and data.Rarity then
-                highlightWorldModel(model, data.Rarity, data.DisplayName or model.Name, data.Price or "?", false)
             end
         end
     end
