@@ -55,7 +55,7 @@ playerESPFolder.Name = "PlayerESPFolder"
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = true -- ✅ Prevents hiding behind iPad safe areas
+screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
@@ -74,11 +74,10 @@ minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
 minimizeBtn.ZIndex = 999
 
--- Corn Icon (appears when minimized)
+-- Corn Icon
 local cornIcon = Instance.new("ImageButton", screenGui)
-cornIcon.Size = UDim2.new(0, 65, 0, 65) -- Bigger for touch
-cornIcon.AnchorPoint = Vector2.new(0, 0.5)
-cornIcon.Position = UDim2.new(0, 15, 0.5, 0)
+cornIcon.Size = UDim2.new(0, 60, 0, 60)
+cornIcon.Position = UDim2.new(0, 15, 0.27, 0) -- ⬅️ Positioned above Index button
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://74594045716129"
 cornIcon.ZIndex = 999
@@ -198,7 +197,6 @@ local function createBillboard(adorn, color, text)
     billboard.Size = UDim2.new(0, 200, 0, 20)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
-
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
@@ -207,12 +205,10 @@ local function createBillboard(adorn, color, text)
     textLabel.Font = Enum.Font.GothamBold
     textLabel.Text = text
     textLabel.Parent = billboard
-
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.new(0, 0, 0)
     stroke.Thickness = 2
     stroke.Parent = textLabel
-
     return billboard
 end
 
