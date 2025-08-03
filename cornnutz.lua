@@ -31,6 +31,7 @@ end
 local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
+local AutoPurchaseEnabled = false -- 🔹 Added Auto Purchase toggle
 
 -- Price formatting
 local function formatPrice(value)
@@ -77,7 +78,7 @@ minimizeBtn.ZIndex = 999
 -- Corn Icon
 local cornIcon = Instance.new("ImageButton", screenGui)
 cornIcon.Size = UDim2.new(0, 60, 0, 60)
-cornIcon.Position = UDim2.new(0, 15, 0.27, 0) -- ⬅️ Positioned above Index button
+cornIcon.Position = UDim2.new(0, 15, 0.27, 0)
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://76154122039576"
 cornIcon.ZIndex = 999
@@ -132,7 +133,6 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "BrainRotz by Dreamz"
 title.TextSize = 10
 
-
 -- Avoid In Machine Toggle
 local toggleAvoidBtn = Instance.new("TextButton", frame)
 toggleAvoidBtn.Size = UDim2.new(1, -10, 0, 25)
@@ -169,8 +169,31 @@ toggleMostExpBtn.MouseButton1Click:Connect(function()
     toggleMostExpBtn.Text = "Most Expensive: " .. (MostExpensiveOnly and "ON" or "OFF")
 end)
 
+-- Auto Purchase Toggle
+local toggleAutoPurchaseBtn = Instance.new("TextButton", frame)
+toggleAutoPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleAutoPurchaseBtn.Position = UDim2.new(0, 5, 0, 120)
+toggleAutoPurchaseBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+toggleAutoPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleAutoPurchaseBtn.Text = "Auto Purchase: OFF"
+toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
+    AutoPurchaseEnabled = not AutoPurchaseEnabled
+    toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
+end)
+
+-- Proximity Prompt Auto Purchase Logic
+local ProximityPromptService = game:GetService("ProximityPromptService")
+ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
+    if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
+        task.wait(0.05)
+        prompt:InputHoldBegin()
+        task.wait(prompt.HoldDuration or 0.25)
+        prompt:InputHoldEnd()
+    end
+end)
+
 -- Rarity Toggles
-local y = 120
+local y = 150
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
