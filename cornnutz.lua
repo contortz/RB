@@ -6,10 +6,10 @@ local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
--- Animal data (name to rarity mapping)
+-- Animal data
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
--- Rarity Colors
+-- Rarity colors
 local RarityColors = {
     Common = Color3.fromRGB(150, 150, 150),
     Rare = Color3.fromRGB(0, 170, 255),
@@ -20,105 +20,102 @@ local RarityColors = {
     Secret = Color3.fromRGB(0, 255, 255)
 }
 
--- Enabled rarities (toggles)
-local EnabledRarities = {
-    Common = true,
-    Rare = true,
-    Epic = true,
-    Legendary = true,
-    Mythic = true,
-    ["Brainrot God"] = true,
-    Secret = true
-}
+local EnabledRarities = {}
+for rarity in pairs(RarityColors) do EnabledRarities[rarity] = true end
 
---// UI Setup
+-- ESP folders
+local uiESPFolder = Instance.new("Folder", CoreGui)
+uiESPFolder.Name = "UIRarityESP"
+
+local worldESPFolder = Instance.new("Folder", CoreGui)
+worldESPFolder.Name = "WorldRarityESP"
+
+-- UI Setup
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "RarityESPUI"
-screenGui.Parent = playerGui
 screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 250)
-mainFrame.Position = UDim2.new(0, 20, 0.5, -125)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Parent = screenGui
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 200, 0, 250)
+frame.Position = UDim2.new(0, 20, 0.5, -125)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Active = true
+frame.Draggable = true
 
-local title = Instance.new("TextLabel")
+local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "Rarity ESP"
-title.Parent = mainFrame
+title.TextSize = 16
 
--- Create rarity checkboxes
-local yPos = 30
-for rarity, _ in pairs(RarityColors) do
-    local button = Instance.new("TextButton")
+local y = 30
+for rarity in pairs(RarityColors) do
+    local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
-    button.Position = UDim2.new(0, 5, 0, yPos)
+    button.Position = UDim2.new(0, 5, 0, y)
     button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.TextColor3 = Color3.new(1, 1, 1)
     button.Text = rarity .. ": ON"
-    button.Parent = mainFrame
 
     button.MouseButton1Click:Connect(function()
         EnabledRarities[rarity] = not EnabledRarities[rarity]
         button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
     end)
 
-    yPos = yPos + 28
+    y += 28
 end
 
---// Highlight for ViewportFrames
+-- UI Highlight
 local function highlightViewportFrame(vpf, rarity)
     if not EnabledRarities[rarity] then return end
-    local highlight = vpf:FindFirstChild("Highlight")
-    if not highlight then
-        highlight = Instance.new("UIStroke")
-        highlight.Name = "Highlight"
-        highlight.Thickness = 2
-        highlight.Parent = vpf
+    local stroke = vpf:FindFirstChild("Highlight")
+    if not stroke then
+        stroke = Instance.new("UIStroke")
+        stroke.Name = "Highlight"
+        stroke.Thickness = 2
+        stroke.Transparency = 0
+        stroke.Color = RarityColors[rarity]
+        stroke.Parent = vpf
+    else
+        stroke.Color = RarityColors[rarity]
     end
-    highlight.Color = RarityColors[rarity] or Color3.fromRGB(255, 255, 255)
 end
 
---// Highlight for 3D animals
-local espFolder = Instance.new("Folder")
-espFolder.Name = "AnimalESPFolder"
-espFolder.Parent = CoreGui
+-- Workspace Highlight
+local function highlightWorldModel(model, rarity)
+    if not EnabledRarities[rarity] or not model:IsA("Model") or not model.PrimaryPart then return end
 
-local function create3DESP(model, rarity)
-    if not EnabledRarities[rarity] then return end
-    if not model or not model.PrimaryPart then return end
+    local tag = "WorldESP_" .. model:GetDebugId()
+    if worldESPFolder:FindFirstChild(tag) then return end
 
     local box = Instance.new("BoxHandleAdornment")
-    box.Name = model.Name .. "_ESP"
+    box.Name = tag
     box.Adornee = model.PrimaryPart
+    box.Size = model:GetExtentsSize()
     box.AlwaysOnTop = true
     box.ZIndex = 10
-    box.Size = model:GetExtentsSize()
-    box.Color3 = RarityColors[rarity] or Color3.fromRGB(255, 255, 255)
+    box.Color3 = RarityColors[rarity]
     box.Transparency = 0.5
-    box.Parent = espFolder
+    box.Parent = worldESPFolder
 end
 
---// Update Loop
+-- Heartbeat loop
 RunService.Heartbeat:Connect(function()
-    espFolder:ClearAllChildren()
+    uiESPFolder:ClearAllChildren()
+    worldESPFolder:ClearAllChildren()
 
-    -- Check FuseMachine + Index UI
-    for _, container in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
-        if container then
-            for _, descendant in ipairs(container:GetDescendants()) do
-                if descendant:IsA("ViewportFrame") and descendant:FindFirstChild("WorldModel") then
-                    local worldModel = descendant.WorldModel:GetChildren()[1]
-                    if worldModel then
-                        local animalName = worldModel.Name
-                        local animalData = AnimalsData[animalName]
-                        if animalData and animalData.Rarity then
-                            highlightViewportFrame(descendant, animalData.Rarity)
+    -- Check FuseMachine + Index ViewportFrames
+    for _, uiRoot in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
+        if uiRoot then
+            for _, vpf in ipairs(uiRoot:GetDescendants()) do
+                if vpf:IsA("ViewportFrame") and vpf:FindFirstChild("WorldModel") then
+                    local model = vpf.WorldModel:FindFirstChildWhichIsA("Model")
+                    if model then
+                        local data = AnimalsData[model.Name]
+                        if data and data.Rarity then
+                            highlightViewportFrame(vpf, data.Rarity)
                         end
                     end
                 end
@@ -126,22 +123,12 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Check live Workspace animals
-    for _, plot in ipairs(Workspace:FindFirstChild("Plots"):GetChildren()) do
-        local podiums = plot:FindFirstChild("AnimalPodiums")
-        if podiums then
-            for _, podium in ipairs(podiums:GetChildren()) do
-                local base = podium:FindFirstChild("Base")
-                if base then
-                    for _, model in ipairs(base:GetChildren()) do
-                        if model:IsA("Model") and model.PrimaryPart then
-                            local animalData = AnimalsData[model.Name]
-                            if animalData and animalData.Rarity then
-                                create3DESP(model, animalData.Rarity)
-                            end
-                        end
-                    end
-                end
+    -- Check Workspace for known animal models
+    for _, model in ipairs(Workspace:GetDescendants()) do
+        if model:IsA("Model") and model.PrimaryPart then
+            local data = AnimalsData[model.Name]
+            if data and data.Rarity then
+                highlightWorldModel(model, data.Rarity)
             end
         end
     end
