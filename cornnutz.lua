@@ -7,7 +7,7 @@ local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Animal data
+-- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
 -- Rarity colors
@@ -37,9 +37,66 @@ worldESPFolder.Name = "WorldRarityESP"
 local playerESPFolder = Instance.new("Folder", CoreGui)
 playerESPFolder.Name = "PlayerESPFolder"
 
--- UI (same as before, unchanged) ...
+-- UI
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "ESPMenuUI"
+screenGui.ResetOnSpawn = false
 
--- In Machine check (case-insensitive)
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 200, 0, 320)
+frame.Position = UDim2.new(0, 20, 0.5, -160)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Active = true
+frame.Draggable = true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Text = "ESP Menu"
+title.TextSize = 16
+
+-- Avoid In Machine Toggle
+local toggleAvoidBtn = Instance.new("TextButton", frame)
+toggleAvoidBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleAvoidBtn.Position = UDim2.new(0, 5, 0, 30)
+toggleAvoidBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+toggleAvoidBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleAvoidBtn.Text = "Avoid In Machine: ON"
+toggleAvoidBtn.MouseButton1Click:Connect(function()
+    AvoidInMachine = not AvoidInMachine
+    toggleAvoidBtn.Text = "Avoid In Machine: " .. (AvoidInMachine and "ON" or "OFF")
+end)
+
+-- Player ESP Toggle
+local togglePlayerESPBtn = Instance.new("TextButton", frame)
+togglePlayerESPBtn.Size = UDim2.new(1, -10, 0, 25)
+togglePlayerESPBtn.Position = UDim2.new(0, 5, 0, 60)
+togglePlayerESPBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+togglePlayerESPBtn.TextColor3 = Color3.new(1, 1, 1)
+togglePlayerESPBtn.Text = "Player ESP: OFF"
+togglePlayerESPBtn.MouseButton1Click:Connect(function()
+    PlayerESPEnabled = not PlayerESPEnabled
+    togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
+end)
+
+-- Rarity Toggles
+local y = 90
+for rarity in pairs(RarityColors) do
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, y)
+    button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+    button.MouseButton1Click:Connect(function()
+        EnabledRarities[rarity] = not EnabledRarities[rarity]
+        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+    end)
+    y += 28
+end
+
+-- Check if "IN MACHINE"
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
     return stolenLabel 
@@ -58,7 +115,7 @@ local function highlightAnimalOverhead(overhead, rarity)
         local model = overhead.Parent and overhead.Parent.Parent
         if model and model:IsA("BasePart") then
             local primary = model
-            local tag = "WorldESP_" .. model:GetDebugId() -- ✅ Unique ID
+            local tag = "WorldESP_" .. model:GetDebugId() -- unique ID for duplicates
             if worldESPFolder:FindFirstChild(tag) then return end
 
             local billboard = Instance.new("BillboardGui")
@@ -87,9 +144,9 @@ local function highlightLuckyBlock(blockModel, rarity)
     local data = AnimalsData[blockModel.Name]
     if not data then return end
     
-    local primary = blockModel.PrimaryPart or blockModel:FindFirstChildWhichIsA("BasePart") -- ✅ Fallback
+    local primary = blockModel.PrimaryPart or blockModel:FindFirstChildWhichIsA("BasePart")
     if primary then
-        local tag = "LuckyBlockESP_" .. blockModel:GetDebugId() -- ✅ Unique ID
+        local tag = "LuckyBlockESP_" .. blockModel:GetDebugId()
         if worldESPFolder:FindFirstChild(tag) then return end
 
         local billboard = Instance.new("BillboardGui")
@@ -111,24 +168,56 @@ local function highlightLuckyBlock(blockModel, rarity)
     end
 end
 
--- Player ESP (unchanged) ...
+-- Player ESP
+local function highlightPlayer(targetPlayer)
+    if targetPlayer == player then return end
+    local char = targetPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local targetHRP = char:FindFirstChild("HumanoidRootPart")
 
--- Heartbeat
+    local distanceText = ""
+    if myHRP and targetHRP then
+        distanceText = string.format(" | %dm", math.floor((myHRP.Position - targetHRP.Position).Magnitude))
+    end
+
+    local tag = "PlayerESP_" .. targetPlayer:GetDebugId()
+    if playerESPFolder:FindFirstChild(tag) then return end
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = tag
+    billboard.Adornee = char.HumanoidRootPart
+    billboard.Size = UDim2.new(0, 200, 0, 20)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = playerESPFolder
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.Text = targetPlayer.Name .. distanceText
+    textLabel.Parent = billboard
+end
+
+-- Heartbeat Loop
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
 
-    for _, obj in ipairs(Workspace:GetDescendants()) do
-        if obj.Name == "AnimalOverhead" then
-            local rarityLabel = obj:FindFirstChild("Rarity")
+    for _, podium in ipairs(Workspace:GetDescendants()) do
+        if podium.Name == "AnimalOverhead" then
+            local rarityLabel = podium:FindFirstChild("Rarity")
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
-                highlightAnimalOverhead(obj, rarity)
+                highlightAnimalOverhead(podium, rarity)
             end
-        elseif obj.Name:find("Lucky Block") then
+        elseif podium.Name:find("Lucky Block") then
             for r in pairs(RarityColors) do
-                if obj.Name:find(r) then
-                    highlightLuckyBlock(obj, r)
+                if podium.Name:find(r) then
+                    highlightLuckyBlock(podium, r)
                     break
                 end
             end
