@@ -108,7 +108,7 @@ local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
     if not stroke then
         stroke = Instance.new("UIStroke")
         stroke.Name = "Highlight"
-        stroke.Thickness = 2
+        stroke.Thickness = 3
         stroke.Transparency = 0
         stroke.Color = RarityColors[rarity]
         stroke.Parent = vpf
@@ -116,13 +116,13 @@ local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
         stroke.Color = RarityColors[rarity]
     end
 
-    -- Name + Price Text (bigger font + formatted price)
+    -- Name + Price Text
     local label = vpf:FindFirstChild("ESPLabel")
     if not label then
         label = Instance.new("TextLabel")
         label.Name = "ESPLabel"
-        label.Size = UDim2.new(1, 0, 0, 18)
-        label.Position = UDim2.new(0, 0, -0.25, 0)
+        label.Size = UDim2.new(1, 0, 0, 20)
+        label.Position = UDim2.new(0, 0, -0.3, 0)
         label.BackgroundTransparency = 1
         label.TextScaled = true
         label.TextColor3 = RarityColors[rarity]
@@ -154,7 +154,7 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag .. "_Label"
     billboard.Adornee = model.PrimaryPart
-    billboard.Size = UDim2.new(0, 150, 0, 18)
+    billboard.Size = UDim2.new(0, 200, 0, 20)
     billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = worldESPFolder
