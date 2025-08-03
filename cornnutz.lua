@@ -126,11 +126,15 @@ end)
 
 -- Title
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 25)
+title.Size = UDim2.new(1, 20, 0, 25) -- Added 20px padding
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "BrainRotz by Dreamz"
-title.TextSize = 10
+title.TextScaled = true -- Auto-scale so text fits perfectly
+title.TextWrapped = true -- Ensure it wraps if needed
+title.Font = Enum.Font.GothamBold -- Bold for better readability
+title.ClipsDescendants = false -- Prevent clipping
+
 
 -- Avoid In Machine Toggle
 local toggleAvoidBtn = Instance.new("TextButton", frame)
