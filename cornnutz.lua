@@ -59,7 +59,7 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 205, 0, 350)
+frame.Size = UDim2.new(0, 250, 0, 350)
 frame.Position = UDim2.new(0, 20, 0.5, -175)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
@@ -126,14 +126,11 @@ end)
 
 -- Title
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 20, 0, 25) -- Added 20px padding
+title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "BrainRotz by Dreamz"
-title.TextScaled = true -- Auto-scale so text fits perfectly
-title.TextWrapped = true -- Ensure it wraps if needed
-title.Font = Enum.Font.GothamBold -- Bold for better readability
-title.ClipsDescendants = false -- Prevent clipping
+title.TextSize = 10
 
 
 -- Avoid In Machine Toggle
