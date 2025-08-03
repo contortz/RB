@@ -27,10 +27,8 @@ for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- Avoid In Machine toggle
+-- Toggles
 local AvoidInMachine = true
-
--- Player ESP toggle
 local PlayerESPEnabled = false
 
 -- Format Price Function
@@ -120,12 +118,11 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- UI Highlight with Text
+-- UI Highlight
 local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
     if not EnabledRarities[rarity] then return end
     if AvoidInMachine and inMachine then return end
 
-    -- Outline
     local stroke = vpf:FindFirstChild("Highlight")
     if not stroke then
         stroke = Instance.new("UIStroke")
@@ -138,7 +135,6 @@ local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
         stroke.Color = RarityColors[rarity]
     end
 
-    -- Name + Price
     local label = vpf:FindFirstChild("ESPLabel")
     if not label then
         label = Instance.new("TextLabel")
@@ -176,13 +172,14 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag .. "_Label"
     billboard.Adornee = model.PrimaryPart
-    billboard.Size = UDim2.new(0, 200, 0, 20)
+    billboard.Size = UDim2.new(0, 200, 0, 25)
     billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = worldESPFolder
 
     local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    textLabel.Position = UDim2.new(0, 0, 0, 0)
     textLabel.BackgroundTransparency = 1
     textLabel.TextColor3 = RarityColors[rarity]
     textLabel.TextScaled = true
@@ -191,7 +188,7 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     textLabel.Parent = billboard
 end
 
--- Player ESP (Name + Distance + Color)
+-- Player ESP (Name Cyan + Distance Yellow)
 local function highlightPlayer(targetPlayer)
     if targetPlayer == player then return end
     local char = targetPlayer.Character
@@ -202,19 +199,9 @@ local function highlightPlayer(targetPlayer)
     local targetHRP = char:FindFirstChild("HumanoidRootPart")
 
     local distanceText = ""
-    local distColor = Color3.fromRGB(0, 255, 0) -- Default green
-
     if myHRP and targetHRP then
         local dist = (myHRP.Position - targetHRP.Position).Magnitude
-        distanceText = string.format(" | %dm", math.floor(dist))
-
-        if dist < 50 then
-            distColor = Color3.fromRGB(255, 0, 0) -- Close = Red
-        elseif dist < 100 then
-            distColor = Color3.fromRGB(255, 255, 0) -- Medium = Yellow
-        else
-            distColor = Color3.fromRGB(0, 255, 0) -- Far = Green
-        end
+        distanceText = string.format("%dm", math.floor(dist))
     end
 
     local tag = "PlayerESP_" .. targetPlayer.Name
@@ -223,19 +210,30 @@ local function highlightPlayer(targetPlayer)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag
     billboard.Adornee = char.HumanoidRootPart
-    billboard.Size = UDim2.new(0, 200, 0, 20)
+    billboard.Size = UDim2.new(0, 200, 0, 30)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = playerESPFolder
 
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = distColor
-    textLabel.TextScaled = true
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = targetPlayer.Name .. distanceText
-    textLabel.Parent = billboard
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.Position = UDim2.new(0, 0, 0, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan
+    nameLabel.TextScaled = true
+    nameLabel.Font = Enum.Font.GothamBold
+    nameLabel.Text = targetPlayer.Name
+    nameLabel.Parent = billboard
+
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
+    distLabel.TextScaled = true
+    distLabel.Font = Enum.Font.GothamBold
+    distLabel.Text = distanceText
+    distLabel.Parent = billboard
 end
 
 -- Heartbeat
@@ -244,7 +242,7 @@ RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
 
-    -- FuseMachine + Index ViewportFrames
+    -- FuseMachine + Index
     for _, uiRoot in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
         if uiRoot then
             for _, vpf in ipairs(uiRoot:GetDescendants()) do
