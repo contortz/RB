@@ -35,7 +35,7 @@ local MostExpensiveOnly = false
 local AutoPurchaseEnabled = false
 local PurchaseThreshold = 20000 -- Default 20k
 local ThresholdOptions = {0, 5000, 10000, 20000, 50000, 100000, 300000}
-local ThresholdIndex = 4 -- Default at 20k
+local ThresholdIndex = 4 -- Matches 20k
 
 -- Price formatting
 local function formatPrice(value)
@@ -50,7 +50,7 @@ local function formatPrice(value)
     end
 end
 
--- Convert K/M/B to number
+-- Parse price from ObjectText ("$15K", "$200M", etc.)
 local function parsePrice(text)
     local num = tonumber(text:match("[%d%.]+")) or 0
     if text:find("K") then num *= 1000 end
@@ -194,26 +194,26 @@ toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
 end)
 
--- Threshold Button
+-- Purchase Threshold Button
 local thresholdBtn = Instance.new("TextButton", frame)
 thresholdBtn.Size = UDim2.new(1, -10, 0, 25)
 thresholdBtn.Position = UDim2.new(0, 5, 0, 150)
 thresholdBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 thresholdBtn.TextColor3 = Color3.new(1, 1, 1)
-thresholdBtn.Text = "Auto Purchase ≥ $" .. formatPrice(PurchaseThreshold)
+thresholdBtn.Text = "Threshold: ≥ $" .. formatPrice(PurchaseThreshold)
 thresholdBtn.MouseButton1Click:Connect(function()
     ThresholdIndex = ThresholdIndex % #ThresholdOptions + 1
     PurchaseThreshold = ThresholdOptions[ThresholdIndex]
-    thresholdBtn.Text = "Auto Purchase ≥ $" .. formatPrice(PurchaseThreshold)
+    thresholdBtn.Text = "Threshold: ≥ $" .. formatPrice(PurchaseThreshold)
 end)
 
 -- Auto Purchase Logic
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        local objectTextLabel = prompt.Parent:FindFirstChild("ObjectText")
-        if objectTextLabel and objectTextLabel:IsA("TextLabel") then
-            local priceNum = parsePrice(objectTextLabel.Text)
-            if priceNum >= PurchaseThreshold then
+        local objText = prompt.Parent:FindFirstChild("ObjectText")
+        if objText and objText:IsA("TextLabel") then
+            local price = parsePrice(objText.Text)
+            if price >= PurchaseThreshold then
                 task.wait(0.05)
                 prompt:InputHoldBegin()
                 task.wait(prompt.HoldDuration or 0.25)
