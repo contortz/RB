@@ -34,11 +34,10 @@ local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = false
 local PurchaseThreshold = 20000 -- Default 20k
-
 local ThresholdOptions = {0, 5000, 10000, 20000, 50000, 100000, 300000}
-local ThresholdIndex = 4 -- Default points to 20k
+local ThresholdIndex = 4 -- Default at 20k
 
--- Price formatting helper
+-- Price formatting
 local function formatPrice(value)
     if value >= 1e9 then
         return string.format("%.1fB", value / 1e9)
@@ -49,6 +48,15 @@ local function formatPrice(value)
     else
         return tostring(value)
     end
+end
+
+-- Convert K/M/B to number
+local function parsePrice(text)
+    local num = tonumber(text:match("[%d%.]+")) or 0
+    if text:find("K") then num *= 1000 end
+    if text:find("M") then num *= 1000000 end
+    if text:find("B") then num *= 1000000000 end
+    return num
 end
 
 -- ESP Folders
@@ -65,8 +73,8 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 400)
-frame.Position = UDim2.new(0, 20, 0.5, -200)
+frame.Size = UDim2.new(0, 250, 0, 380)
+frame.Position = UDim2.new(0, 20, 0.5, -190)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -204,20 +212,12 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
         local objectTextLabel = prompt.Parent:FindFirstChild("ObjectText")
         if objectTextLabel and objectTextLabel:IsA("TextLabel") then
-            local textValue = objectTextLabel.Text
-            local priceString = textValue:match("%$[%d%.]+[KMB]?")
-            if priceString then
-                local priceNum = tonumber(priceString:match("[%d%.]+")) or 0
-                if priceString:find("K") then priceNum *= 1000 end
-                if priceString:find("M") then priceNum *= 1000000 end
-                if priceString:find("B") then priceNum *= 1000000000 end
-                
-                if priceNum >= PurchaseThreshold then
-                    task.wait(0.05)
-                    prompt:InputHoldBegin()
-                    task.wait(prompt.HoldDuration or 0.25)
-                    prompt:InputHoldEnd()
-                end
+            local priceNum = parsePrice(objectTextLabel.Text)
+            if priceNum >= PurchaseThreshold then
+                task.wait(0.05)
+                prompt:InputHoldBegin()
+                task.wait(prompt.HoldDuration or 0.25)
+                prompt:InputHoldEnd()
             end
         end
     end
