@@ -79,7 +79,7 @@ local cornIcon = Instance.new("ImageButton", screenGui)
 cornIcon.Size = UDim2.new(0, 60, 0, 60)
 cornIcon.Position = UDim2.new(0, 15, 0.27, 0) -- ⬅️ Positioned above Index button
 cornIcon.BackgroundTransparency = 1
-cornIcon.Image = "rbxassetid://74594045716129"
+cornIcon.Image = "rbxassetid://76154122039576"
 cornIcon.ZIndex = 999
 cornIcon.Visible = false
 
