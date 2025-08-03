@@ -6,9 +6,8 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
--- Animal data
+-- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
 -- Rarity colors
@@ -52,13 +51,11 @@ worldESPFolder.Name = "WorldRarityESP"
 local playerESPFolder = Instance.new("Folder", CoreGui)
 playerESPFolder.Name = "PlayerESPFolder"
 
--- UI Setup
+-- UI
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.ResetOnSpawn = false
 
--- Frame
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 200, 0, 350)
 frame.Position = UDim2.new(0, 20, 0.5, -175)
@@ -66,9 +63,8 @@ frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
 
--- Title
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, -25, 0, 25)
+title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "ESP Menu"
@@ -77,52 +73,54 @@ title.TextSize = 16
 -- Minimize Button
 local minimizeBtn = Instance.new("TextButton", frame)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
-minimizeBtn.Position = UDim2.new(1, -25, 0, 0)
-minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
+minimizeBtn.Font = Enum.Font.GothamBold
+minimizeBtn.TextSize = 18
 
--- Corn Icon
+-- Corn Icon (minimized menu button)
 local cornIcon = Instance.new("ImageButton", screenGui)
 cornIcon.Size = UDim2.new(0, 50, 0, 50)
-cornIcon.Position = UDim2.new(0, 5, 0.5, -25)
+cornIcon.Position = UDim2.new(0, 10, 0.5, -25) -- Left middle
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://74594045716129"
+cornIcon.ZIndex = 999
 cornIcon.Visible = false
 
--- Dragging Icon
+-- Make cornIcon draggable
 local dragging, dragInput, dragStart, startPos
 cornIcon.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = cornIcon.Position
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = true
+		dragStart = input.Position
+		startPos = cornIcon.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
 end)
 cornIcon.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
+	if input.UserInputType == Enum.UserInputType.MouseMovement then
+		dragInput = input
+	end
 end)
-UserInputService.InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        local delta = input.Position - dragStart
-        cornIcon.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
+game:GetService("UserInputService").InputChanged:Connect(function(input)
+	if dragging and input == dragInput then
+		local delta = input.Position - dragStart
+		cornIcon.Position = UDim2.new(
+			startPos.X.Scale,
+			startPos.X.Offset + delta.X,
+			startPos.Y.Scale,
+			startPos.Y.Offset + delta.Y
+		)
+	end
 end)
 
--- Minimize/Restore logic
+-- Toggle Minimize/Restore
 minimizeBtn.MouseButton1Click:Connect(function()
     frame.Visible = false
     cornIcon.Visible = true
@@ -184,17 +182,20 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- ESP Logic (UNCHANGED)
+-- Check if "IN MACHINE"
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
     return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
 end
+
+-- World ESP
 local function createBillboard(adorn, color, text)
     local billboard = Instance.new("BillboardGui")
     billboard.Adornee = adorn
     billboard.Size = UDim2.new(0, 200, 0, 20)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
+
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
@@ -203,13 +204,16 @@ local function createBillboard(adorn, color, text)
     textLabel.Font = Enum.Font.GothamBold
     textLabel.Text = text
     textLabel.Parent = billboard
+
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.new(0, 0, 0)
     stroke.Thickness = 2
     stroke.Parent = textLabel
+
     return billboard
 end
 
+-- Heartbeat Loop
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
@@ -234,7 +238,8 @@ RunService.Heartbeat:Connect(function()
                         if displayName then
                             local model = podium.Parent and podium.Parent.Parent
                             if model and model:IsA("BasePart") then
-                                createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. podium.Generation.Text).Parent = worldESPFolder
+                                local bb = createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. podium.Generation.Text)
+                                bb.Parent = worldESPFolder
                             end
                         end
                     end
@@ -259,7 +264,8 @@ RunService.Heartbeat:Connect(function()
                     if EnabledRarities[rarity] then
                         local model = podium.PrimaryPart
                         if model then
-                            createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price)).Parent = worldESPFolder
+                            local bb = createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price))
+                            bb.Parent = worldESPFolder
                         end
                     end
                 end
@@ -273,7 +279,8 @@ RunService.Heartbeat:Connect(function()
             local displayName = maxAnimal.DisplayName.Text
             local model = maxAnimal.Parent and maxAnimal.Parent.Parent
             if model and model:IsA("BasePart") then
-                createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text).Parent = worldESPFolder
+                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text)
+                bb.Parent = worldESPFolder
             end
         end
         if maxBlock then
@@ -287,7 +294,8 @@ RunService.Heartbeat:Connect(function()
             local data = AnimalsData[maxBlock.Name]
             local price = data and data.Price or 0
             if maxBlock.PrimaryPart then
-                createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price)).Parent = worldESPFolder
+                local bb = createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price))
+                bb.Parent = worldESPFolder
             end
         end
     end
@@ -296,7 +304,8 @@ RunService.Heartbeat:Connect(function()
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                 local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m").Parent = playerESPFolder
+                local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
+                bb.Parent = playerESPFolder
             end
         end
     end
