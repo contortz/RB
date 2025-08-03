@@ -85,11 +85,12 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- UI Highlight
-local function highlightViewportFrame(vpf, rarity, inMachine)
+-- UI Highlight with Text
+local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
     if not EnabledRarities[rarity] then return end
     if AvoidInMachine and inMachine then return end
-    
+
+    -- Outline
     local stroke = vpf:FindFirstChild("Highlight")
     if not stroke then
         stroke = Instance.new("UIStroke")
@@ -101,10 +102,25 @@ local function highlightViewportFrame(vpf, rarity, inMachine)
     else
         stroke.Color = RarityColors[rarity]
     end
+
+    -- Name + Price Text
+    local label = vpf:FindFirstChild("ESPLabel")
+    if not label then
+        label = Instance.new("TextLabel")
+        label.Name = "ESPLabel"
+        label.Size = UDim2.new(1, 0, 0, 14)
+        label.Position = UDim2.new(0, 0, -0.2, 0) -- above
+        label.BackgroundTransparency = 1
+        label.TextScaled = true
+        label.TextColor3 = RarityColors[rarity]
+        label.Font = Enum.Font.GothamBold
+        label.Parent = vpf
+    end
+    label.Text = name .. " | $" .. price
 end
 
--- Workspace Highlight
-local function highlightWorldModel(model, rarity, inMachine)
+-- Workspace Highlight with BillboardGui
+local function highlightWorldModel(model, rarity, name, price, inMachine)
     if not EnabledRarities[rarity] then return end
     if AvoidInMachine and inMachine then return end
     if not model:IsA("Model") or not model.PrimaryPart then return end
@@ -121,6 +137,23 @@ local function highlightWorldModel(model, rarity, inMachine)
     box.Color3 = RarityColors[rarity]
     box.Transparency = 0.5
     box.Parent = worldESPFolder
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = tag .. "_Label"
+    billboard.Adornee = model.PrimaryPart
+    billboard.Size = UDim2.new(0, 100, 0, 14)
+    billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = worldESPFolder
+
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = RarityColors[rarity]
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.Text = name .. " | $" .. price
+    textLabel.Parent = billboard
 end
 
 -- Heartbeat loop
@@ -138,7 +171,7 @@ RunService.Heartbeat:Connect(function()
                         local data = AnimalsData[model.Name]
                         if data and data.Rarity then
                             local inMachine = (uiRoot.Name == "FuseMachine")
-                            highlightViewportFrame(vpf, data.Rarity, inMachine)
+                            highlightViewportFrame(vpf, data.Rarity, model.Name, data.Price, inMachine)
                         end
                     end
                 end
@@ -151,7 +184,7 @@ RunService.Heartbeat:Connect(function()
         if model:IsA("Model") and model.PrimaryPart then
             local data = AnimalsData[model.Name]
             if data and data.Rarity then
-                highlightWorldModel(model, data.Rarity, false) -- default no machine info in world
+                highlightWorldModel(model, data.Rarity, model.Name, data.Price, false)
             end
         end
     end
