@@ -55,6 +55,7 @@ playerESPFolder.Name = "PlayerESPFolder"
 -- UI
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- Ensure layers correct
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", screenGui)
@@ -63,6 +64,7 @@ frame.Position = UDim2.new(0, 20, 0.5, -175)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
+frame.ZIndex = 10
 
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, -25, 0, 25)
@@ -70,6 +72,7 @@ title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "ESP Menu"
 title.TextSize = 16
+title.ZIndex = 11
 
 -- Minimize Button
 local minimizeBtn = Instance.new("TextButton", frame)
@@ -79,17 +82,19 @@ minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
 minimizeBtn.TextSize = 16
+minimizeBtn.ZIndex = 11
 
--- Corn Icon (Hidden initially)
+-- Corn Icon
 local cornIcon = Instance.new("ImageButton", screenGui)
 cornIcon.Name = "CornIcon"
 cornIcon.Size = UDim2.new(0, 50, 0, 50)
-cornIcon.Position = UDim2.new(0, 10, 0.5, -25)
+cornIcon.Position = UDim2.new(0, 5, 0.5, -25) -- Always left-center
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://74594045716129"
 cornIcon.Visible = false
+cornIcon.ZIndex = 12
 
--- Dragging logic for Corn Icon
+-- Drag Corn Icon
 local dragging, dragInput, dragStart, startPos
 cornIcon.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -104,13 +109,11 @@ cornIcon.InputBegan:Connect(function(input)
         end)
     end
 end)
-
 cornIcon.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement then
         dragInput = input
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         local delta = input.Position - dragStart
@@ -123,12 +126,11 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Minimize / Restore behavior
+-- Minimize / Restore
 minimizeBtn.MouseButton1Click:Connect(function()
     frame.Visible = false
     cornIcon.Visible = true
 end)
-
 cornIcon.MouseButton1Click:Connect(function()
     frame.Visible = true
     cornIcon.Visible = false
@@ -158,7 +160,7 @@ togglePlayerESPBtn.MouseButton1Click:Connect(function()
     togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
 end)
 
--- Most Expensive Only Toggle
+-- Most Expensive Toggle
 local toggleMostExpBtn = Instance.new("TextButton", frame)
 toggleMostExpBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleMostExpBtn.Position = UDim2.new(0, 5, 0, 90)
