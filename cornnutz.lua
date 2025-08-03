@@ -8,7 +8,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
--- Animal data (for Lucky Blocks)
+-- Animal data
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
 -- Rarity colors
@@ -52,27 +52,27 @@ worldESPFolder.Name = "WorldRarityESP"
 local playerESPFolder = Instance.new("Folder", CoreGui)
 playerESPFolder.Name = "PlayerESPFolder"
 
--- UI
+-- UI Setup
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling -- Ensure layers correct
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.ResetOnSpawn = false
 
+-- Frame
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 200, 0, 350)
 frame.Position = UDim2.new(0, 20, 0.5, -175)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
-frame.ZIndex = 10
 
+-- Title
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, -25, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "ESP Menu"
 title.TextSize = 16
-title.ZIndex = 11
 
 -- Minimize Button
 local minimizeBtn = Instance.new("TextButton", frame)
@@ -81,20 +81,16 @@ minimizeBtn.Position = UDim2.new(1, -25, 0, 0)
 minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
-minimizeBtn.TextSize = 16
-minimizeBtn.ZIndex = 11
 
 -- Corn Icon
 local cornIcon = Instance.new("ImageButton", screenGui)
-cornIcon.Name = "CornIcon"
 cornIcon.Size = UDim2.new(0, 50, 0, 50)
-cornIcon.Position = UDim2.new(0, 5, 0.5, -25) -- Always left-center
+cornIcon.Position = UDim2.new(0, 5, 0.5, -25)
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://74594045716129"
 cornIcon.Visible = false
-cornIcon.ZIndex = 12
 
--- Drag Corn Icon
+-- Dragging Icon
 local dragging, dragInput, dragStart, startPos
 cornIcon.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -126,7 +122,7 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Minimize / Restore
+-- Minimize/Restore logic
 minimizeBtn.MouseButton1Click:Connect(function()
     frame.Visible = false
     cornIcon.Visible = true
@@ -160,7 +156,7 @@ togglePlayerESPBtn.MouseButton1Click:Connect(function()
     togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
 end)
 
--- Most Expensive Toggle
+-- Most Expensive Only Toggle
 local toggleMostExpBtn = Instance.new("TextButton", frame)
 toggleMostExpBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleMostExpBtn.Position = UDim2.new(0, 5, 0, 90)
@@ -187,3 +183,121 @@ for rarity in pairs(RarityColors) do
     end)
     y += 28
 end
+
+-- ESP Logic (UNCHANGED)
+local function isInMachine(overhead)
+    local stolenLabel = overhead:FindFirstChild("Stolen")
+    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
+end
+local function createBillboard(adorn, color, text)
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = adorn
+    billboard.Size = UDim2.new(0, 200, 0, 20)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = color
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.Text = text
+    textLabel.Parent = billboard
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.new(0, 0, 0)
+    stroke.Thickness = 2
+    stroke.Parent = textLabel
+    return billboard
+end
+
+RunService.Heartbeat:Connect(function()
+    worldESPFolder:ClearAllChildren()
+    playerESPFolder:ClearAllChildren()
+
+    local maxAnimal, maxGen = nil, -math.huge
+    local maxBlock, maxPrice = nil, -math.huge
+
+    for _, podium in ipairs(Workspace:GetDescendants()) do
+        if podium.Name == "AnimalOverhead" then
+            local rarityLabel = podium:FindFirstChild("Rarity")
+            local rarity = rarityLabel and rarityLabel.Text
+            if rarity and RarityColors[rarity] then
+                if AvoidInMachine and isInMachine(podium) then continue end
+                local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text) or 0
+                if MostExpensiveOnly then
+                    if gen > maxGen then
+                        maxGen, maxAnimal = gen, podium
+                    end
+                else
+                    if EnabledRarities[rarity] then
+                        local displayName = podium:FindFirstChild("DisplayName")
+                        if displayName then
+                            local model = podium.Parent and podium.Parent.Parent
+                            if model and model:IsA("BasePart") then
+                                createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. podium.Generation.Text).Parent = worldESPFolder
+                            end
+                        end
+                    end
+                end
+            end
+        elseif podium.Name:find("Lucky Block") then
+            local rarity
+            for r in pairs(RarityColors) do
+                if podium.Name:find(r) then
+                    rarity = r
+                    break
+                end
+            end
+            if rarity then
+                local data = AnimalsData[podium.Name]
+                local price = data and data.Price or 0
+                if MostExpensiveOnly then
+                    if price > maxPrice then
+                        maxPrice, maxBlock = price, podium
+                    end
+                else
+                    if EnabledRarities[rarity] then
+                        local model = podium.PrimaryPart
+                        if model then
+                            createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price)).Parent = worldESPFolder
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if MostExpensiveOnly then
+        if maxAnimal then
+            local rarity = maxAnimal.Rarity.Text
+            local displayName = maxAnimal.DisplayName.Text
+            local model = maxAnimal.Parent and maxAnimal.Parent.Parent
+            if model and model:IsA("BasePart") then
+                createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text).Parent = worldESPFolder
+            end
+        end
+        if maxBlock then
+            local rarity
+            for r in pairs(RarityColors) do
+                if maxBlock.Name:find(r) then
+                    rarity = r
+                    break
+                end
+            end
+            local data = AnimalsData[maxBlock.Name]
+            local price = data and data.Price or 0
+            if maxBlock.PrimaryPart then
+                createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price)).Parent = worldESPFolder
+            end
+        end
+    end
+
+    if PlayerESPEnabled then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m").Parent = playerESPFolder
+            end
+        end
+    end
+end)
