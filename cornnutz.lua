@@ -55,7 +55,9 @@ playerESPFolder.Name = "PlayerESPFolder"
 local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true -- ✅ Prevents hiding behind iPad safe areas
 
+-- Frame
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 200, 0, 350)
 frame.Position = UDim2.new(0, 20, 0.5, -175)
@@ -63,64 +65,57 @@ frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
 
-local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, 0, 0, 25)
-title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.TextColor3 = Color3.new(1, 1, 1)
-title.Text = "ESP Menu"
-title.TextSize = 16
-
 -- Minimize Button
 local minimizeBtn = Instance.new("TextButton", frame)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
 minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
-minimizeBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
-minimizeBtn.Font = Enum.Font.GothamBold
-minimizeBtn.TextSize = 18
+minimizeBtn.ZIndex = 999
 
--- Corn Icon (minimized menu button)
+-- Corn Icon (appears when minimized)
 local cornIcon = Instance.new("ImageButton", screenGui)
-cornIcon.Size = UDim2.new(0, 50, 0, 50)
-cornIcon.Position = UDim2.new(0, 10, 0.5, -25) -- Left middle
+cornIcon.Size = UDim2.new(0, 65, 0, 65) -- Bigger for touch
+cornIcon.AnchorPoint = Vector2.new(0, 0.5)
+cornIcon.Position = UDim2.new(0, 15, 0.5, 0)
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://74594045716129"
 cornIcon.ZIndex = 999
 cornIcon.Visible = false
 
--- Make cornIcon draggable
+-- Dragging for Corn Icon
 local dragging, dragInput, dragStart, startPos
 cornIcon.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		dragging = true
-		dragStart = input.Position
-		startPos = cornIcon.Position
-		input.Changed:Connect(function()
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-			end
-		end)
-	end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = cornIcon.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
 end)
 cornIcon.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement then
-		dragInput = input
-	end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
 end)
 game:GetService("UserInputService").InputChanged:Connect(function(input)
-	if dragging and input == dragInput then
-		local delta = input.Position - dragStart
-		cornIcon.Position = UDim2.new(
-			startPos.X.Scale,
-			startPos.X.Offset + delta.X,
-			startPos.Y.Scale,
-			startPos.Y.Offset + delta.Y
-		)
-	end
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        cornIcon.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
 end)
 
--- Toggle Minimize/Restore
+-- Toggle Minimize
 minimizeBtn.MouseButton1Click:Connect(function()
     frame.Visible = false
     cornIcon.Visible = true
@@ -129,6 +124,14 @@ cornIcon.MouseButton1Click:Connect(function()
     frame.Visible = true
     cornIcon.Visible = false
 end)
+
+-- Title
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Text = "ESP Menu"
+title.TextSize = 16
 
 -- Avoid In Machine Toggle
 local toggleAvoidBtn = Instance.new("TextButton", frame)
