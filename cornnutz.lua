@@ -30,9 +30,8 @@ end
 -- Toggles
 local AvoidInMachine = true
 local PlayerESPEnabled = false
-local MostExpensiveOnly = false
 
--- Price formatting
+-- Price formatter
 local function formatPrice(value)
     if value >= 1e9 then
         return string.format("%.1fB", value / 1e9)
@@ -57,8 +56,8 @@ screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 200, 0, 350)
-frame.Position = UDim2.new(0, 20, 0.5, -175)
+frame.Size = UDim2.new(0, 200, 0, 320)
+frame.Position = UDim2.new(0, 20, 0.5, -160)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -94,20 +93,8 @@ togglePlayerESPBtn.MouseButton1Click:Connect(function()
     togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
 end)
 
--- Most Expensive Only Toggle
-local toggleMostExpBtn = Instance.new("TextButton", frame)
-toggleMostExpBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleMostExpBtn.Position = UDim2.new(0, 5, 0, 90)
-toggleMostExpBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-toggleMostExpBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleMostExpBtn.Text = "Most Expensive: OFF"
-toggleMostExpBtn.MouseButton1Click:Connect(function()
-    MostExpensiveOnly = not MostExpensiveOnly
-    toggleMostExpBtn.Text = "Most Expensive: " .. (MostExpensiveOnly and "ON" or "OFF")
-end)
-
 -- Rarity Toggles
-local y = 120
+local y = 90
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
@@ -122,36 +109,120 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- Check if "IN MACHINE"
+-- "IN MACHINE" check
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
-    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
+    return stolenLabel 
+        and stolenLabel:IsA("TextLabel") 
+        and string.find(string.lower(stolenLabel.Text), "in machine")
 end
 
--- World ESP
-local function createBillboard(adorn, color, text)
+-- Add UIStroke for better text visibility
+local function addTextStroke(label)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.new(0, 0, 0)
+    stroke.Thickness = 2
+    stroke.Parent = label
+end
+
+-- Animal ESP
+local function highlightAnimalOverhead(overhead, rarity)
+    if not EnabledRarities[rarity] then return end
+    if AvoidInMachine and isInMachine(overhead) then return end
+    
+    local displayName = overhead:FindFirstChild("DisplayName")
+    local generation = overhead:FindFirstChild("Generation")
+    if displayName and generation then
+        local model = overhead.Parent and overhead.Parent.Parent
+        if model and model:IsA("BasePart") then
+            local tag = "WorldESP_" .. model:GetDebugId()
+            if worldESPFolder:FindFirstChild(tag) then return end
+
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = tag
+            billboard.Adornee = model
+            billboard.Size = UDim2.new(0, 200, 0, 20)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = worldESPFolder
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = RarityColors[rarity]
+            textLabel.TextScaled = true
+            textLabel.Font = Enum.Font.GothamBold
+            textLabel.Text = displayName.Text .. " | " .. generation.Text
+            textLabel.Parent = billboard
+            addTextStroke(textLabel)
+        end
+    end
+end
+
+-- Lucky Block ESP
+local function highlightLuckyBlock(blockModel, rarity)
+    if not EnabledRarities[rarity] then return end
+    local data = AnimalsData[blockModel.Name]
+    if not data then return end
+    
+    local primary = blockModel.PrimaryPart or blockModel:FindFirstChildWhichIsA("BasePart")
+    if primary then
+        local tag = "LuckyBlockESP_" .. blockModel:GetDebugId()
+        if worldESPFolder:FindFirstChild(tag) then return end
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = tag
+        billboard.Adornee = primary
+        billboard.Size = UDim2.new(0, 200, 0, 20)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Parent = worldESPFolder
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.BackgroundTransparency = 1
+        textLabel.TextColor3 = RarityColors[rarity]
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.GothamBold
+        textLabel.Text = blockModel.Name .. " | $" .. formatPrice(data.Price)
+        textLabel.Parent = billboard
+        addTextStroke(textLabel)
+    end
+end
+
+-- Player ESP
+local function highlightPlayer(targetPlayer)
+    if targetPlayer == player then return end
+    local char = targetPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+    local targetHRP = char:FindFirstChild("HumanoidRootPart")
+
+    local distanceText = ""
+    if myHRP and targetHRP then
+        distanceText = string.format(" | %dm", math.floor((myHRP.Position - targetHRP.Position).Magnitude))
+    end
+
+    local tag = "PlayerESP_" .. targetPlayer:GetDebugId()
+    if playerESPFolder:FindFirstChild(tag) then return end
+
     local billboard = Instance.new("BillboardGui")
-    billboard.Adornee = adorn
+    billboard.Name = tag
+    billboard.Adornee = char.HumanoidRootPart
     billboard.Size = UDim2.new(0, 200, 0, 20)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
+    billboard.Parent = playerESPFolder
 
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = color
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = text
+    textLabel.Text = targetPlayer.Name .. distanceText
     textLabel.Parent = billboard
-
-    -- Black stroke
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(0, 0, 0)
-    stroke.Thickness = 2
-    stroke.Parent = textLabel
-
-    return billboard
+    addTextStroke(textLabel)
 end
 
 -- Heartbeat Loop
@@ -159,97 +230,26 @@ RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
 
-    local maxAnimal, maxGen = nil, -math.huge
-    local maxBlock, maxPrice = nil, -math.huge
-
     for _, podium in ipairs(Workspace:GetDescendants()) do
         if podium.Name == "AnimalOverhead" then
             local rarityLabel = podium:FindFirstChild("Rarity")
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
-                if AvoidInMachine and isInMachine(podium) then continue end
-                local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text) or 0
-                if MostExpensiveOnly then
-                    if gen > maxGen then
-                        maxGen, maxAnimal = gen, podium
-                    end
-                else
-                    if EnabledRarities[rarity] then
-                        local displayName = podium:FindFirstChild("DisplayName")
-                        if displayName then
-                            local model = podium.Parent and podium.Parent.Parent
-                            if model and model:IsA("BasePart") then
-                                local bb = createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. podium.Generation.Text)
-                                bb.Parent = worldESPFolder
-                            end
-                        end
-                    end
-                end
+                highlightAnimalOverhead(podium, rarity)
             end
         elseif podium.Name:find("Lucky Block") then
-            local rarity
             for r in pairs(RarityColors) do
                 if podium.Name:find(r) then
-                    rarity = r
+                    highlightLuckyBlock(podium, r)
                     break
-                end
-            end
-            if rarity then
-                local data = AnimalsData[podium.Name]
-                local price = data and data.Price or 0
-                if MostExpensiveOnly then
-                    if price > maxPrice then
-                        maxPrice, maxBlock = price, podium
-                    end
-                else
-                    if EnabledRarities[rarity] then
-                        local model = podium.PrimaryPart
-                        if model then
-                            local bb = createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price))
-                            bb.Parent = worldESPFolder
-                        end
-                    end
                 end
             end
         end
     end
 
-    -- Draw most expensive only if toggle is ON
-    if MostExpensiveOnly then
-        if maxAnimal then
-            local rarity = maxAnimal.Rarity.Text
-            local displayName = maxAnimal.DisplayName.Text
-            local model = maxAnimal.Parent and maxAnimal.Parent.Parent
-            if model and model:IsA("BasePart") then
-                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text)
-                bb.Parent = worldESPFolder
-            end
-        end
-        if maxBlock then
-            local rarity
-            for r in pairs(RarityColors) do
-                if maxBlock.Name:find(r) then
-                    rarity = r
-                    break
-                end
-            end
-            local data = AnimalsData[maxBlock.Name]
-            local price = data and data.Price or 0
-            if maxBlock.PrimaryPart then
-                local bb = createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price))
-                bb.Parent = worldESPFolder
-            end
-        end
-    end
-
-    -- Player ESP
     if PlayerESPEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
-                bb.Parent = playerESPFolder
-            end
+            highlightPlayer(plr)
         end
     end
 end)
