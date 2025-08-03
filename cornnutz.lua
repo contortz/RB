@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
@@ -32,12 +33,12 @@ local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = false
-local AutoPurchaseThresholdEnabled = false
-local PurchaseThreshold = 20000 -- default 20k
-local ThresholdOptions = {0, 5000, 10000, 20000, 50000, 100000, 300000}
-local ThresholdIndex = 4
+local PurchaseThreshold = 20000 -- Default 20k
 
--- Price formatting
+local ThresholdOptions = {0, 5000, 10000, 20000, 50000, 100000, 300000}
+local ThresholdIndex = 4 -- Default points to 20k
+
+-- Price formatting helper
 local function formatPrice(value)
     if value >= 1e9 then
         return string.format("%.1fB", value / 1e9)
@@ -64,7 +65,7 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 450)
+frame.Size = UDim2.new(0, 250, 0, 400)
 frame.Position = UDim2.new(0, 20, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
@@ -185,73 +186,39 @@ toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
 end)
 
--- Auto Purchase Threshold Toggle
-local toggleAutoPurchaseThresholdBtn = Instance.new("TextButton", frame)
-toggleAutoPurchaseThresholdBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleAutoPurchaseThresholdBtn.Position = UDim2.new(0, 5, 0, 150)
-toggleAutoPurchaseThresholdBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-toggleAutoPurchaseThresholdBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleAutoPurchaseThresholdBtn.Text = "Auto Purchase ≥ $" .. (PurchaseThreshold/1000) .. "k: OFF"
-
-toggleAutoPurchaseThresholdBtn.MouseButton1Click:Connect(function()
-    AutoPurchaseThresholdEnabled = not AutoPurchaseThresholdEnabled
-    toggleAutoPurchaseThresholdBtn.Text = "Auto Purchase ≥ $" .. (PurchaseThreshold/1000) .. "k: " .. (AutoPurchaseThresholdEnabled and "ON" or "OFF")
-end)
-
--- Change Threshold Dropdown
-local changeThresholdBtn = Instance.new("TextButton", frame)
-changeThresholdBtn.Size = UDim2.new(1, -10, 0, 25)
-changeThresholdBtn.Position = UDim2.new(0, 5, 0, 180)
-changeThresholdBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-changeThresholdBtn.TextColor3 = Color3.new(1, 1, 1)
-changeThresholdBtn.Text = "Change Threshold"
-
-changeThresholdBtn.MouseButton1Click:Connect(function()
-    ThresholdIndex = ThresholdIndex + 1
-    if ThresholdIndex > #ThresholdOptions then
-        ThresholdIndex = 1
-    end
+-- Threshold Button
+local thresholdBtn = Instance.new("TextButton", frame)
+thresholdBtn.Size = UDim2.new(1, -10, 0, 25)
+thresholdBtn.Position = UDim2.new(0, 5, 0, 150)
+thresholdBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+thresholdBtn.TextColor3 = Color3.new(1, 1, 1)
+thresholdBtn.Text = "Auto Purchase ≥ $" .. formatPrice(PurchaseThreshold)
+thresholdBtn.MouseButton1Click:Connect(function()
+    ThresholdIndex = ThresholdIndex % #ThresholdOptions + 1
     PurchaseThreshold = ThresholdOptions[ThresholdIndex]
-    toggleAutoPurchaseThresholdBtn.Text = "Auto Purchase ≥ $" .. (PurchaseThreshold/1000) .. "k: " .. (AutoPurchaseThresholdEnabled and "ON" or "OFF")
+    thresholdBtn.Text = "Auto Purchase ≥ $" .. formatPrice(PurchaseThreshold)
 end)
 
--- Proximity Prompt Auto Purchase Logic
-local ProximityPromptService = game:GetService("ProximityPromptService")
-ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
-    local function triggerPurchase()
-        task.wait(0.05)
-        prompt:InputHoldBegin()
-        task.wait(prompt.HoldDuration or 0.25)
-        prompt:InputHoldEnd()
-    end
-
-    if AutoPurchaseThresholdEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        local objectText = prompt.Parent:FindFirstChild("ObjectText")
-        if objectText and objectText:IsA("TextLabel") then
-            local priceText = objectText.Text:gsub("%$", ""):upper()
-            priceText = priceText:gsub("K", "000"):gsub("M", "000000")
-            local priceValue = tonumber(priceText) or 0
-            if priceValue >= PurchaseThreshold then
-                triggerPurchase()
+-- Auto Purchase Logic
+ProximityPromptService.PromptShown:Connect(function(prompt)
+    if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
+        local objectTextLabel = prompt.Parent:FindFirstChild("ObjectText")
+        if objectTextLabel and objectTextLabel:IsA("TextLabel") then
+            local textValue = objectTextLabel.Text
+            local priceString = textValue:match("%$[%d%.]+[KMB]?")
+            if priceString then
+                local priceNum = tonumber(priceString:match("[%d%.]+")) or 0
+                if priceString:find("K") then priceNum *= 1000 end
+                if priceString:find("M") then priceNum *= 1000000 end
+                if priceString:find("B") then priceNum *= 1000000000 end
+                
+                if priceNum >= PurchaseThreshold then
+                    task.wait(0.05)
+                    prompt:InputHoldBegin()
+                    task.wait(prompt.HoldDuration or 0.25)
+                    prompt:InputHoldEnd()
+                end
             end
         end
-    elseif AutoPurchaseEnabled and not AutoPurchaseThresholdEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        triggerPurchase()
     end
 end)
-
--- Rarity Toggles
-local y = 210
-for rarity in pairs(RarityColors) do
-    local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(1, -10, 0, 25)
-    button.Position = UDim2.new(0, 5, 0, y)
-    button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-    button.MouseButton1Click:Connect(function()
-        EnabledRarities[rarity] = not EnabledRarities[rarity]
-        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-    end)
-    y += 28
-end
