@@ -27,12 +27,14 @@ for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- Toggles
+-- Avoid In Machine toggle
 local AvoidInMachine = true
+
+-- Player ESP toggle
 local PlayerESPEnabled = false
 
--- Format Price Function
-local function formatPrice(value)
+-- Format number (K/M/B)
+local function formatValue(value)
     if value >= 1e9 then
         return string.format("%.1fB", value / 1e9)
     elseif value >= 1e6 then
@@ -71,7 +73,7 @@ local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
-title.Text = "BrainRotz by Dreamz"
+title.Text = "ESP Menu"
 title.TextSize = 16
 
 -- Avoid in Machine toggle
@@ -118,8 +120,8 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- UI Highlight
-local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
+-- UI Highlight with Text
+local function highlightViewportFrame(vpf, rarity, name, generation, inMachine)
     if not EnabledRarities[rarity] then return end
     if AvoidInMachine and inMachine then return end
 
@@ -143,15 +145,15 @@ local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
         label.Position = UDim2.new(0, 0, -0.3, 0)
         label.BackgroundTransparency = 1
         label.TextScaled = true
-        label.TextColor3 = RarityColors[rarity]
         label.Font = Enum.Font.GothamBold
         label.Parent = vpf
     end
-    label.Text = name .. " | $" .. formatPrice(price)
+    label.TextColor3 = RarityColors[rarity]
+    label.Text = name .. " | $" .. formatValue(generation) .. "/s"
 end
 
 -- Workspace Highlight
-local function highlightWorldModel(model, rarity, name, price, inMachine)
+local function highlightWorldModel(model, rarity, name, generation, inMachine)
     if not EnabledRarities[rarity] then return end
     if AvoidInMachine and inMachine then return end
     if not model:IsA("Model") or not model.PrimaryPart then return end
@@ -172,23 +174,22 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag .. "_Label"
     billboard.Adornee = model.PrimaryPart
-    billboard.Size = UDim2.new(0, 200, 0, 25)
+    billboard.Size = UDim2.new(0, 200, 0, 20)
     billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = worldESPFolder
 
     local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    textLabel.Position = UDim2.new(0, 0, 0, 0)
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
     textLabel.TextColor3 = RarityColors[rarity]
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = name .. " | $" .. formatPrice(price)
+    textLabel.Text = name .. " | $" .. formatValue(generation) .. "/s"
     textLabel.Parent = billboard
 end
 
--- Player ESP (Name Cyan + Distance Yellow)
+-- Player ESP (Name + Distance in Yellow)
 local function highlightPlayer(targetPlayer)
     if targetPlayer == player then return end
     local char = targetPlayer.Character
@@ -201,7 +202,7 @@ local function highlightPlayer(targetPlayer)
     local distanceText = ""
     if myHRP and targetHRP then
         local dist = (myHRP.Position - targetHRP.Position).Magnitude
-        distanceText = string.format("%dm", math.floor(dist))
+        distanceText = string.format(" | %dm", math.floor(dist))
     end
 
     local tag = "PlayerESP_" .. targetPlayer.Name
@@ -210,29 +211,28 @@ local function highlightPlayer(targetPlayer)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag
     billboard.Adornee = char.HumanoidRootPart
-    billboard.Size = UDim2.new(0, 200, 0, 30)
+    billboard.Size = UDim2.new(0, 200, 0, 20)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = playerESPFolder
 
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    nameLabel.Position = UDim2.new(0, 0, 0, 0)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan
-    nameLabel.TextScaled = true
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.Text = targetPlayer.Name
-    nameLabel.Parent = billboard
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Size = UDim2.new(1, 0, 1, 0)
+    textLabel.BackgroundTransparency = 1
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan name
+    textLabel.TextScaled = true
+    textLabel.Font = Enum.Font.GothamBold
+    textLabel.Text = targetPlayer.Name
+    textLabel.Parent = billboard
 
     local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0.5, 0)
-    distLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distLabel.Size = UDim2.new(1, 0, 1, 0)
     distLabel.BackgroundTransparency = 1
-    distLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow
+    distLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow distance
     distLabel.TextScaled = true
     distLabel.Font = Enum.Font.GothamBold
     distLabel.Text = distanceText
+    distLabel.Position = UDim2.new(0, 0, 1, 0) -- Below name
     distLabel.Parent = billboard
 end
 
@@ -242,7 +242,7 @@ RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
 
-    -- FuseMachine + Index
+    -- FuseMachine + Index ViewportFrames
     for _, uiRoot in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
         if uiRoot then
             for _, vpf in ipairs(uiRoot:GetDescendants()) do
@@ -252,7 +252,7 @@ RunService.Heartbeat:Connect(function()
                         local data = AnimalsData[model.Name]
                         if data and data.Rarity then
                             local inMachine = (uiRoot.Name == "FuseMachine")
-                            highlightViewportFrame(vpf, data.Rarity, model.Name, data.Price, inMachine)
+                            highlightViewportFrame(vpf, data.Rarity, model.Name, data.Generation, inMachine)
                         end
                     end
                 end
@@ -265,7 +265,7 @@ RunService.Heartbeat:Connect(function()
         if model:IsA("Model") and model.PrimaryPart then
             local data = AnimalsData[model.Name]
             if data and data.Rarity then
-                highlightWorldModel(model, data.Rarity, model.Name, data.Price, false)
+                highlightWorldModel(model, data.Rarity, model.Name, data.Generation, false)
             end
         end
     end
