@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
@@ -31,7 +32,6 @@ end
 local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
-local MenuMinimized = false
 
 -- Price formatting
 local function formatPrice(value)
@@ -65,67 +65,73 @@ frame.Active = true
 frame.Draggable = true
 
 local title = Instance.new("TextLabel", frame)
-title.Size = UDim2.new(1, -30, 0, 25) -- leave space for minimize
-title.Position = UDim2.new(0, 0, 0, 0)
+title.Size = UDim2.new(1, -25, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "ESP Menu"
 title.TextSize = 16
 
 -- Minimize Button
-local minimizeBtn = Instance.new("ImageButton", frame)
+local minimizeBtn = Instance.new("TextButton", frame)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
 minimizeBtn.Position = UDim2.new(1, -25, 0, 0)
-minimizeBtn.BackgroundTransparency = 1
-minimizeBtn.Image = "rbxassetid://74594045716129"
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+minimizeBtn.Text = "-"
+minimizeBtn.TextSize = 16
 
--- Draggable Helper
-local function makeDraggable(guiObject)
-    local dragging, dragInput, startPos, startInputPos
-    guiObject.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            startInputPos = input.Position
-            startPos = guiObject.Position
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.End then
-                    dragging = false
-                end
-            end)
-        end
-    end)
-    guiObject.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseMovement then
-            dragInput = input
-        end
-    end)
-    game:GetService("UserInputService").InputChanged:Connect(function(input)
-        if input == dragInput and dragging then
-            local delta = input.Position - startInputPos
-            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-end
+-- Corn Icon (Hidden initially)
+local cornIcon = Instance.new("ImageButton", screenGui)
+cornIcon.Name = "CornIcon"
+cornIcon.Size = UDim2.new(0, 50, 0, 50)
+cornIcon.Position = UDim2.new(0, 10, 0.5, -25)
+cornIcon.BackgroundTransparency = 1
+cornIcon.Image = "rbxassetid://74594045716129"
+cornIcon.Visible = false
 
--- Minimized Icon
-local minimizedIcon
-minimizeBtn.MouseButton1Click:Connect(function()
-    if not MenuMinimized then
-        MenuMinimized = true
-        frame.Visible = false
-        
-        minimizedIcon = Instance.new("ImageButton", screenGui)
-        minimizedIcon.Size = UDim2.new(0, 40, 0, 40)
-        minimizedIcon.Position = UDim2.new(0, 10, 0.5, -20)
-        minimizedIcon.BackgroundTransparency = 1
-        minimizedIcon.Image = "rbxassetid://74594045716129"
-        makeDraggable(minimizedIcon)
-        minimizedIcon.MouseButton1Click:Connect(function()
-            MenuMinimized = false
-            minimizedIcon:Destroy()
-            frame.Visible = true
+-- Dragging logic for Corn Icon
+local dragging, dragInput, dragStart, startPos
+cornIcon.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = cornIcon.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
         end)
     end
+end)
+
+cornIcon.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        cornIcon.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Minimize / Restore behavior
+minimizeBtn.MouseButton1Click:Connect(function()
+    frame.Visible = false
+    cornIcon.Visible = true
+end)
+
+cornIcon.MouseButton1Click:Connect(function()
+    frame.Visible = true
+    cornIcon.Visible = false
 end)
 
 -- Avoid In Machine Toggle
@@ -179,41 +185,3 @@ for rarity in pairs(RarityColors) do
     end)
     y += 28
 end
-
--- Check if "IN MACHINE"
-local function isInMachine(overhead)
-    local stolenLabel = overhead:FindFirstChild("Stolen")
-    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
-end
-
--- World ESP Billboard
-local function createBillboard(adorn, color, text)
-    local billboard = Instance.new("BillboardGui")
-    billboard.Adornee = adorn
-    billboard.Size = UDim2.new(0, 200, 0, 20)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = color
-    textLabel.TextScaled = true
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = text
-    textLabel.Parent = billboard
-
-    local stroke = Instance.new("UIStroke")
-    stroke.Color = Color3.new(0, 0, 0)
-    stroke.Thickness = 2
-    stroke.Parent = textLabel
-
-    return billboard
-end
-
--- Heartbeat Loop (rest of ESP logic unchanged)
-RunService.Heartbeat:Connect(function()
-    worldESPFolder:ClearAllChildren()
-    playerESPFolder:ClearAllChildren()
-    -- ESP logic unchanged from your posted version
-end)
