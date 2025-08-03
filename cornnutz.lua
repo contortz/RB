@@ -191,11 +191,31 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     textLabel.Parent = billboard
 end
 
--- Player ESP
+-- Player ESP (Name + Distance + Color)
 local function highlightPlayer(targetPlayer)
     if targetPlayer == player then return end
     local char = targetPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+
+    local myChar = player.Character
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local targetHRP = char:FindFirstChild("HumanoidRootPart")
+
+    local distanceText = ""
+    local distColor = Color3.fromRGB(0, 255, 0) -- Default green
+
+    if myHRP and targetHRP then
+        local dist = (myHRP.Position - targetHRP.Position).Magnitude
+        distanceText = string.format(" | %dm", math.floor(dist))
+
+        if dist < 50 then
+            distColor = Color3.fromRGB(255, 0, 0) -- Close = Red
+        elseif dist < 100 then
+            distColor = Color3.fromRGB(255, 255, 0) -- Medium = Yellow
+        else
+            distColor = Color3.fromRGB(0, 255, 0) -- Far = Green
+        end
+    end
 
     local tag = "PlayerESP_" .. targetPlayer.Name
     if playerESPFolder:FindFirstChild(tag) then return end
@@ -211,10 +231,10 @@ local function highlightPlayer(targetPlayer)
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
+    textLabel.TextColor3 = distColor
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = targetPlayer.Name
+    textLabel.Text = targetPlayer.Name .. distanceText
     textLabel.Parent = billboard
 end
 
