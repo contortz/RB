@@ -31,6 +31,19 @@ end
 local AvoidInMachine = true
 local PlayerESPEnabled = false
 
+-- Price formatter
+local function formatPrice(value)
+    if value >= 1e9 then
+        return string.format("%.1fB", value / 1e9)
+    elseif value >= 1e6 then
+        return string.format("%.1fM", value / 1e6)
+    elseif value >= 1e3 then
+        return string.format("%.1fK", value / 1e3)
+    else
+        return tostring(value)
+    end
+end
+
 -- ESP Folders
 local worldESPFolder = Instance.new("Folder", CoreGui)
 worldESPFolder.Name = "WorldRarityESP"
@@ -96,12 +109,20 @@ for rarity in pairs(RarityColors) do
     y += 28
 end
 
--- Check if "IN MACHINE"
+-- "IN MACHINE" check
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
     return stolenLabel 
         and stolenLabel:IsA("TextLabel") 
         and string.find(string.lower(stolenLabel.Text), "in machine")
+end
+
+-- Add UIStroke for better text visibility
+local function addTextStroke(label)
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Color3.new(0, 0, 0)
+    stroke.Thickness = 2
+    stroke.Parent = label
 end
 
 -- Animal ESP
@@ -114,13 +135,12 @@ local function highlightAnimalOverhead(overhead, rarity)
     if displayName and generation then
         local model = overhead.Parent and overhead.Parent.Parent
         if model and model:IsA("BasePart") then
-            local primary = model
-            local tag = "WorldESP_" .. model:GetDebugId() -- unique ID for duplicates
+            local tag = "WorldESP_" .. model:GetDebugId()
             if worldESPFolder:FindFirstChild(tag) then return end
 
             local billboard = Instance.new("BillboardGui")
             billboard.Name = tag
-            billboard.Adornee = primary
+            billboard.Adornee = model
             billboard.Size = UDim2.new(0, 200, 0, 20)
             billboard.StudsOffset = Vector3.new(0, 3, 0)
             billboard.AlwaysOnTop = true
@@ -134,6 +154,7 @@ local function highlightAnimalOverhead(overhead, rarity)
             textLabel.Font = Enum.Font.GothamBold
             textLabel.Text = displayName.Text .. " | " .. generation.Text
             textLabel.Parent = billboard
+            addTextStroke(textLabel)
         end
     end
 end
@@ -163,8 +184,9 @@ local function highlightLuckyBlock(blockModel, rarity)
         textLabel.TextColor3 = RarityColors[rarity]
         textLabel.TextScaled = true
         textLabel.Font = Enum.Font.GothamBold
-        textLabel.Text = blockModel.Name .. " | $" .. tostring(data.Price)
+        textLabel.Text = blockModel.Name .. " | $" .. formatPrice(data.Price)
         textLabel.Parent = billboard
+        addTextStroke(textLabel)
     end
 end
 
@@ -200,6 +222,7 @@ local function highlightPlayer(targetPlayer)
     textLabel.Font = Enum.Font.GothamBold
     textLabel.Text = targetPlayer.Name .. distanceText
     textLabel.Parent = billboard
+    addTextStroke(textLabel)
 end
 
 -- Heartbeat Loop
