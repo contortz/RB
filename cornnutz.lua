@@ -1,14 +1,10 @@
 --// Setup
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-
--- Animal data
-local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
 -- Rarity colors
 local RarityColors = {
@@ -21,46 +17,26 @@ local RarityColors = {
     Secret = Color3.fromRGB(0, 255, 255)
 }
 
--- Enabled rarities (default Brainrot God & Secret ON)
+-- Enabled rarities
 local EnabledRarities = {}
 for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- Avoid In Machine toggle
+-- Toggles
 local AvoidInMachine = true
-
--- Player ESP toggle
 local PlayerESPEnabled = false
 
--- Format number (K/M/B)
-local function formatValue(value)
-    if value >= 1e9 then
-        return string.format("%.1fB", value / 1e9)
-    elseif value >= 1e6 then
-        return string.format("%.1fM", value / 1e6)
-    elseif value >= 1e3 then
-        return string.format("%.1fK", value / 1e3)
-    else
-        return tostring(value)
-    end
-end
-
--- ESP folders
-local uiESPFolder = Instance.new("Folder", CoreGui)
-uiESPFolder.Name = "UIRarityESP"
-
+-- ESP Folders
 local worldESPFolder = Instance.new("Folder", CoreGui)
 worldESPFolder.Name = "WorldRarityESP"
-
 local playerESPFolder = Instance.new("Folder", CoreGui)
 playerESPFolder.Name = "PlayerESPFolder"
 
--- UI Setup
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RarityESPUI"
+-- UI
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
-screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 200, 0, 320)
@@ -76,33 +52,31 @@ title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "ESP Menu"
 title.TextSize = 16
 
--- Avoid in Machine toggle
+-- Avoid In Machine Toggle
 local toggleAvoidBtn = Instance.new("TextButton", frame)
 toggleAvoidBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAvoidBtn.Position = UDim2.new(0, 5, 0, 30)
 toggleAvoidBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 toggleAvoidBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAvoidBtn.Text = "Avoid In Machine: ON"
-
 toggleAvoidBtn.MouseButton1Click:Connect(function()
     AvoidInMachine = not AvoidInMachine
     toggleAvoidBtn.Text = "Avoid In Machine: " .. (AvoidInMachine and "ON" or "OFF")
 end)
 
--- Player ESP toggle
+-- Player ESP Toggle
 local togglePlayerESPBtn = Instance.new("TextButton", frame)
 togglePlayerESPBtn.Size = UDim2.new(1, -10, 0, 25)
 togglePlayerESPBtn.Position = UDim2.new(0, 5, 0, 60)
 togglePlayerESPBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 togglePlayerESPBtn.TextColor3 = Color3.new(1, 1, 1)
 togglePlayerESPBtn.Text = "Player ESP: OFF"
-
 togglePlayerESPBtn.MouseButton1Click:Connect(function()
     PlayerESPEnabled = not PlayerESPEnabled
     togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
 end)
 
--- Rarity toggles
+-- Rarity Toggles
 local y = 90
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
@@ -111,98 +85,59 @@ for rarity in pairs(RarityColors) do
     button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
     button.TextColor3 = Color3.new(1, 1, 1)
     button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-
     button.MouseButton1Click:Connect(function()
         EnabledRarities[rarity] = not EnabledRarities[rarity]
         button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
     end)
-
     y += 28
 end
 
--- UI Highlight with Text
-local function highlightViewportFrame(vpf, rarity, name, generation, inMachine)
+-- World ESP (Uses AnimalOverhead live values)
+local function highlightAnimalOverhead(overhead, rarity)
     if not EnabledRarities[rarity] then return end
-    if AvoidInMachine and inMachine then return end
+    
+    local displayName = overhead:FindFirstChild("DisplayName")
+    local generation = overhead:FindFirstChild("Generation")
+    local rarityLabel = overhead:FindFirstChild("Rarity")
 
-    local stroke = vpf:FindFirstChild("Highlight")
-    if not stroke then
-        stroke = Instance.new("UIStroke")
-        stroke.Name = "Highlight"
-        stroke.Thickness = 3
-        stroke.Transparency = 0
-        stroke.Color = RarityColors[rarity]
-        stroke.Parent = vpf
-    else
-        stroke.Color = RarityColors[rarity]
-    end
+    if displayName and generation and rarityLabel then
+        local model = overhead.Parent and overhead.Parent.Parent
+        if model and model:IsA("BasePart") then
+            local primary = model
+            local tag = "WorldESP_" .. displayName.Text
+            if worldESPFolder:FindFirstChild(tag) then return end
 
-    local label = vpf:FindFirstChild("ESPLabel")
-    if not label then
-        label = Instance.new("TextLabel")
-        label.Name = "ESPLabel"
-        label.Size = UDim2.new(1, 0, 0, 20)
-        label.Position = UDim2.new(0, 0, -0.3, 0)
-        label.BackgroundTransparency = 1
-        label.TextScaled = true
-        label.Font = Enum.Font.GothamBold
-        label.Parent = vpf
+            local billboard = Instance.new("BillboardGui")
+            billboard.Name = tag
+            billboard.Adornee = primary
+            billboard.Size = UDim2.new(0, 200, 0, 20)
+            billboard.StudsOffset = Vector3.new(0, 3, 0)
+            billboard.AlwaysOnTop = true
+            billboard.Parent = worldESPFolder
+
+            local textLabel = Instance.new("TextLabel")
+            textLabel.Size = UDim2.new(1, 0, 1, 0)
+            textLabel.BackgroundTransparency = 1
+            textLabel.TextColor3 = RarityColors[rarity] or Color3.new(1, 1, 1)
+            textLabel.TextScaled = true
+            textLabel.Font = Enum.Font.GothamBold
+            textLabel.Text = displayName.Text .. " | " .. generation.Text
+            textLabel.Parent = billboard
+        end
     end
-    label.TextColor3 = RarityColors[rarity]
-    label.Text = name .. " | $" .. formatValue(generation) .. "/s"
 end
 
--- Workspace Highlight
-local function highlightWorldModel(model, rarity, name, generation, inMachine)
-    if not EnabledRarities[rarity] then return end
-    if AvoidInMachine and inMachine then return end
-    if not model:IsA("Model") or not model.PrimaryPart then return end
-
-    local tag = "WorldESP_" .. model:GetDebugId()
-    if worldESPFolder:FindFirstChild(tag) then return end
-
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = tag
-    box.Adornee = model.PrimaryPart
-    box.Size = model:GetExtentsSize()
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Color3 = RarityColors[rarity]
-    box.Transparency = 0.5
-    box.Parent = worldESPFolder
-
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = tag .. "_Label"
-    billboard.Adornee = model.PrimaryPart
-    billboard.Size = UDim2.new(0, 200, 0, 20)
-    billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = worldESPFolder
-
-    local textLabel = Instance.new("TextLabel")
-    textLabel.Size = UDim2.new(1, 0, 1, 0)
-    textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = RarityColors[rarity]
-    textLabel.TextScaled = true
-    textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = name .. " | $" .. formatValue(generation) .. "/s"
-    textLabel.Parent = billboard
-end
-
--- Player ESP (Name + Distance in Yellow)
+-- Player ESP
 local function highlightPlayer(targetPlayer)
     if targetPlayer == player then return end
     local char = targetPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return end
-
-    local myChar = player.Character
-    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
     local targetHRP = char:FindFirstChild("HumanoidRootPart")
 
     local distanceText = ""
     if myHRP and targetHRP then
-        local dist = (myHRP.Position - targetHRP.Position).Magnitude
-        distanceText = string.format(" | %dm", math.floor(dist))
+        distanceText = string.format(" | %dm", math.floor((myHRP.Position - targetHRP.Position).Magnitude))
     end
 
     local tag = "PlayerESP_" .. targetPlayer.Name
@@ -219,58 +154,30 @@ local function highlightPlayer(targetPlayer)
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
-    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255) -- Cyan name
+    textLabel.TextColor3 = Color3.fromRGB(0, 255, 255)
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = targetPlayer.Name
+    textLabel.Text = targetPlayer.Name .. distanceText
     textLabel.Parent = billboard
-
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 1, 0)
-    distLabel.BackgroundTransparency = 1
-    distLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Yellow distance
-    distLabel.TextScaled = true
-    distLabel.Font = Enum.Font.GothamBold
-    distLabel.Text = distanceText
-    distLabel.Position = UDim2.new(0, 0, 1, 0) -- Below name
-    distLabel.Parent = billboard
 end
 
--- Heartbeat
+-- Heartbeat Loop
 RunService.Heartbeat:Connect(function()
-    uiESPFolder:ClearAllChildren()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
 
-    -- FuseMachine + Index ViewportFrames
-    for _, uiRoot in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
-        if uiRoot then
-            for _, vpf in ipairs(uiRoot:GetDescendants()) do
-                if vpf:IsA("ViewportFrame") and vpf:FindFirstChild("WorldModel") then
-                    local model = vpf.WorldModel:FindFirstChildWhichIsA("Model")
-                    if model then
-                        local data = AnimalsData[model.Name]
-                        if data and data.Rarity then
-                            local inMachine = (uiRoot.Name == "FuseMachine")
-                            highlightViewportFrame(vpf, data.Rarity, model.Name, data.Generation, inMachine)
-                        end
-                    end
-                end
+    -- Check AnimalPodiums and MovingAnimals for AnimalOverhead
+    for _, podium in ipairs(Workspace:GetDescendants()) do
+        if podium.Name == "AnimalOverhead" then
+            local rarityLabel = podium:FindFirstChild("Rarity")
+            local rarity = rarityLabel and rarityLabel.Text
+            if rarity and RarityColors[rarity] then
+                highlightAnimalOverhead(podium, rarity)
             end
         end
     end
 
-    -- World animals
-    for _, model in ipairs(Workspace:GetDescendants()) do
-        if model:IsA("Model") and model.PrimaryPart then
-            local data = AnimalsData[model.Name]
-            if data and data.Rarity then
-                highlightWorldModel(model, data.Rarity, model.Name, data.Generation, false)
-            end
-        end
-    end
-
-    -- Players
+    -- Player ESP
     if PlayerESPEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do
             highlightPlayer(plr)
