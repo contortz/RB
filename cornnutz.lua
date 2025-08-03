@@ -1,38 +1,28 @@
 --// Setup
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-
--- Services
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 
--- Dependencies
-local Packages = ReplicatedStorage:WaitForChild("Packages")
-local Observers = require(Packages.Observers)
-local Synchronizer = require(Packages.Synchronizer)
-local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas").Animals)
+-- Animal data (name to rarity mapping)
+local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
--- Storage
-local activePlots = {} -- Tracks all plots
-local espFolder = Instance.new("Folder")
-espFolder.Name = "AnimalESPFolder"
-espFolder.Parent = CoreGui
-
--- Colors per rarity
-local rarityColors = {
+-- Rarity Colors
+local RarityColors = {
     Common = Color3.fromRGB(150, 150, 150),
     Rare = Color3.fromRGB(0, 170, 255),
-    Epic = Color3.fromRGB(180, 0, 255),
+    Epic = Color3.fromRGB(170, 0, 255),
     Legendary = Color3.fromRGB(255, 215, 0),
     Mythic = Color3.fromRGB(255, 85, 0),
     ["Brainrot God"] = Color3.fromRGB(255, 0, 0),
-    Secret = Color3.fromRGB(0, 255, 128)
+    Secret = Color3.fromRGB(0, 255, 255)
 }
 
--- Toggle table
-local rarityToggles = {
-    Common = false,
+-- Enabled rarities (toggles)
+local EnabledRarities = {
+    Common = true,
     Rare = true,
     Epic = true,
     Legendary = true,
@@ -41,16 +31,16 @@ local rarityToggles = {
     Secret = true
 }
 
--- UI
+--// UI Setup
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "MachineESPUI"
+screenGui.Name = "RarityESPUI"
 screenGui.Parent = playerGui
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 200, 0, 200)
-mainFrame.Position = UDim2.new(0, 50, 0, 200)
-mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+mainFrame.Size = UDim2.new(0, 200, 0, 250)
+mainFrame.Position = UDim2.new(0, 20, 0.5, -125)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.Active = true
 mainFrame.Draggable = true
 mainFrame.Parent = screenGui
@@ -62,100 +52,92 @@ title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.Text = "Rarity ESP"
 title.Parent = mainFrame
 
--- ESP Enable Toggle
-local ESPEnabled = false
-local toggleESPBtn = Instance.new("TextButton")
-toggleESPBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleESPBtn.Position = UDim2.new(0, 5, 0, 30)
-toggleESPBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-toggleESPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-toggleESPBtn.Text = "ESP: OFF"
-toggleESPBtn.Parent = mainFrame
+-- Create rarity checkboxes
+local yPos = 30
+for rarity, _ in pairs(RarityColors) do
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, yPos)
+    button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    button.Text = rarity .. ": ON"
+    button.Parent = mainFrame
 
-toggleESPBtn.MouseButton1Click:Connect(function()
-    ESPEnabled = not ESPEnabled
-    toggleESPBtn.Text = "ESP: " .. (ESPEnabled and "ON" or "OFF")
-    if not ESPEnabled then espFolder:ClearAllChildren() end
-end)
-
--- Rarity Toggles
-local yPos = 60
-for rarity in pairs(rarityToggles) do
-    local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -10, 0, 20)
-    btn.Position = UDim2.new(0, 5, 0, yPos)
-    btn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
-    btn.Text = rarity .. ": " .. (rarityToggles[rarity] and "ON" or "OFF")
-    btn.Parent = mainFrame
-
-    btn.MouseButton1Click:Connect(function()
-        rarityToggles[rarity] = not rarityToggles[rarity]
-        btn.Text = rarity .. ": " .. (rarityToggles[rarity] and "ON" or "OFF")
+    button.MouseButton1Click:Connect(function()
+        EnabledRarities[rarity] = not EnabledRarities[rarity]
+        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
     end)
 
-    yPos += 22
+    yPos = yPos + 28
 end
 
--- ESP Create
-local function createESPBox(model, rarity, name)
+--// Highlight for ViewportFrames
+local function highlightViewportFrame(vpf, rarity)
+    if not EnabledRarities[rarity] then return end
+    local highlight = vpf:FindFirstChild("Highlight")
+    if not highlight then
+        highlight = Instance.new("UIStroke")
+        highlight.Name = "Highlight"
+        highlight.Thickness = 2
+        highlight.Parent = vpf
+    end
+    highlight.Color = RarityColors[rarity] or Color3.fromRGB(255, 255, 255)
+end
+
+--// Highlight for 3D animals
+local espFolder = Instance.new("Folder")
+espFolder.Name = "AnimalESPFolder"
+espFolder.Parent = CoreGui
+
+local function create3DESP(model, rarity)
+    if not EnabledRarities[rarity] then return end
     if not model or not model.PrimaryPart then return end
 
     local box = Instance.new("BoxHandleAdornment")
+    box.Name = model.Name .. "_ESP"
     box.Adornee = model.PrimaryPart
     box.AlwaysOnTop = true
     box.ZIndex = 10
     box.Size = model:GetExtentsSize()
-    box.Color3 = rarityColors[rarity] or Color3.new(1,1,1)
+    box.Color3 = RarityColors[rarity] or Color3.fromRGB(255, 255, 255)
     box.Transparency = 0.5
     box.Parent = espFolder
-
-    local tag = Instance.new("BillboardGui")
-    tag.Adornee = model.PrimaryPart
-    tag.Size = UDim2.new(0, 200, 0, 50)
-    tag.AlwaysOnTop = true
-    tag.Parent = espFolder
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = rarityColors[rarity] or Color3.new(1,1,1)
-    label.TextStrokeTransparency = 0.5
-    label.TextScaled = true
-    label.Text = string.format("[%s] %s", rarity, name or "Unknown")
-    label.Parent = tag
 end
 
--- Observe plots
-Observers.observeTag("Plot", function(plotModel)
-    task.spawn(function()
-        while not plotModel:GetAttribute("Loaded") do task.wait() end
-        local UID = plotModel.Name
-        local plotClient = {
-            PlotModel = plotModel,
-            Channel = Synchronizer:Wait(UID)
-        }
-        activePlots[plotClient] = true
-    end)
-end)
-
--- Update ESP
+--// Update Loop
 RunService.Heartbeat:Connect(function()
-    if not ESPEnabled then return end
     espFolder:ClearAllChildren()
 
-    for plotClient in pairs(activePlots) do
-        local animals = plotClient.Channel:Get("AnimalList")
-        if type(animals) == "table" then
-            for index, data in pairs(animals) do
-                if data.Index then
-                    local info = AnimalsData[data.Index]
-                    if info and rarityToggles[info.Rarity] then
-                        local podium = plotClient.PlotModel.AnimalPodiums:FindFirstChild(index)
-                        if podium and podium.Base then
-                            local model = podium.Base:FindFirstChildWhichIsA("Model")
-                            if model then
-                                createESPBox(model, info.Rarity, info.DisplayName)
+    -- Check FuseMachine + Index UI
+    for _, container in ipairs({playerGui:FindFirstChild("FuseMachine"), playerGui:FindFirstChild("Index")}) do
+        if container then
+            for _, descendant in ipairs(container:GetDescendants()) do
+                if descendant:IsA("ViewportFrame") and descendant:FindFirstChild("WorldModel") then
+                    local worldModel = descendant.WorldModel:GetChildren()[1]
+                    if worldModel then
+                        local animalName = worldModel.Name
+                        local animalData = AnimalsData[animalName]
+                        if animalData and animalData.Rarity then
+                            highlightViewportFrame(descendant, animalData.Rarity)
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Check live Workspace animals
+    for _, plot in ipairs(Workspace:FindFirstChild("Plots"):GetChildren()) do
+        local podiums = plot:FindFirstChild("AnimalPodiums")
+        if podiums then
+            for _, podium in ipairs(podiums:GetChildren()) do
+                local base = podium:FindFirstChild("Base")
+                if base then
+                    for _, model in ipairs(base:GetChildren()) do
+                        if model:IsA("Model") and model.PrimaryPart then
+                            local animalData = AnimalsData[model.Name]
+                            if animalData and animalData.Rarity then
+                                create3DESP(model, animalData.Rarity)
                             end
                         end
                     end
