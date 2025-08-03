@@ -29,6 +29,19 @@ end
 -- Avoid In Machine toggle
 local AvoidInMachine = true
 
+-- Format Price Function
+local function formatPrice(value)
+    if value >= 1e9 then
+        return string.format("%.1fB", value / 1e9)
+    elseif value >= 1e6 then
+        return string.format("%.1fM", value / 1e6)
+    elseif value >= 1e3 then
+        return string.format("%.1fK", value / 1e3)
+    else
+        return tostring(value)
+    end
+end
+
 -- ESP folders
 local uiESPFolder = Instance.new("Folder", CoreGui)
 uiESPFolder.Name = "UIRarityESP"
@@ -103,20 +116,20 @@ local function highlightViewportFrame(vpf, rarity, name, price, inMachine)
         stroke.Color = RarityColors[rarity]
     end
 
-    -- Name + Price Text
+    -- Name + Price Text (bigger font + formatted price)
     local label = vpf:FindFirstChild("ESPLabel")
     if not label then
         label = Instance.new("TextLabel")
         label.Name = "ESPLabel"
-        label.Size = UDim2.new(1, 0, 0, 14)
-        label.Position = UDim2.new(0, 0, -0.2, 0) -- above
+        label.Size = UDim2.new(1, 0, 0, 18)
+        label.Position = UDim2.new(0, 0, -0.25, 0)
         label.BackgroundTransparency = 1
         label.TextScaled = true
         label.TextColor3 = RarityColors[rarity]
         label.Font = Enum.Font.GothamBold
         label.Parent = vpf
     end
-    label.Text = name .. " | $" .. price
+    label.Text = name .. " | $" .. formatPrice(price)
 end
 
 -- Workspace Highlight with BillboardGui
@@ -141,7 +154,7 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     local billboard = Instance.new("BillboardGui")
     billboard.Name = tag .. "_Label"
     billboard.Adornee = model.PrimaryPart
-    billboard.Size = UDim2.new(0, 100, 0, 14)
+    billboard.Size = UDim2.new(0, 150, 0, 18)
     billboard.StudsOffset = Vector3.new(0, model:GetExtentsSize().Y + 1, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = worldESPFolder
@@ -152,7 +165,7 @@ local function highlightWorldModel(model, rarity, name, price, inMachine)
     textLabel.TextColor3 = RarityColors[rarity]
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
-    textLabel.Text = name .. " | $" .. price
+    textLabel.Text = name .. " | $" .. formatPrice(price)
     textLabel.Parent = billboard
 end
 
