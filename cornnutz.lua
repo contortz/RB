@@ -325,8 +325,66 @@ RunService.Heartbeat:Connect(function()
 end)
 
 
+
+-- Walk Purchase Toggle
+local WalkPurchaseEnabled = false
+
+local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
+toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300) -- Adjust position if needed
+toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
+updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
+
+toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
+    WalkPurchaseEnabled = not WalkPurchaseEnabled
+    toggleWalkPurchaseBtn.Text = "Walk Purchase: " .. (WalkPurchaseEnabled and "ON" or "OFF")
+    updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
+end)
+
+-- Walk Purchase Logic (Uses Humanoid:MoveTo)
+RunService.Heartbeat:Connect(function()
+    if WalkPurchaseEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        
+        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+        local charHRP = player.Character.HumanoidRootPart
+        if not humanoid then return end
+        
+        local closestAnimal
+        local closestDistance = math.huge
+        
+        for _, animal in ipairs(Workspace.MovingAnimals:GetChildren()) do
+            if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
+                
+                local overhead = animal.AnimalOverhead
+                local rarityLabel = overhead:FindFirstChild("Rarity")
+                local genLabel = overhead:FindFirstChild("Generation")
+                
+                if rarityLabel and genLabel then
+                    local rarity = rarityLabel.Text
+                    local genValue = parseGenerationText(genLabel.Text)
+                    
+                    -- Filter by rarity toggle + purchase threshold
+                    if EnabledRarities[rarity] and genValue >= PurchaseThreshold then
+                        local dist = (charHRP.Position - animal.HumanoidRootPart.Position).Magnitude
+                        if dist < closestDistance then
+                            closestDistance = dist
+                            closestAnimal = animal
+                        end
+                    end
+                end
+            end
+        end
+        
+        if closestAnimal then
+            humanoid:MoveTo(closestAnimal.HumanoidRootPart.Position)
+        end
+    end
+end)
+
+
 -- Rarity Toggles
-local y = 300
+local y = 330
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
