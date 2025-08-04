@@ -360,26 +360,22 @@ RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not humanoid or not hrp then return end
+        if not humanoid then return end
 
         local bestAnimal
         local highestGen = -math.huge
 
-        for _, podium in ipairs(workspace:GetDescendants()) do
-            if podium.Name == "AnimalOverhead" then
-                local rarityLabel = podium:FindFirstChild("Rarity")
+        -- Loop exactly like ESP
+        for _, overhead in ipairs(workspace:GetDescendants()) do
+            if overhead.Name == "AnimalOverhead" then
+                local rarityLabel = overhead:FindFirstChild("Rarity")
                 local rarity = rarityLabel and rarityLabel.Text
                 if rarity and RarityColors[rarity] then
-                    -- Parse generation same as ESP
-                    local genValue = parseGenerationText((podium:FindFirstChild("Generation") or {}).Text or "")
+                    local genValue = parseGenerationText((overhead:FindFirstChild("Generation") or {}).Text or "")
 
-                    -- Only consider if above threshold
                     if genValue >= PurchaseThreshold and genValue > highestGen then
-                        -- Get the model from overhead
-                        local model = podium.Parent and podium.Parent.Parent
-
-                        -- Make sure it’s inside MovingAnimals
+                        local model = overhead.Parent and overhead.Parent.Parent
+                        -- Ensure this animal is in MovingAnimals
                         if model and workspace.MovingAnimals:FindFirstChild(model.Name) then
                             highestGen = genValue
                             bestAnimal = model
@@ -389,12 +385,12 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- Walk to the best valid MovingAnimal
         if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
             humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.Position
         end
     end
 end)
+
 
 
 
