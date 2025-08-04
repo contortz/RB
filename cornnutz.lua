@@ -365,7 +365,6 @@ RunService.Heartbeat:Connect(function()
         local bestAnimal
         local highestGen = -math.huge
 
-        -- Loop exactly like ESP
         for _, overhead in ipairs(workspace:GetDescendants()) do
             if overhead.Name == "AnimalOverhead" then
                 local rarityLabel = overhead:FindFirstChild("Rarity")
@@ -375,8 +374,8 @@ RunService.Heartbeat:Connect(function()
 
                     if genValue >= PurchaseThreshold and genValue > highestGen then
                         local model = overhead.Parent and overhead.Parent.Parent
-                        -- Ensure this animal is in MovingAnimals
-                        if model and workspace.MovingAnimals:FindFirstChild(model.Name) then
+                        -- ✅ Check if animal model is in MovingAnimals
+                        if model and model:IsDescendantOf(workspace.MovingAnimals) then
                             highestGen = genValue
                             bestAnimal = model
                         end
