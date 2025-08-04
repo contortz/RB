@@ -210,7 +210,7 @@ thresholdDropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 thresholdDropdown.TextColor3 = Color3.new(1, 1, 1)
 thresholdDropdown.Text = "Threshold: ≥ 20K"
 thresholdDropdown.MouseButton1Click:Connect(function()
-    local keys = {"0K","5K","10K","20K","50K","100K","300K"}
+    local keys = {"0K","1K","5K","10K","20K","50K","100K","300K"}
     local currentIndex = table.find(keys, tostring(PurchaseThreshold/1000).."K") or 4
     currentIndex = currentIndex % #keys + 1
     local selected = keys[currentIndex]
