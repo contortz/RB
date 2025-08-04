@@ -350,34 +350,30 @@ RunService.Heartbeat:Connect(function()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        local closestAnimal
-        local closestDistance = math.huge
+        local bestAnimal
+        local highestGen = -math.huge
 
-        -- Loop through all MovingAnimals
         for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
             if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
                 local overhead = animal.AnimalOverhead
                 local genLabel = overhead:FindFirstChild("Generation")
 
                 if genLabel then
-                    local genValue = parseGenerationText(genLabel.Text) -- Convert "1K" to 1000
-                    if genValue >= PurchaseThreshold then
-                        local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
-                        if dist < closestDistance then
-                            closestDistance = dist
-                            closestAnimal = animal
-                        end
+                    local genValue = parseGenerationText(genLabel.Text) -- Converts "1K" → 1000
+                    if genValue >= PurchaseThreshold and genValue > highestGen then
+                        highestGen = genValue
+                        bestAnimal = animal
                     end
                 end
             end
         end
 
-        -- Walk to closest animal meeting threshold
-        if closestAnimal then
-            humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.CFrame.Position
+        if bestAnimal then
+            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
 end)
+
 
 
 
