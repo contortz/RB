@@ -355,36 +355,42 @@ local function parseGenerationTextFixed(text)
     return num
 end
 
--- Walk Purchase Logic (Matches ESP + Purchase Logic)
+-- Walk Purchase Logic (ESP-style candidate search)
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
 
         local bestAnimal
-        local highestGen = -math.huge
+        local bestScore = -math.huge
 
         for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
             if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
                 local overhead = animal.AnimalOverhead
                 local genLabel = overhead:FindFirstChild("Generation")
 
-                -- Always parse, even if genLabel is missing or empty
                 local genValue = parseGenerationTextFixed((genLabel and genLabel.Text) or "")
+                local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
 
-                if genValue >= PurchaseThreshold and genValue > highestGen then
-                    highestGen = genValue
-                    bestAnimal = animal
+                -- Score based on generation (priority) and inverse distance
+                if genValue >= PurchaseThreshold or genLabel.Text == "" then
+                    local score = genValue - dist
+                    if score > bestScore then
+                        bestScore = score
+                        bestAnimal = animal
+                    end
                 end
             end
         end
 
         if bestAnimal then
-            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
+            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.Position
         end
     end
 end)
+
 
 
 
