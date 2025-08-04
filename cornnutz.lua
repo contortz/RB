@@ -342,7 +342,7 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Walk Purchase Logic using Humanoid:MoveTo()
+-- Walk Purchase Logic using input movement
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = player.Character
@@ -353,7 +353,7 @@ RunService.Heartbeat:Connect(function()
         local closestAnimal
         local closestDistance = math.huge
         
-        -- Find nearest MovingAnimal that meets rarity + threshold
+        -- Find nearest MovingAnimal in threshold
         for _, animal in ipairs(Workspace.MovingAnimals:GetChildren()) do
             if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
                 local overhead = animal.AnimalOverhead
@@ -375,12 +375,14 @@ RunService.Heartbeat:Connect(function()
             end
         end
         
-        -- Actually walk to the closest valid animal
         if closestAnimal then
-            humanoid:MoveTo(closestAnimal.HumanoidRootPart.Position)
+            -- Get direction vector toward animal
+            local direction = (closestAnimal.HumanoidRootPart.Position - hrp.Position).Unit
+            Controls:Move(direction)
         end
     end
 end)
+
 
 
 
