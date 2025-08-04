@@ -6,6 +6,7 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
@@ -32,10 +33,10 @@ local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = false
-
--- Purchase threshold (Generation-based)
 local purchaseThreshold = 20 -- default generation threshold
-local thresholds = {0, 5, 10, 20, 50, 100, 300}
+
+-- Threshold options
+local ThresholdOptions = {0, 5, 10, 20, 50, 100, 300}
 
 -- Price formatting
 local function formatPrice(value)
@@ -64,8 +65,8 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 380)
-frame.Position = UDim2.new(0, 20, 0.5, -190)
+frame.Size = UDim2.new(0, 250, 0, 400)
+frame.Position = UDim2.new(0, 20, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -185,36 +186,32 @@ toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
 end)
 
--- Threshold dropdown (Generation-based)
+-- Threshold Dropdown
 local thresholdDropdown = Instance.new("TextButton", frame)
 thresholdDropdown.Size = UDim2.new(1, -10, 0, 25)
 thresholdDropdown.Position = UDim2.new(0, 5, 0, 150)
 thresholdDropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
 thresholdDropdown.TextColor3 = Color3.new(1, 1, 1)
-thresholdDropdown.Text = "Threshold: "..purchaseThreshold.." Gen"
+thresholdDropdown.Text = "Gen Threshold: " .. purchaseThreshold
 
 thresholdDropdown.MouseButton1Click:Connect(function()
-    local currentIndex = table.find(thresholds, purchaseThreshold) or 4
-    currentIndex = currentIndex % #thresholds + 1
-    purchaseThreshold = thresholds[currentIndex]
-    thresholdDropdown.Text = "Threshold: "..purchaseThreshold.." Gen"
+    local currentIndex = table.find(ThresholdOptions, purchaseThreshold) or 4
+    local nextIndex = currentIndex % #ThresholdOptions + 1
+    purchaseThreshold = ThresholdOptions[nextIndex]
+    thresholdDropdown.Text = "Gen Threshold: " .. purchaseThreshold
 end)
 
 -- Proximity Prompt Auto Purchase Logic (Generation-based)
-local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        local overhead = prompt.Parent:FindFirstChild("AnimalOverhead")
-        if overhead then
-            local genLabel = overhead:FindFirstChild("Generation")
-            if genLabel then
-                local genValue = tonumber(genLabel.Text) or 0
-                if genValue >= purchaseThreshold then
-                    task.wait(0.05)
-                    prompt:InputHoldBegin()
-                    task.wait(prompt.HoldDuration or 0.25)
-                    prompt:InputHoldEnd()
-                end
+        local podium = prompt.Parent
+        if podium and podium:FindFirstChild("Generation") then
+            local genValue = tonumber(podium.Generation.Text) or 0
+            if genValue >= purchaseThreshold then
+                task.wait(0.05)
+                prompt:InputHoldBegin()
+                task.wait(prompt.HoldDuration or 0.25)
+                prompt:InputHoldEnd()
             end
         end
     end
