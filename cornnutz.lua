@@ -292,7 +292,7 @@ local Controls = PlayerModule:GetControls()
 
 local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 150) -- adjust if needed
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 180) -- ✅ right under threshold
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: OFF"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
