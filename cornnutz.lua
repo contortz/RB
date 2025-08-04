@@ -360,16 +360,18 @@ RunService.Heartbeat:Connect(function()
             local hrpAnimal = animal:FindFirstChild("HumanoidRootPart")
 
             if genLabel and hrpAnimal then
-                local genValue = parseGenerationText(genLabel.Text)
+                -- Use same parsing as ESP
+                local rawText = genLabel.Text or ""
+                local genValue = parseGenerationText(rawText)
 
                 if genValue >= PurchaseThreshold then
                     if genValue > highestGen then
-                        -- New highest generation found, prioritize this one immediately
+                        -- Found new highest generation
                         highestGen = genValue
                         bestAnimal = animal
                         closestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
                     elseif genValue == highestGen then
-                        -- Same highest generation, choose closest
+                        -- Tie: pick closer one
                         local dist = (hrp.Position - hrpAnimal.Position).Magnitude
                         if dist < closestDistance then
                             bestAnimal = animal
@@ -381,7 +383,7 @@ RunService.Heartbeat:Connect(function()
         end
 
         if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
-            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
+            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.Position
         end
     end
 end)
