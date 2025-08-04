@@ -345,7 +345,6 @@ end)
 -- Walk Purchase Logic (directly update Humanoid.WalkToPoint from CFrame)
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
-        -- Get your Humanoid like Dex does
         local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -356,16 +355,24 @@ RunService.Heartbeat:Connect(function()
 
         -- Loop through all MovingAnimals
         for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
-            if animal:FindFirstChild("HumanoidRootPart") then
-                local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
-                if dist < closestDistance then
-                    closestDistance = dist
-                    closestAnimal = animal
+            if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
+                local overhead = animal.AnimalOverhead
+                local genLabel = overhead:FindFirstChild("Generation")
+
+                if genLabel then
+                    local genValue = parseGenerationText(genLabel.Text) -- Convert "1K" to 1000
+                    if genValue >= PurchaseThreshold then
+                        local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
+                        if dist < closestDistance then
+                            closestDistance = dist
+                            closestAnimal = animal
+                        end
+                    end
                 end
             end
         end
 
-        -- Set WalkToPoint to closestAnimal CFrame.Position
+        -- Walk to closest animal meeting threshold
         if closestAnimal then
             humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.CFrame.Position
         end
