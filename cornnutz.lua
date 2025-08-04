@@ -34,8 +34,6 @@ local MostExpensiveOnly = false
 local AutoPurchaseEnabled = true
 local NoRagdoll = false
 local BeeHiveImmune = false
--- No Ragdoll Toggle
-local NoRagdoll = false
 local PurchaseThreshold = 20000 -- default 20K
 
 local ThresholdOptions = {
@@ -334,9 +332,14 @@ RunService.Heartbeat:Connect(function()
 end)
 
 
+-- No Ragdoll Toggle
+local NoRagdoll = false
+local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+local Controls = PlayerModule:GetControls()
+
 local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180) -- placed right under BeeHive Immune
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180) -- right under BeeHive Immune
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: OFF"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
@@ -354,19 +357,25 @@ RunService.Heartbeat:Connect(function()
         if char then
             local humanoid = char:FindFirstChild("Humanoid")
             if humanoid then
-                -- Prevent Physics state
+                -- Force exit ragdoll physics
                 if humanoid:GetState() == Enum.HumanoidStateType.Physics then
                     humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
                 end
             end
         end
+        
+        -- Force controls enabled
+        if Controls and not Controls.enabled then
+            Controls:Enable()
+        end
 
-        -- Prevent RagdollEndTime from keeping controls disabled
+        -- Clear RagdollEndTime immediately
         if player:GetAttribute("RagdollEndTime") then
             player:SetAttribute("RagdollEndTime", workspace:GetServerTimeNow())
         end
     end
 end)
+
 
 
 
