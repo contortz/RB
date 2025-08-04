@@ -6,15 +6,6 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
-
--- Hook Bee Attack event
-Net:RemoteEvent("UseItem").OnClientEvent:Connect(function(itemName)
-    if BeeHiveImmune and itemName == "Bee Attack" then
-        return -- Ignore Bee Attack completely
-    end
-end)
-
 
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
@@ -41,6 +32,7 @@ local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = true
+local BeeHiveImmune = false
 local PurchaseThreshold = 20000 -- default 20K
 
 local ThresholdOptions = {
@@ -53,6 +45,27 @@ local ThresholdOptions = {
     ["100K"] = 100000,
     ["300K"] = 300000
 }
+
+local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+Net:RemoteEvent("UseItem").OnClientEvent:Connect(function(itemName)
+    if BeeHiveImmune and itemName == "Bee Attack" then
+        -- Restore camera FOV instantly
+        workspace.CurrentCamera.FieldOfView = 70
+
+        -- Restore controls
+        local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+        local Controls = PlayerModule:GetControls()
+        local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
+        Controls.moveFunction = CharacterController.originalMoveFunction
+
+        -- Remove blur & color correction
+        local Lighting = game:GetService("Lighting")
+        if Lighting:FindFirstChild("BeeBlur") then Lighting.BeeBlur:Destroy() end
+        if Lighting:FindFirstChild("ColorCorrection") then Lighting.ColorCorrection:Destroy() end
+    end
+end)
+
+
 
 -- Helper for toggle color
 local function updateToggleColor(button, isOn)
@@ -292,7 +305,7 @@ end
 -- BeeHive Immune Toggle
 local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 150) -- Adjust if needed
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 150) -- adjust if needed
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: OFF"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
@@ -301,6 +314,7 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
     updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
 end)
+
 
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
