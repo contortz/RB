@@ -296,8 +296,37 @@ RunService.Heartbeat:Connect(function()
 end)
 
 
+-- Auto Jumper Toggle
+local AutoJumperEnabled = false
+local JumpInterval = 60 -- seconds between jumps
+local LastJumpTime = tick()
+
+local toggleAutoJumperBtn = Instance.new("TextButton", frame)
+toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 270) -- adjust so it sits under Speed Boost
+toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleAutoJumperBtn.Text = "Auto Jumper: OFF"
+updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
+
+toggleAutoJumperBtn.MouseButton1Click:Connect(function()
+    AutoJumperEnabled = not AutoJumperEnabled
+    toggleAutoJumperBtn.Text = "Auto Jumper: " .. (AutoJumperEnabled and "ON" or "OFF")
+    updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
+end)
+
+-- Auto Jumper Loop (Simulates Spacebar Press)
+RunService.Heartbeat:Connect(function()
+    if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.wait(0.05)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+        LastJumpTime = tick()
+    end
+end)
+
+
 -- Rarity Toggles
-local y = 270
+local y = 300
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
