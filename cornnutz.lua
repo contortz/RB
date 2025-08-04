@@ -358,8 +358,10 @@ RunService.Heartbeat:Connect(function()
                 local genLabel = overhead:FindFirstChild("Generation")
 
                 if genLabel then
-                    local genValue = tonumber(parseGenerationText(genLabel.Text)) or 0
-                    -- Debug to see values
+                    local genText = genLabel.Text:gsub("/s", "") -- remove per second markers
+                    local genValue = parseGenerationText(genText) or 0
+
+                    -- Debug:
                     -- print(animal.Name, "Gen:", genValue, "Threshold:", PurchaseThreshold)
 
                     if genValue >= PurchaseThreshold and genValue > highestGen then
@@ -371,8 +373,6 @@ RunService.Heartbeat:Connect(function()
         end
 
         if bestAnimal then
-            -- Debug target
-            -- print("Walking to:", bestAnimal.Name, "Gen:", highestGen)
             humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
