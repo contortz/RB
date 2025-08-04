@@ -347,8 +347,7 @@ RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        if not humanoid or not hrp then return end
+        if not humanoid then return end
 
         local bestAnimal
         local highestGen = -math.huge
@@ -359,7 +358,10 @@ RunService.Heartbeat:Connect(function()
                 local genLabel = overhead:FindFirstChild("Generation")
 
                 if genLabel then
-                    local genValue = parseGenerationText(genLabel.Text) -- Converts "1K" → 1000
+                    local genValue = tonumber(parseGenerationText(genLabel.Text)) or 0
+                    -- Debug to see values
+                    -- print(animal.Name, "Gen:", genValue, "Threshold:", PurchaseThreshold)
+
                     if genValue >= PurchaseThreshold and genValue > highestGen then
                         highestGen = genValue
                         bestAnimal = animal
@@ -369,10 +371,13 @@ RunService.Heartbeat:Connect(function()
         end
 
         if bestAnimal then
+            -- Debug target
+            -- print("Walking to:", bestAnimal.Name, "Gen:", highestGen)
             humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
 end)
+
 
 
 
