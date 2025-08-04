@@ -360,35 +360,34 @@ RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
 
         local bestAnimal
         local highestGen = -math.huge
 
-        for _, overhead in ipairs(workspace:GetDescendants()) do
-            if overhead.Name == "AnimalOverhead" then
-                local rarityLabel = overhead:FindFirstChild("Rarity")
-                local rarity = rarityLabel and rarityLabel.Text
-                if rarity and RarityColors[rarity] then
-                    local genValue = parseGenerationText((overhead:FindFirstChild("Generation") or {}).Text or "")
+        -- Loop through MovingAnimals and filter by threshold
+        for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
+            local overhead = animal:FindFirstChild("AnimalOverhead")
+            local genLabel = overhead and overhead:FindFirstChild("Generation")
+            local hrpAnimal = animal:FindFirstChild("HumanoidRootPart")
 
-                    if genValue >= PurchaseThreshold and genValue > highestGen then
-                        local model = overhead.Parent and overhead.Parent.Parent
-                        -- ✅ Check if animal model is in MovingAnimals
-                        if model and model:IsDescendantOf(workspace.MovingAnimals) then
-                            highestGen = genValue
-                            bestAnimal = model
-                        end
-                    end
+            if genLabel and hrpAnimal then
+                local genValue = parseGenerationText(genLabel.Text)
+                if genValue >= PurchaseThreshold and genValue > highestGen then
+                    highestGen = genValue
+                    bestAnimal = animal
                 end
             end
         end
 
+        -- Walk to bestAnimal's CFrame.Position
         if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
-            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.Position
+            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
 end)
+
 
 
 
