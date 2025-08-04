@@ -345,8 +345,25 @@ end)
 -- Fixed generation parser (same as ESP)
 local currentTarget = nil
 local lastPauseTime = 0
-local pauseDuration = 0.35 -- seconds to stop movement near target
-local stopDistance = 5     -- studs to trigger pause
+local pauseDuration = 0.35
+local stopDistance = 5
+
+local function isPurchaseValid(model)
+    local overhead = model:FindFirstChild("AnimalOverhead", true)
+    if overhead and overhead:FindFirstChild("Generation") then
+        local genValue = parseGenerationText(overhead.Generation.Text)
+        return genValue >= PurchaseThreshold
+    end
+
+    for rarity in pairs(RarityColors) do
+        if model.Name:find(rarity) then
+            local data = AnimalsData[model.Name]
+            local price = data and data.Price or 0
+            return price >= PurchaseThreshold
+        end
+    end
+    return false
+end
 
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
@@ -359,23 +376,22 @@ RunService.Heartbeat:Connect(function()
         local bestAnimal = nil
         local closestDistance = math.huge
 
-        -- Find highest gen animal (closest if tie)
-        for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
-            local overhead = model:FindFirstChild("AnimalOverhead", true)
-            local genLabel = overhead and overhead:FindFirstChild("Generation")
-            local hrpAnimal = model:FindFirstChild("HumanoidRootPart")
-
-            if genLabel and hrpAnimal then
-                local genValue = parseGenerationText(genLabel.Text or "")
-                if genValue >= PurchaseThreshold then
+        -- Pick highest generation valid target
+        for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
+            if isPurchaseValid(animal) then
+                local overhead = animal:FindFirstChild("AnimalOverhead")
+                local genLabel = overhead and overhead:FindFirstChild("Generation")
+                local hrpAnimal = animal:FindFirstChild("HumanoidRootPart")
+                if genLabel and hrpAnimal then
+                    local genValue = parseGenerationText(genLabel.Text or "")
                     if genValue > highestGen then
                         highestGen = genValue
-                        bestAnimal = model
+                        bestAnimal = animal
                         closestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
                     elseif genValue == highestGen then
                         local dist = (hrp.Position - hrpAnimal.Position).Magnitude
                         if dist < closestDistance then
-                            bestAnimal = model
+                            bestAnimal = animal
                             closestDistance = dist
                         end
                     end
@@ -383,29 +399,32 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
+        -- If target invalid, stop moving
         if bestAnimal then
             currentTarget = bestAnimal
             local hrpTarget = currentTarget:FindFirstChild("HumanoidRootPart")
+
             if hrpTarget then
                 local distToTarget = (hrp.Position - hrpTarget.Position).Magnitude
 
-                -- Only move if not in pause window
+                -- Pause near target to let AutoPurchase kick in
                 if distToTarget > stopDistance or tick() - lastPauseTime > pauseDuration then
                     humanoid.WalkToPoint = hrpTarget.Position
                 end
 
-                -- Pause when close enough
                 if distToTarget <= stopDistance then
                     lastPauseTime = tick()
                 end
             end
         else
+            humanoid.WalkToPoint = hrp.Position -- stop moving
             currentTarget = nil
         end
     else
         currentTarget = nil
     end
 end)
+
 
 
 
