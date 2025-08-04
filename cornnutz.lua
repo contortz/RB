@@ -90,7 +90,7 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 460)
+frame.Size = UDim2.new(0, 250, 0, 525)
 frame.Position = UDim2.new(0, 20, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
@@ -305,12 +305,12 @@ local toggleAutoJumperBtn = Instance.new("TextButton", frame)
 toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 270) -- adjust so it sits under Speed Boost
 toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleAutoJumperBtn.Text = "Auto Jumper: OFF"
+toggleAutoJumperBtn.Text = "Anti AFK: OFF"
 updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
 
 toggleAutoJumperBtn.MouseButton1Click:Connect(function()
     AutoJumperEnabled = not AutoJumperEnabled
-    toggleAutoJumperBtn.Text = "Auto Jumper: " .. (AutoJumperEnabled and "ON" or "OFF")
+    toggleAutoJumperBtn.Text = "Anti AFK: " .. (AutoJumperEnabled and "ON" or "OFF")
     updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
 end)
 
