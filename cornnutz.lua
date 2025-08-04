@@ -36,6 +36,7 @@ local PurchaseThreshold = 20000 -- default 20K
 
 local ThresholdOptions = {
     ["0K"] = 0,
+    ["1K"] = 1000,
     ["5K"] = 5000,
     ["10K"] = 10000,
     ["20K"] = 20000,
