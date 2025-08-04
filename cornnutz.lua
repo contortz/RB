@@ -202,7 +202,7 @@ local toggleAutoPurchaseBtn = Instance.new("TextButton", frame)
 toggleAutoPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAutoPurchaseBtn.Position = UDim2.new(0, 5, 0, 120)
 toggleAutoPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleAutoPurchaseBtn.Text = "Auto Purchase: OFF"
+toggleAutoPurchaseBtn.Text = "Auto Purchase: ON"
 updateToggleColor(toggleAutoPurchaseBtn, AutoPurchaseEnabled)
 toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     AutoPurchaseEnabled = not AutoPurchaseEnabled
