@@ -354,27 +354,23 @@ RunService.Heartbeat:Connect(function()
         local bestAnimal = nil
         local closestDistance = math.huge
 
-        for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
-            local overhead = animal:FindFirstChild("AnimalOverhead")
+        for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
+            local overhead = model:FindFirstChild("AnimalOverhead", true) -- search inside Info
             local genLabel = overhead and overhead:FindFirstChild("Generation")
-            local hrpAnimal = animal:FindFirstChild("HumanoidRootPart")
+            local hrpAnimal = model:FindFirstChild("HumanoidRootPart")
 
             if genLabel and hrpAnimal then
-                -- Use same parsing as ESP
-                local rawText = genLabel.Text or ""
-                local genValue = parseGenerationText(rawText)
+                local genValue = parseGenerationText(genLabel.Text or "")
 
                 if genValue >= PurchaseThreshold then
                     if genValue > highestGen then
-                        -- Found new highest generation
                         highestGen = genValue
-                        bestAnimal = animal
+                        bestAnimal = model
                         closestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
                     elseif genValue == highestGen then
-                        -- Tie: pick closer one
                         local dist = (hrp.Position - hrpAnimal.Position).Magnitude
                         if dist < closestDistance then
-                            bestAnimal = animal
+                            bestAnimal = model
                             closestDistance = dist
                         end
                     end
@@ -387,6 +383,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
 
 
 
