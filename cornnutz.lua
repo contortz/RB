@@ -343,6 +343,10 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
 end)
 
 -- Fixed generation parser (same as ESP)
+local currentTarget = nil
+local lastTargetTime = 0
+local pauseTime = 0.5 -- seconds to pause movement for purchase
+
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
@@ -350,12 +354,17 @@ RunService.Heartbeat:Connect(function()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
+        -- If we have a target, pause for purchase
+        if currentTarget and tick() - lastTargetTime < pauseTime then
+            return
+        end
+
         local highestGen = -math.huge
         local bestAnimal = nil
         local closestDistance = math.huge
 
         for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
-            local overhead = model:FindFirstChild("AnimalOverhead", true) -- search inside Info
+            local overhead = model:FindFirstChild("AnimalOverhead", true)
             local genLabel = overhead and overhead:FindFirstChild("Generation")
             local hrpAnimal = model:FindFirstChild("HumanoidRootPart")
 
@@ -378,11 +387,22 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
+        -- If new target is different or old target invalid
+        if bestAnimal and bestAnimal ~= currentTarget then
+            currentTarget = bestAnimal
+            lastTargetTime = tick() -- mark time of new target
             humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.Position
         end
+
+        -- If target despawned or no longer valid, reset
+        if currentTarget and (not currentTarget.Parent or not currentTarget:FindFirstChild("HumanoidRootPart")) then
+            currentTarget = nil
+        end
+    else
+        currentTarget = nil
     end
 end)
+
 
 
 
