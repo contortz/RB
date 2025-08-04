@@ -214,7 +214,7 @@ end)
 local thresholdDropdown = Instance.new("TextButton", frame)
 thresholdDropdown.Size = UDim2.new(1, -10, 0, 25)
 thresholdDropdown.Position = UDim2.new(0, 5, 0, 150)
-thresholdDropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+thresholdDropdown.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
 thresholdDropdown.TextColor3 = Color3.new(1, 1, 1)
 thresholdDropdown.Text = "Threshold: ≥ 20K"
 thresholdDropdown.MouseButton1Click:Connect(function()
