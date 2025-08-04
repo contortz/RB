@@ -331,23 +331,6 @@ local WalkPurchaseEnabled = false
 
 local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
 toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300) -- Adjust position if needed
-toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
-updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
-
-toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
-    WalkPurchaseEnabled = not WalkPurchaseEnabled
-    toggleWalkPurchaseBtn.Text = "Walk Purchase: " .. (WalkPurchaseEnabled and "ON" or "OFF")
-    updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
-end)
-
-local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
-
--- Walk Purchase Toggle
-local WalkPurchaseEnabled = false
-local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
-toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300)
 toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
@@ -359,16 +342,18 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Walk Purchase Logic
+-- Walk Purchase Logic using Humanoid.WalkToPoint
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
-        local char, humanoid, hrp = CharacterController:GetCharacter()
-        if not char or not humanoid or not hrp then return end
+        local char = player.Character
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
         
         local closestAnimal
         local closestDistance = math.huge
         
-        -- Search MovingAnimals filtered by rarity + threshold
+        -- Find nearest MovingAnimal that meets rarity + threshold
         for _, animal in ipairs(Workspace.MovingAnimals:GetChildren()) do
             if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
                 local overhead = animal.AnimalOverhead
@@ -390,14 +375,13 @@ RunService.Heartbeat:Connect(function()
             end
         end
         
-        -- If we found a valid target
+        -- Walk to the closest valid target
         if closestAnimal then
-            local targetPos = closestAnimal.HumanoidRootPart.Position
-            local direction = (targetPos - hrp.Position).Unit -- Normalized direction
-            CharacterController:RequestMove(humanoid, direction, 1) -- 1 = magnitude
+            humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.Position
         end
     end
 end)
+
 
 
 
