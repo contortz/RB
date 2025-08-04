@@ -31,7 +31,7 @@ end
 local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
-local AutoPurchaseEnabled = false
+local AutoPurchaseEnabled = true
 local PurchaseThreshold = 20000 -- default 20K
 
 local ThresholdOptions = {
