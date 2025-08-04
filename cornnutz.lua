@@ -345,42 +345,33 @@ end)
 -- Walk Purchase Logic (directly update Humanoid.WalkToPoint from CFrame)
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
-        local char = player.Character
+        -- Get your Humanoid like Dex does
+        local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
-        
+
         local closestAnimal
         local closestDistance = math.huge
-        
-        -- Find closest MovingAnimal
-        for _, animal in ipairs(Workspace.MovingAnimals:GetChildren()) do
-            if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
-                local overhead = animal.AnimalOverhead
-                local rarityLabel = overhead:FindFirstChild("Rarity")
-                local genLabel = overhead:FindFirstChild("Generation")
-                
-                if rarityLabel and genLabel then
-                    local rarity = rarityLabel.Text
-                    local genValue = parseGenerationText(genLabel.Text)
-                    
-                    if EnabledRarities[rarity] and genValue >= PurchaseThreshold then
-                        local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
-                        if dist < closestDistance then
-                            closestDistance = dist
-                            closestAnimal = animal
-                        end
-                    end
+
+        -- Loop through all MovingAnimals
+        for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
+            if animal:FindFirstChild("HumanoidRootPart") then
+                local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
+                if dist < closestDistance then
+                    closestDistance = dist
+                    closestAnimal = animal
                 end
             end
         end
-        
+
         -- Set WalkToPoint to closestAnimal CFrame.Position
         if closestAnimal then
             humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
 end)
+
 
 
 
