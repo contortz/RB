@@ -334,12 +334,9 @@ end)
 
 -- No Ragdoll Toggle
 local NoRagdoll = false
-local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
-local Controls = PlayerModule:GetControls()
-
 local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180) -- right under BeeHive Immune
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180) -- below BeeHive Immune
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: OFF"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
@@ -350,31 +347,25 @@ toggleNoRagdollBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
 end)
 
--- No Ragdoll Enforcement
-RunService.Heartbeat:Connect(function()
+-- Block Ragdoll events
+local ragdollRemote = ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Ragdoll"):WaitForChild("Ragdoll")
+ragdollRemote.OnClientEvent:Connect(function(action, mode)
     if NoRagdoll then
-        local char = player.Character
-        if char then
-            local humanoid = char:FindFirstChild("Humanoid")
-            if humanoid then
-                -- Force exit ragdoll physics
-                if humanoid:GetState() == Enum.HumanoidStateType.Physics then
+        if action == "Make" or (action == nil and mode == "manualM") then
+            -- Block ragdoll entirely
+            local char = player.Character
+            if char then
+                local humanoid = char:FindFirstChild("Humanoid")
+                if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
                     humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                    humanoid:ChangeState(Enum.HumanoidStateType.Running)
                 end
             end
-        end
-        
-        -- Force controls enabled
-        if Controls and not Controls.enabled then
-            Controls:Enable()
-        end
-
-        -- Clear RagdollEndTime immediately
-        if player:GetAttribute("RagdollEndTime") then
-            player:SetAttribute("RagdollEndTime", workspace:GetServerTimeNow())
+            return -- prevent ragdoll
         end
     end
 end)
+
 
 
 
