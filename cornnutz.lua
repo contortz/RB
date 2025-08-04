@@ -342,12 +342,13 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
+local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
+
 -- Walk Purchase Toggle
 local WalkPurchaseEnabled = false
-
 local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
 toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300) -- Adjust position if needed
+toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300)
 toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
 updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
@@ -358,22 +359,18 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Walk Purchase Logic (Uses WalkToPoint)
+-- Walk Purchase Logic
 RunService.Heartbeat:Connect(function()
-    if WalkPurchaseEnabled 
-       and player.Character 
-       and player.Character:FindFirstChild("HumanoidRootPart") 
-       and player.Character:FindFirstChildOfClass("Humanoid") then
-        
-        local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
-        local charHRP = player.Character.HumanoidRootPart
+    if WalkPurchaseEnabled then
+        local char, humanoid, hrp = CharacterController:GetCharacter()
+        if not char or not humanoid or not hrp then return end
         
         local closestAnimal
         local closestDistance = math.huge
         
+        -- Search MovingAnimals filtered by rarity + threshold
         for _, animal in ipairs(Workspace.MovingAnimals:GetChildren()) do
             if animal:FindFirstChild("HumanoidRootPart") and animal:FindFirstChild("AnimalOverhead") then
-                
                 local overhead = animal.AnimalOverhead
                 local rarityLabel = overhead:FindFirstChild("Rarity")
                 local genLabel = overhead:FindFirstChild("Generation")
@@ -382,9 +379,8 @@ RunService.Heartbeat:Connect(function()
                     local rarity = rarityLabel.Text
                     local genValue = parseGenerationText(genLabel.Text)
                     
-                    -- Filter by rarity toggle + purchase threshold
                     if EnabledRarities[rarity] and genValue >= PurchaseThreshold then
-                        local dist = (charHRP.Position - animal.HumanoidRootPart.Position).Magnitude
+                        local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
                         if dist < closestDistance then
                             closestDistance = dist
                             closestAnimal = animal
@@ -394,12 +390,15 @@ RunService.Heartbeat:Connect(function()
             end
         end
         
-        -- Walk toward the closest valid animal
+        -- If we found a valid target
         if closestAnimal then
-            humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.Position
+            local targetPos = closestAnimal.HumanoidRootPart.Position
+            local direction = (targetPos - hrp.Position).Unit -- Normalized direction
+            CharacterController:RequestMove(humanoid, direction, 1) -- 1 = magnitude
         end
     end
 end)
+
 
 
 
