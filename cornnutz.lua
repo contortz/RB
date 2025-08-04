@@ -342,11 +342,11 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Fixed generation parser
+-- Fixed generation parser (same as ESP)
 local function parseGenerationTextFixed(text)
     local cleanText = text:gsub("%s+", "")  -- remove spaces
-    cleanText = cleanText:gsub("/S", "")    -- remove /s (case-insensitive)
-    cleanText = cleanText:gsub("/s", "")
+    cleanText = cleanText:gsub("/S", "")    -- remove /s (uppercase)
+    cleanText = cleanText:gsub("/s", "")    -- remove /s (lowercase)
     cleanText = cleanText:upper()           -- normalize to uppercase K/M
 
     local num = tonumber(cleanText:match("[%d%.]+")) or 0
@@ -355,7 +355,7 @@ local function parseGenerationTextFixed(text)
     return num
 end
 
--- Walk Purchase Logic
+-- Walk Purchase Logic (Matches ESP + Purchase Logic)
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
@@ -370,13 +370,12 @@ RunService.Heartbeat:Connect(function()
                 local overhead = animal.AnimalOverhead
                 local genLabel = overhead:FindFirstChild("Generation")
 
-                if genLabel then
-                    local genValue = parseGenerationTextFixed(genLabel.Text)
+                -- Always parse, even if genLabel is missing or empty
+                local genValue = parseGenerationTextFixed((genLabel and genLabel.Text) or "")
 
-                    if genValue >= PurchaseThreshold and genValue > highestGen then
-                        highestGen = genValue
-                        bestAnimal = animal
-                    end
+                if genValue >= PurchaseThreshold and genValue > highestGen then
+                    highestGen = genValue
+                    bestAnimal = animal
                 end
             end
         end
@@ -386,6 +385,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
 
 
 
