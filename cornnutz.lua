@@ -90,7 +90,7 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 400)
+frame.Size = UDim2.new(0, 250, 0, 460)
 frame.Position = UDim2.new(0, 20, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
