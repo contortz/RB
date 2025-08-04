@@ -342,7 +342,20 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Walk Purchase Logic (directly update Humanoid.WalkToPoint from CFrame)
+-- Fixed generation parser
+local function parseGenerationTextFixed(text)
+    local cleanText = text:gsub("%s+", "")  -- remove spaces
+    cleanText = cleanText:gsub("/S", "")    -- remove /s (case-insensitive)
+    cleanText = cleanText:gsub("/s", "")
+    cleanText = cleanText:upper()           -- normalize to uppercase K/M
+
+    local num = tonumber(cleanText:match("[%d%.]+")) or 0
+    if cleanText:find("K") then num *= 1000 end
+    if cleanText:find("M") then num *= 1000000 end
+    return num
+end
+
+-- Walk Purchase Logic
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
@@ -358,11 +371,7 @@ RunService.Heartbeat:Connect(function()
                 local genLabel = overhead:FindFirstChild("Generation")
 
                 if genLabel then
-                    local genText = genLabel.Text:gsub("/s", "") -- remove per second markers
-                    local genValue = parseGenerationText(genText) or 0
-
-                    -- Debug:
-                    -- print(animal.Name, "Gen:", genValue, "Threshold:", PurchaseThreshold)
+                    local genValue = parseGenerationTextFixed(genLabel.Text)
 
                     if genValue >= PurchaseThreshold and genValue > highestGen then
                         highestGen = genValue
@@ -377,6 +386,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
 
 
 
