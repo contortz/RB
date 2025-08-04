@@ -352,9 +352,8 @@ RunService.Heartbeat:Connect(function()
 
         local highestGen = -math.huge
         local bestAnimal = nil
-        local bestDistance = math.huge
+        local closestDistance = math.huge
 
-        -- Loop through MovingAnimals
         for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
             local overhead = animal:FindFirstChild("AnimalOverhead")
             local genLabel = overhead and overhead:FindFirstChild("Generation")
@@ -362,30 +361,31 @@ RunService.Heartbeat:Connect(function()
 
             if genLabel and hrpAnimal then
                 local genValue = parseGenerationText(genLabel.Text)
+
                 if genValue >= PurchaseThreshold then
                     if genValue > highestGen then
-                        -- Found a higher generation, reset distance check
+                        -- New highest generation found, prioritize this one immediately
                         highestGen = genValue
                         bestAnimal = animal
-                        bestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
+                        closestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
                     elseif genValue == highestGen then
-                        -- Same generation, check distance
+                        -- Same highest generation, choose closest
                         local dist = (hrp.Position - hrpAnimal.Position).Magnitude
-                        if dist < bestDistance then
+                        if dist < closestDistance then
                             bestAnimal = animal
-                            bestDistance = dist
+                            closestDistance = dist
                         end
                     end
                 end
             end
         end
 
-        -- Walk to best animal
         if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
             humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
 end)
+
 
 
 
