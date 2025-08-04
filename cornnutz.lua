@@ -343,47 +343,31 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
 end)
 
 -- Fixed generation parser (same as ESP)
-local function parseGenerationTextFixed(text)
-    local cleanText = text:gsub("%s+", "")  -- remove spaces
-    cleanText = cleanText:gsub("/S", "")    -- remove /s (uppercase)
-    cleanText = cleanText:gsub("/s", "")    -- remove /s (lowercase)
-    cleanText = cleanText:upper()           -- normalize to uppercase K/M
-
-    local num = tonumber(cleanText:match("[%d%.]+")) or 0
-    if cleanText:find("K") then num *= 1000 end
-    if cleanText:find("M") then num *= 1000000 end
-    return num
-end
-
--- Walk Purchase Logic (ESP-style candidate search)
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
+        -- Get your Humanoid like Dex does
         local char = workspace:FindFirstChild(player.Name)
         local humanoid = char and char:FindFirstChildOfClass("Humanoid")
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        local bestAnimal
-        local highestGen = -math.huge
+        local closestAnimal
+        local closestDistance = math.huge
 
-        -- Loop through MovingAnimals and filter by threshold
+        -- Loop through all MovingAnimals
         for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
-            local overhead = animal:FindFirstChild("AnimalOverhead")
-            local genLabel = overhead and overhead:FindFirstChild("Generation")
-            local hrpAnimal = animal:FindFirstChild("HumanoidRootPart")
-
-            if genLabel and hrpAnimal then
-                local genValue = parseGenerationText(genLabel.Text)
-                if genValue >= PurchaseThreshold and genValue > highestGen then
-                    highestGen = genValue
-                    bestAnimal = animal
+            if animal:FindFirstChild("HumanoidRootPart") then
+                local dist = (hrp.Position - animal.HumanoidRootPart.Position).Magnitude
+                if dist < closestDistance then
+                    closestDistance = dist
+                    closestAnimal = animal
                 end
             end
         end
 
-        -- Walk to bestAnimal's CFrame.Position
-        if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
-            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.CFrame.Position
+        -- Set WalkToPoint to closestAnimal CFrame.Position
+        if closestAnimal then
+            humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.CFrame.Position
         end
     end
 end)
