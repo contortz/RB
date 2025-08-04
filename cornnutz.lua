@@ -342,7 +342,7 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Walk Purchase Logic using Humanoid.WalkToPoint
+-- Walk Purchase Logic using Humanoid.WalkToPoint and CFrame.Position
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = player.Character
@@ -377,10 +377,19 @@ RunService.Heartbeat:Connect(function()
         
         -- Walk to the closest valid target
         if closestAnimal then
-            humanoid.WalkToPoint = closestAnimal.HumanoidRootPart.Position
+            local targetPos = closestAnimal.HumanoidRootPart.CFrame.Position
+            local distanceToTarget = (hrp.Position - targetPos).Magnitude
+            
+            -- Only update WalkToPoint if not already close
+            if distanceToTarget > 5 then
+                humanoid.WalkToPoint = targetPos
+            else
+                humanoid.WalkToPoint = hrp.Position -- Stop walking
+            end
         end
     end
 end)
+
 
 
 
