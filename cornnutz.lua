@@ -344,8 +344,9 @@ end)
 
 -- Fixed generation parser (same as ESP)
 local currentTarget = nil
-local lastTargetTime = 0
-local pauseTime = 0.5 -- seconds to pause movement for purchase
+local lastPauseTime = 0
+local pauseDuration = 0.35 -- seconds to stop movement near target
+local stopDistance = 5     -- studs to trigger pause
 
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
@@ -354,15 +355,11 @@ RunService.Heartbeat:Connect(function()
         local hrp = char and char:FindFirstChild("HumanoidRootPart")
         if not humanoid or not hrp then return end
 
-        -- If we have a target, pause for purchase
-        if currentTarget and tick() - lastTargetTime < pauseTime then
-            return
-        end
-
         local highestGen = -math.huge
         local bestAnimal = nil
         local closestDistance = math.huge
 
+        -- Find highest gen animal (closest if tie)
         for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
             local overhead = model:FindFirstChild("AnimalOverhead", true)
             local genLabel = overhead and overhead:FindFirstChild("Generation")
@@ -370,7 +367,6 @@ RunService.Heartbeat:Connect(function()
 
             if genLabel and hrpAnimal then
                 local genValue = parseGenerationText(genLabel.Text or "")
-
                 if genValue >= PurchaseThreshold then
                     if genValue > highestGen then
                         highestGen = genValue
@@ -387,21 +383,30 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- If new target is different or old target invalid
-        if bestAnimal and bestAnimal ~= currentTarget then
+        if bestAnimal then
             currentTarget = bestAnimal
-            lastTargetTime = tick() -- mark time of new target
-            humanoid.WalkToPoint = bestAnimal.HumanoidRootPart.Position
-        end
+            local hrpTarget = currentTarget:FindFirstChild("HumanoidRootPart")
+            if hrpTarget then
+                local distToTarget = (hrp.Position - hrpTarget.Position).Magnitude
 
-        -- If target despawned or no longer valid, reset
-        if currentTarget and (not currentTarget.Parent or not currentTarget:FindFirstChild("HumanoidRootPart")) then
+                -- Only move if not in pause window
+                if distToTarget > stopDistance or tick() - lastPauseTime > pauseDuration then
+                    humanoid.WalkToPoint = hrpTarget.Position
+                end
+
+                -- Pause when close enough
+                if distToTarget <= stopDistance then
+                    lastPauseTime = tick()
+                end
+            end
+        else
             currentTarget = nil
         end
     else
         currentTarget = nil
     end
 end)
+
 
 
 
