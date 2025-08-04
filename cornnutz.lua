@@ -268,7 +268,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
 end)
 
 -- Rarity Toggles
-local y = 180
+local y = 240
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
