@@ -6,6 +6,15 @@ local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+
+-- Hook Bee Attack event
+Net:RemoteEvent("UseItem").OnClientEvent:Connect(function(itemName)
+    if BeeHiveImmune and itemName == "Bee Attack" then
+        return -- Ignore Bee Attack completely
+    end
+end)
+
 
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
@@ -278,6 +287,20 @@ for rarity in pairs(RarityColors) do
     end)
     y += 28
 end
+
+
+-- BeeHive Immune Toggle
+local toggleBeeHiveBtn = Instance.new("TextButton", frame)
+toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 150) -- Adjust if needed
+toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleBeeHiveBtn.Text = "BeeHive Immune: OFF"
+updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
+toggleBeeHiveBtn.MouseButton1Click:Connect(function()
+    BeeHiveImmune = not BeeHiveImmune
+    toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
+    updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
+end)
 
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
