@@ -46,24 +46,7 @@ local ThresholdOptions = {
     ["300K"] = 300000
 }
 
-local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
-Net:RemoteEvent("UseItem").OnClientEvent:Connect(function(itemName)
-    if BeeHiveImmune and itemName == "Bee Attack" then
-        -- Restore camera FOV instantly
-        workspace.CurrentCamera.FieldOfView = 70
 
-        -- Restore controls
-        local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
-        local Controls = PlayerModule:GetControls()
-        local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
-        Controls.moveFunction = CharacterController.originalMoveFunction
-
-        -- Remove blur & color correction
-        local Lighting = game:GetService("Lighting")
-        if Lighting:FindFirstChild("BeeBlur") then Lighting.BeeBlur:Destroy() end
-        if Lighting:FindFirstChild("ColorCorrection") then Lighting.ColorCorrection:Destroy() end
-    end
-end)
 
 
 
