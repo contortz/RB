@@ -303,7 +303,7 @@ local LastJumpTime = tick()
 
 local toggleAutoJumperBtn = Instance.new("TextButton", frame)
 toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 270) -- adjust so it sits under Speed Boost
+toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 330) -- adjust so it sits under Speed Boost
 toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAutoJumperBtn.Text = "Auto Jumper: OFF"
 updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
