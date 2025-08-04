@@ -33,10 +33,7 @@ local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = false
-local purchaseThreshold = 20 -- default generation threshold
-
--- Threshold options
-local ThresholdOptions = {0, 5, 10, 20, 50, 100, 300}
+local purchaseThreshold = 0 -- Generation threshold
 
 -- Price formatting
 local function formatPrice(value)
@@ -49,6 +46,25 @@ local function formatPrice(value)
     else
         return tostring(value)
     end
+end
+
+--// Helper: Get Generation
+local function getGenerationFromPrompt(prompt)
+    local animalModel = prompt:FindFirstAncestorWhichIsA("Model")
+    if animalModel then
+        local overhead = animalModel:FindFirstChild("AnimalOverhead", true)
+        if overhead and overhead:FindFirstChild("Generation") then
+            return tonumber(overhead.Generation.Text) or 0
+        end
+    end
+    return 0
+end
+
+local function getGenerationFromOverhead(overhead)
+    if overhead and overhead:FindFirstChild("Generation") then
+        return tonumber(overhead.Generation.Text) or 0
+    end
+    return 0
 end
 
 -- ESP Folders
@@ -65,8 +81,8 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 400)
-frame.Position = UDim2.new(0, 20, 0.5, -200)
+frame.Size = UDim2.new(0, 250, 0, 350)
+frame.Position = UDim2.new(0, 20, 0.5, -175)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -186,52 +202,18 @@ toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
 end)
 
--- Threshold Dropdown
-local thresholdDropdown = Instance.new("TextButton", frame)
-thresholdDropdown.Size = UDim2.new(1, -10, 0, 25)
-thresholdDropdown.Position = UDim2.new(0, 5, 0, 150)
-thresholdDropdown.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-thresholdDropdown.TextColor3 = Color3.new(1, 1, 1)
-thresholdDropdown.Text = "Gen Threshold: " .. purchaseThreshold
-
-thresholdDropdown.MouseButton1Click:Connect(function()
-    local currentIndex = table.find(ThresholdOptions, purchaseThreshold) or 4
-    local nextIndex = currentIndex % #ThresholdOptions + 1
-    purchaseThreshold = ThresholdOptions[nextIndex]
-    thresholdDropdown.Text = "Gen Threshold: " .. purchaseThreshold
-end)
-
--- Proximity Prompt Auto Purchase Logic (Generation-based)
+-- Proximity Prompt Auto Purchase Logic (Generation Check)
 ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        local podium = prompt.Parent
-        if podium and podium:FindFirstChild("Generation") then
-            local genValue = tonumber(podium.Generation.Text) or 0
-            if genValue >= purchaseThreshold then
-                task.wait(0.05)
-                prompt:InputHoldBegin()
-                task.wait(prompt.HoldDuration or 0.25)
-                prompt:InputHoldEnd()
-            end
+        local genValue = getGenerationFromPrompt(prompt)
+        if genValue >= purchaseThreshold then
+            task.wait(0.05)
+            prompt:InputHoldBegin()
+            task.wait(prompt.HoldDuration or 0.25)
+            prompt:InputHoldEnd()
         end
     end
 end)
-
--- Rarity Toggles
-local y = 180
-for rarity in pairs(RarityColors) do
-    local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(1, -10, 0, 25)
-    button.Position = UDim2.new(0, 5, 0, y)
-    button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-    button.MouseButton1Click:Connect(function()
-        EnabledRarities[rarity] = not EnabledRarities[rarity]
-        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-    end)
-    y += 28
-end
 
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
@@ -267,7 +249,6 @@ RunService.Heartbeat:Connect(function()
     playerESPFolder:ClearAllChildren()
 
     local maxAnimal, maxGen = nil, -math.huge
-    local maxBlock, maxPrice = nil, -math.huge
 
     for _, podium in ipairs(Workspace:GetDescendants()) do
         if podium.Name == "AnimalOverhead" then
@@ -275,7 +256,7 @@ RunService.Heartbeat:Connect(function()
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
                 if AvoidInMachine and isInMachine(podium) then continue end
-                local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text) or 0
+                local gen = getGenerationFromOverhead(podium)
                 if MostExpensiveOnly then
                     if gen > maxGen then
                         maxGen, maxAnimal = gen, podium
@@ -286,34 +267,9 @@ RunService.Heartbeat:Connect(function()
                         if displayName then
                             local model = podium.Parent and podium.Parent.Parent
                             if model and model:IsA("BasePart") then
-                                local bb = createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. podium.Generation.Text)
+                                local bb = createBillboard(model, RarityColors[rarity], displayName.Text .. " | Gen " .. gen)
                                 bb.Parent = worldESPFolder
                             end
-                        end
-                    end
-                end
-            end
-        elseif podium.Name:find("Lucky Block") then
-            local rarity
-            for r in pairs(RarityColors) do
-                if podium.Name:find(r) then
-                    rarity = r
-                    break
-                end
-            end
-            if rarity then
-                local data = AnimalsData[podium.Name]
-                local price = data and data.Price or 0
-                if MostExpensiveOnly then
-                    if price > maxPrice then
-                        maxPrice, maxBlock = price, podium
-                    end
-                else
-                    if EnabledRarities[rarity] then
-                        local model = podium.PrimaryPart
-                        if model then
-                            local bb = createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price))
-                            bb.Parent = worldESPFolder
                         end
                     end
                 end
@@ -321,30 +277,13 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    if MostExpensiveOnly then
-        if maxAnimal then
-            local rarity = maxAnimal.Rarity.Text
-            local displayName = maxAnimal.DisplayName.Text
-            local model = maxAnimal.Parent and maxAnimal.Parent.Parent
-            if model and model:IsA("BasePart") then
-                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text)
-                bb.Parent = worldESPFolder
-            end
-        end
-        if maxBlock then
-            local rarity
-            for r in pairs(RarityColors) do
-                if maxBlock.Name:find(r) then
-                    rarity = r
-                    break
-                end
-            end
-            local data = AnimalsData[maxBlock.Name]
-            local price = data and data.Price or 0
-            if maxBlock.PrimaryPart then
-                local bb = createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price))
-                bb.Parent = worldESPFolder
-            end
+    if MostExpensiveOnly and maxAnimal then
+        local rarity = maxAnimal.Rarity.Text
+        local displayName = maxAnimal.DisplayName.Text
+        local model = maxAnimal.Parent and maxAnimal.Parent.Parent
+        if model and model:IsA("BasePart") then
+            local bb = createBillboard(model, RarityColors[rarity], displayName .. " | Gen " .. getGenerationFromOverhead(maxAnimal))
+            bb.Parent = worldESPFolder
         end
     end
 
