@@ -267,8 +267,37 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
     end
 end)
 
+
+-- Speed Boost Toggle
+local SpeedBoostEnabled = false
+local DesiredWalkSpeed = 70 -- Change this to whatever speed you want
+
+local toggleSpeedBoostBtn = Instance.new("TextButton", frame)
+toggleSpeedBoostBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 240) -- Puts it right under Threshold
+toggleSpeedBoostBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleSpeedBoostBtn.Text = "Speed Boost: OFF"
+updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
+
+toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
+    SpeedBoostEnabled = not SpeedBoostEnabled
+    toggleSpeedBoostBtn.Text = "Speed Boost: " .. (SpeedBoostEnabled and "ON" or "OFF")
+    updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
+end)
+
+-- Enforce speed ignoring all game logic (including stealing slowdown)
+RunService.Heartbeat:Connect(function()
+    if SpeedBoostEnabled then
+        local char, humanoid = require(ReplicatedStorage.Controllers.CharacterController):GetCharacter()
+        if humanoid then
+            humanoid.WalkSpeed = DesiredWalkSpeed -- No slowdown applied
+        end
+    end
+end)
+
+
 -- Rarity Toggles
-local y = 240
+local y = 270
 for rarity in pairs(RarityColors) do
     local button = Instance.new("TextButton", frame)
     button.Size = UDim2.new(1, -10, 0, 25)
