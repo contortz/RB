@@ -286,18 +286,27 @@ end
 
 
 -- BeeHive Immune Toggle
+local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
+local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+local Controls = PlayerModule:GetControls()
+
 local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 150) -- adjust if needed
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: OFF"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
+
 toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     BeeHiveImmune = not BeeHiveImmune
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
     updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
-end)
 
+    if BeeHiveImmune then
+        -- Immediately restore move function when toggled ON
+        Controls.moveFunction = CharacterController.originalMoveFunction
+    end
+end)
 
 -- BeeHive Immune Enforcement
 RunService.Heartbeat:Connect(function()
@@ -313,8 +322,14 @@ RunService.Heartbeat:Connect(function()
         if cam and cam.FieldOfView ~= 70 then
             cam.FieldOfView = 70
         end
+
+        -- Ensure movement stays correct (failsafe in case game overrides it mid-Bee attack)
+        if Controls.moveFunction ~= CharacterController.originalMoveFunction then
+            Controls.moveFunction = CharacterController.originalMoveFunction
+        end
     end
 end)
+
 
 
 
