@@ -316,6 +316,25 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
 end)
 
 
+-- BeeHive Immune Enforcement
+RunService.Heartbeat:Connect(function()
+    if BeeHiveImmune then
+        -- Disable Bee Blur if it exists
+        local blur = game:GetService("Lighting"):FindFirstChild("BeeBlur")
+        if blur then
+            blur.Enabled = false
+        end
+        
+        -- Restore FOV instantly
+        local cam = workspace.CurrentCamera
+        if cam and cam.FieldOfView ~= 70 then
+            cam.FieldOfView = 70
+        end
+    end
+end)
+
+
+
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
