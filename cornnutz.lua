@@ -28,12 +28,14 @@ for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- Toggles
+-- Toggles & Threshold
 local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = false
-local purchaseThreshold = 0 -- Generation threshold
+local PurchaseThreshold = 20 -- default Generation 20
+
+local ThresholdOptions = {0, 5, 10, 20, 50, 100, 300}
 
 -- Price formatting
 local function formatPrice(value)
@@ -46,25 +48,6 @@ local function formatPrice(value)
     else
         return tostring(value)
     end
-end
-
---// Helper: Get Generation
-local function getGenerationFromPrompt(prompt)
-    local animalModel = prompt:FindFirstAncestorWhichIsA("Model")
-    if animalModel then
-        local overhead = animalModel:FindFirstChild("AnimalOverhead", true)
-        if overhead and overhead:FindFirstChild("Generation") then
-            return tonumber(overhead.Generation.Text) or 0
-        end
-    end
-    return 0
-end
-
-local function getGenerationFromOverhead(overhead)
-    if overhead and overhead:FindFirstChild("Generation") then
-        return tonumber(overhead.Generation.Text) or 0
-    end
-    return 0
 end
 
 -- ESP Folders
@@ -81,8 +64,8 @@ screenGui.IgnoreGuiInset = true
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 350)
-frame.Position = UDim2.new(0, 20, 0.5, -175)
+frame.Size = UDim2.new(0, 250, 0, 400)
+frame.Position = UDim2.new(0, 20, 0.5, -200)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -202,18 +185,54 @@ toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
 end)
 
--- Proximity Prompt Auto Purchase Logic (Generation Check)
+-- Gen Threshold Dropdown
+local thresholdBtn = Instance.new("TextButton", frame)
+thresholdBtn.Size = UDim2.new(1, -10, 0, 25)
+thresholdBtn.Position = UDim2.new(0, 5, 0, 150)
+thresholdBtn.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+thresholdBtn.TextColor3 = Color3.new(1, 1, 1)
+thresholdBtn.Text = "Gen Threshold: ≥ " .. PurchaseThreshold
+thresholdBtn.MouseButton1Click:Connect(function()
+    local idx = table.find(ThresholdOptions, PurchaseThreshold) or 4
+    idx = (idx % #ThresholdOptions) + 1
+    PurchaseThreshold = ThresholdOptions[idx]
+    thresholdBtn.Text = "Gen Threshold: ≥ " .. PurchaseThreshold
+end)
+
+-- Proximity Prompt Auto Purchase by Generation
 ProximityPromptService.PromptShown:Connect(function(prompt, inputType)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        local genValue = getGenerationFromPrompt(prompt)
-        if genValue >= purchaseThreshold then
-            task.wait(0.05)
-            prompt:InputHoldBegin()
-            task.wait(prompt.HoldDuration or 0.25)
-            prompt:InputHoldEnd()
+        local model = prompt:FindFirstAncestorWhichIsA("Model")
+        if model then
+            local overhead = model:FindFirstChild("AnimalOverhead", true)
+            if overhead and overhead:FindFirstChild("Generation") then
+                local gen = tonumber(overhead.Generation.Text) or 0
+                if gen >= PurchaseThreshold then
+                    task.wait(0.05)
+                    prompt:InputHoldBegin()
+                    task.wait(prompt.HoldDuration or 0.25)
+                    prompt:InputHoldEnd()
+                end
+            end
         end
     end
 end)
+
+-- Rarity Toggles
+local y = 180
+for rarity in pairs(RarityColors) do
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, y)
+    button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+    button.MouseButton1Click:Connect(function()
+        EnabledRarities[rarity] = not EnabledRarities[rarity]
+        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+    end)
+    y += 28
+end
 
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
@@ -249,14 +268,13 @@ RunService.Heartbeat:Connect(function()
     playerESPFolder:ClearAllChildren()
 
     local maxAnimal, maxGen = nil, -math.huge
-
     for _, podium in ipairs(Workspace:GetDescendants()) do
         if podium.Name == "AnimalOverhead" then
             local rarityLabel = podium:FindFirstChild("Rarity")
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
                 if AvoidInMachine and isInMachine(podium) then continue end
-                local gen = getGenerationFromOverhead(podium)
+                local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text) or 0
                 if MostExpensiveOnly then
                     if gen > maxGen then
                         maxGen, maxAnimal = gen, podium
@@ -282,7 +300,7 @@ RunService.Heartbeat:Connect(function()
         local displayName = maxAnimal.DisplayName.Text
         local model = maxAnimal.Parent and maxAnimal.Parent.Parent
         if model and model:IsA("BasePart") then
-            local bb = createBillboard(model, RarityColors[rarity], displayName .. " | Gen " .. getGenerationFromOverhead(maxAnimal))
+            local bb = createBillboard(model, RarityColors[rarity], displayName .. " | Gen " .. (tonumber(maxAnimal.Generation.Text) or 0))
             bb.Parent = worldESPFolder
         end
     end
