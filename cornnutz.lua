@@ -45,6 +45,11 @@ local ThresholdOptions = {
     ["300K"] = 300000
 }
 
+-- Helper for toggle color
+local function updateToggleColor(button, isOn)
+    button.BackgroundColor3 = isOn and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(70, 70, 70)
+end
+
 -- Price formatting
 local function formatPrice(value)
     if value >= 1e9 then
@@ -56,6 +61,14 @@ local function formatPrice(value)
     else
         return tostring(value)
     end
+end
+
+-- Convert "100K/s" to numeric
+local function parseGenerationText(text)
+    local num = tonumber(text:match("[%d%.]+")) or 0
+    if text:find("K") then num *= 1000 end
+    if text:find("M") then num *= 1000000 end
+    return num
 end
 
 -- ESP Folders
@@ -78,18 +91,14 @@ frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
 
--- Function to update toggle button color
-local function updateToggleColor(button, state)
-    button.BackgroundColor3 = state and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(70, 70, 70)
-end
-
 -- Minimize Button
 local minimizeBtn = Instance.new("TextButton", frame)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
 minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
-updateToggleColor(minimizeBtn, false)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
+minimizeBtn.ZIndex = 999
 
 -- Corn Icon
 local cornIcon = Instance.new("ImageButton", screenGui)
@@ -97,6 +106,7 @@ cornIcon.Size = UDim2.new(0, 60, 0, 60)
 cornIcon.Position = UDim2.new(0, 15, 0.27, 0)
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://76154122039576"
+cornIcon.ZIndex = 999
 cornIcon.Visible = false
 
 -- Dragging for Corn Icon
@@ -121,7 +131,12 @@ end)
 game:GetService("UserInputService").InputChanged:Connect(function(input)
     if dragging and input == dragInput then
         local delta = input.Position - dragStart
-        cornIcon.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        cornIcon.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
     end
 end)
 
@@ -147,9 +162,9 @@ title.TextSize = 10
 local toggleAvoidBtn = Instance.new("TextButton", frame)
 toggleAvoidBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAvoidBtn.Position = UDim2.new(0, 5, 0, 30)
-updateToggleColor(toggleAvoidBtn, AvoidInMachine)
 toggleAvoidBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAvoidBtn.Text = "Avoid In Machine: ON"
+updateToggleColor(toggleAvoidBtn, AvoidInMachine)
 toggleAvoidBtn.MouseButton1Click:Connect(function()
     AvoidInMachine = not AvoidInMachine
     toggleAvoidBtn.Text = "Avoid In Machine: " .. (AvoidInMachine and "ON" or "OFF")
@@ -160,9 +175,9 @@ end)
 local togglePlayerESPBtn = Instance.new("TextButton", frame)
 togglePlayerESPBtn.Size = UDim2.new(1, -10, 0, 25)
 togglePlayerESPBtn.Position = UDim2.new(0, 5, 0, 60)
-updateToggleColor(togglePlayerESPBtn, PlayerESPEnabled)
 togglePlayerESPBtn.TextColor3 = Color3.new(1, 1, 1)
 togglePlayerESPBtn.Text = "Player ESP: OFF"
+updateToggleColor(togglePlayerESPBtn, PlayerESPEnabled)
 togglePlayerESPBtn.MouseButton1Click:Connect(function()
     PlayerESPEnabled = not PlayerESPEnabled
     togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
@@ -173,9 +188,9 @@ end)
 local toggleMostExpBtn = Instance.new("TextButton", frame)
 toggleMostExpBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleMostExpBtn.Position = UDim2.new(0, 5, 0, 90)
-updateToggleColor(toggleMostExpBtn, MostExpensiveOnly)
 toggleMostExpBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleMostExpBtn.Text = "Most Expensive: OFF"
+updateToggleColor(toggleMostExpBtn, MostExpensiveOnly)
 toggleMostExpBtn.MouseButton1Click:Connect(function()
     MostExpensiveOnly = not MostExpensiveOnly
     toggleMostExpBtn.Text = "Most Expensive: " .. (MostExpensiveOnly and "ON" or "OFF")
@@ -186,9 +201,9 @@ end)
 local toggleAutoPurchaseBtn = Instance.new("TextButton", frame)
 toggleAutoPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAutoPurchaseBtn.Position = UDim2.new(0, 5, 0, 120)
-updateToggleColor(toggleAutoPurchaseBtn, AutoPurchaseEnabled)
 toggleAutoPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAutoPurchaseBtn.Text = "Auto Purchase: OFF"
+updateToggleColor(toggleAutoPurchaseBtn, AutoPurchaseEnabled)
 toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     AutoPurchaseEnabled = not AutoPurchaseEnabled
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
@@ -211,18 +226,16 @@ thresholdDropdown.MouseButton1Click:Connect(function()
     thresholdDropdown.Text = "Threshold: ≥ "..selected
 end)
 
--- Auto Purchase Logic (Generation parsing)
+-- Proximity Prompt Auto Purchase Logic
 local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
         local model = prompt:FindFirstAncestorWhichIsA("Model")
         if model then
+            -- Animals: Generation
             local overhead = model:FindFirstChild("AnimalOverhead", true)
             if overhead and overhead:FindFirstChild("Generation") then
-                local genText = overhead.Generation.Text or ""
-                local genValue = tonumber(genText:match("[%d%.]+")) or 0
-                if genText:find("K") then genValue = genValue * 1000 end
-                if genText:find("M") then genValue = genValue * 1000000 end
+                local genValue = parseGenerationText(overhead.Generation.Text)
                 if genValue >= PurchaseThreshold then
                     task.wait(0.05)
                     prompt:InputHoldBegin()
@@ -231,6 +244,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                 end
                 return
             end
+            -- Lucky Blocks: Price
             for rarity in pairs(RarityColors) do
                 if model.Name:find(rarity) then
                     local data = AnimalsData[model.Name]
@@ -248,13 +262,30 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
     end
 end)
 
--- Function to check "IN MACHINE"
+-- Rarity Toggles
+local y = 180
+for rarity in pairs(RarityColors) do
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, y)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+    updateToggleColor(button, EnabledRarities[rarity])
+    button.MouseButton1Click:Connect(function()
+        EnabledRarities[rarity] = not EnabledRarities[rarity]
+        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+        updateToggleColor(button, EnabledRarities[rarity])
+    end)
+    y += 28
+end
+
+-- Check if "IN MACHINE"
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
     return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "IN MACHINE"
 end
 
--- World ESP Billboard
+-- World ESP
 local function createBillboard(adorn, color, text)
     local billboard = Instance.new("BillboardGui")
     billboard.Adornee = adorn
@@ -290,9 +321,7 @@ RunService.Heartbeat:Connect(function()
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
                 if AvoidInMachine and isInMachine(podium) then continue end
-                local gen = tonumber((podium:FindFirstChild("Generation") or {}).Text:match("[%d%.]+")) or 0
-                if (podium.Generation.Text):find("K") then gen = gen * 1000 end
-                if (podium.Generation.Text):find("M") then gen = gen * 1000000 end
+                local gen = parseGenerationText((podium:FindFirstChild("Generation") or {}).Text or "")
                 if MostExpensiveOnly then
                     if gen > maxGen then
                         maxGen, maxAnimal = gen, podium
@@ -319,7 +348,9 @@ RunService.Heartbeat:Connect(function()
                 local data = AnimalsData[podium.Name]
                 local price = data and data.Price or 0
                 if MostExpensiveOnly then
-                    if price > maxPrice then maxPrice, maxBlock = price, podium end
+                    if price > maxPrice then
+                        maxPrice, maxBlock = price, podium
+                    end
                 else
                     if EnabledRarities[rarity] then
                         local model = podium.PrimaryPart
@@ -329,6 +360,40 @@ RunService.Heartbeat:Connect(function()
                         end
                     end
                 end
+            end
+        end
+    end
+
+    if MostExpensiveOnly then
+        if maxAnimal then
+            local rarity = maxAnimal.Rarity.Text
+            local displayName = maxAnimal.DisplayName.Text
+            local model = maxAnimal.Parent and maxAnimal.Parent.Parent
+            if model and model:IsA("BasePart") then
+                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. maxAnimal.Generation.Text)
+                bb.Parent = worldESPFolder
+            end
+        end
+        if maxBlock then
+            local rarity
+            for r in pairs(RarityColors) do
+                if maxBlock.Name:find(r) then rarity = r break end
+            end
+            local data = AnimalsData[maxBlock.Name]
+            local price = data and data.Price or 0
+            if maxBlock.PrimaryPart then
+                local bb = createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price))
+                bb.Parent = worldESPFolder
+            end
+        end
+    end
+
+    if PlayerESPEnabled then
+        for _, plr in ipairs(Players:GetPlayers()) do
+            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
+                bb.Parent = playerESPFolder
             end
         end
     end
