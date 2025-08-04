@@ -342,29 +342,12 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- Fixed generation parser (same as ESP)
-local currentTarget = nil
-local lastPauseTime = 0
-local pauseDuration = 0.35
-local stopDistance = 5
+-- Pause settings
+local pauseDistance = 5
+local pauseTime = 0.35
+local lastPause = 0
 
-local function isPurchaseValid(model)
-    local overhead = model:FindFirstChild("AnimalOverhead", true)
-    if overhead and overhead:FindFirstChild("Generation") then
-        local genValue = parseGenerationText(overhead.Generation.Text)
-        return genValue >= PurchaseThreshold
-    end
-
-    for rarity in pairs(RarityColors) do
-        if model.Name:find(rarity) then
-            local data = AnimalsData[model.Name]
-            local price = data and data.Price or 0
-            return price >= PurchaseThreshold
-        end
-    end
-    return false
-end
-
+-- Walk Purchase Logic with pause + prompt check
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
         local char = workspace:FindFirstChild(player.Name)
@@ -376,22 +359,23 @@ RunService.Heartbeat:Connect(function()
         local bestAnimal = nil
         local closestDistance = math.huge
 
-        -- Pick highest generation valid target
-        for _, animal in ipairs(workspace.MovingAnimals:GetChildren()) do
-            if isPurchaseValid(animal) then
-                local overhead = animal:FindFirstChild("AnimalOverhead")
-                local genLabel = overhead and overhead:FindFirstChild("Generation")
-                local hrpAnimal = animal:FindFirstChild("HumanoidRootPart")
-                if genLabel and hrpAnimal then
-                    local genValue = parseGenerationText(genLabel.Text or "")
+        -- Select target
+        for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
+            local overhead = model:FindFirstChild("AnimalOverhead", true)
+            local genLabel = overhead and overhead:FindFirstChild("Generation")
+            local hrpAnimal = model:FindFirstChild("HumanoidRootPart")
+
+            if genLabel and hrpAnimal then
+                local genValue = parseGenerationText(genLabel.Text or "")
+                if genValue >= PurchaseThreshold then
                     if genValue > highestGen then
                         highestGen = genValue
-                        bestAnimal = animal
+                        bestAnimal = model
                         closestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
                     elseif genValue == highestGen then
                         local dist = (hrp.Position - hrpAnimal.Position).Magnitude
                         if dist < closestDistance then
-                            bestAnimal = animal
+                            bestAnimal = model
                             closestDistance = dist
                         end
                     end
@@ -399,29 +383,25 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- If target invalid, stop moving
-        if bestAnimal then
-            currentTarget = bestAnimal
-            local hrpTarget = currentTarget:FindFirstChild("HumanoidRootPart")
+        -- Walk & pause
+        if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
+            local hrpTarget = bestAnimal.HumanoidRootPart
+            local dist = (hrp.Position - hrpTarget.Position).Magnitude
 
-            if hrpTarget then
-                local distToTarget = (hrp.Position - hrpTarget.Position).Magnitude
-
-                -- Pause near target to let AutoPurchase kick in
-                if distToTarget > stopDistance or tick() - lastPauseTime > pauseDuration then
-                    humanoid.WalkToPoint = hrpTarget.Position
-                end
-
-                if distToTarget <= stopDistance then
-                    lastPauseTime = tick()
+            if dist <= pauseDistance then
+                if tick() - lastPause >= pauseTime then
+                    -- ✅ Check prompt after pause
+                    local prompt = bestAnimal:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if not (prompt and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase")) then
+                        humanoid.WalkToPoint = hrp.Position -- stop if no prompt
+                        return
+                    end
+                    lastPause = tick()
                 end
             end
-        else
-            humanoid.WalkToPoint = hrp.Position -- stop moving
-            currentTarget = nil
+
+            humanoid.WalkToPoint = hrpTarget.Position
         end
-    else
-        currentTarget = nil
     end
 end)
 
