@@ -32,7 +32,6 @@ local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = true
-local NoRagdoll = false
 local BeeHiveImmune = false
 local PurchaseThreshold = 20000 -- default 20K
 
@@ -362,6 +361,49 @@ ragdollRemote.OnClientEvent:Connect(function(action, mode)
                 end
             end
             return -- prevent ragdoll
+        end
+    end
+end)
+
+
+-- No Ragdoll Toggle
+local NoRagdoll = false
+local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+local Controls = PlayerModule:GetControls()
+
+local toggleNoRagdollBtn = Instance.new("TextButton", frame)
+toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180) -- under BeeHive Immune
+toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleNoRagdollBtn.Text = "No Ragdoll: OFF"
+updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
+
+toggleNoRagdollBtn.MouseButton1Click:Connect(function()
+    NoRagdoll = not NoRagdoll
+    toggleNoRagdollBtn.Text = "No Ragdoll: " .. (NoRagdoll and "ON" or "OFF")
+    updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
+end)
+
+RunService.Heartbeat:Connect(function()
+    if NoRagdoll then
+        local char = player.Character
+        if char then
+            local humanoid = char:FindFirstChild("Humanoid")
+            if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
+                -- Force exit ragdoll
+                humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
+            end
+        end
+
+        -- Always restore controls
+        if Controls and not Controls.enabled then
+            Controls:Enable()
+        end
+
+        -- Force clear RagdollEndTime
+        if player:GetAttribute("RagdollEndTime") then
+            player:SetAttribute("RagdollEndTime", workspace:GetServerTimeNow())
         end
     end
 end)
