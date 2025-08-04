@@ -333,12 +333,16 @@ end)
 
 -- No Ragdoll Toggle
 local NoRagdoll = false
+local CharacterController = require(ReplicatedStorage.Controllers.RagdollController)
 local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
 local Controls = PlayerModule:GetControls()
 
+-- Save original ToggleControls
+local originalToggleControls = CharacterController.ToggleControls
+
 local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180) -- under BeeHive Immune
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180)
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: OFF"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
@@ -347,37 +351,32 @@ toggleNoRagdollBtn.MouseButton1Click:Connect(function()
     NoRagdoll = not NoRagdoll
     toggleNoRagdollBtn.Text = "No Ragdoll: " .. (NoRagdoll and "ON" or "OFF")
     updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
+
+    if NoRagdoll then
+        -- Override ToggleControls so it never disables movement
+        CharacterController.ToggleControls = function(_, enable)
+            -- Ignore disable attempts, always enable
+            Controls:Enable()
+        end
+    else
+        -- Restore default behavior when toggled off
+        CharacterController.ToggleControls = originalToggleControls
+    end
 end)
 
+-- Safety: Force exit ragdoll if something slips through
 RunService.Heartbeat:Connect(function()
     if NoRagdoll then
         local char = player.Character
         if char then
             local humanoid = char:FindFirstChild("Humanoid")
-            if humanoid then
-                -- If ragdolling, immediately restore walking state
-                if humanoid:GetState() == Enum.HumanoidStateType.Physics then
-                    humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-                    humanoid:ChangeState(Enum.HumanoidStateType.Running)
-                end
-
-                -- Make sure WalkSpeed/JumpPower aren’t being set to 0
-                if humanoid.WalkSpeed < 16 then humanoid.WalkSpeed = 16 end
-                if humanoid.JumpPower < 50 then humanoid.JumpPower = 50 end
+            if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
+                humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
-        end
-
-        -- Force controls back on
-        if Controls and not Controls.enabled then
-            Controls:Enable()
-        end
-
-        -- Kill ragdoll timer
-        if player:GetAttribute("RagdollEndTime") then
-            player:SetAttribute("RagdollEndTime", workspace:GetServerTimeNow())
         end
     end
 end)
+
 
 
 
