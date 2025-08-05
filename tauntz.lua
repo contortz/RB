@@ -18,7 +18,7 @@ local lastTauntTime = 0
 -- Position offsets
 local OffsetY = -10 -- Under Keepers
 local BehindOffsetY = 0 -- Height when behind
-local BehindDistance = 5 -- Default distance behind Keeper
+local BehindDistance = 14 -- Default distance behind Keeper
 
 --// GUI Creator
 local function createGui()
