@@ -167,26 +167,33 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
-    -- Auto PickMoney (Teleport to CFrame)
+-- Auto PickMoney (iPad-friendly)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+    lastPick = now
     pcall(function()
         local myHRP = myChar.HumanoidRootPart
         local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
         if moneyFolder then
-            for _, moneyObj in pairs(moneyFolder:GetChildren()) do
-                if moneyObj:IsA("Folder") or moneyObj:IsA("Model") then
-                    local targetPart = moneyObj:FindFirstChildWhichIsA("BasePart")
-                    local prompt = moneyObj:FindFirstChildOfClass("ProximityPrompt")
-                    if targetPart and prompt and prompt.Enabled then
-                        -- Teleport above money
-                        myHRP.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
-                        task.wait(0.05)
-                        fireproximityprompt(prompt)
-                        task.wait(0.1) -- slight delay before next money
+            -- Find nearest money
+            local closestMoney, closestDist
+            for _, obj in pairs(moneyFolder:GetChildren()) do
+                local part = obj:FindFirstChildWhichIsA("BasePart")
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                if part and prompt and prompt.Enabled then
+                    local dist = (myHRP.Position - part.Position).Magnitude
+                    if not closestDist or dist < closestDist then
+                        closestDist = dist
+                        closestMoney = {part = part, prompt = prompt}
                     end
                 end
             end
+
+            -- Teleport if found
+            if closestMoney then
+                myHRP.CFrame = closestMoney.part.CFrame + Vector3.new(0, 2, 0)
+                task.wait(0.05)
+                fireproximityprompt(closestMoney.prompt)
+            end
         end
-        lastPick = now
     end)
 end
