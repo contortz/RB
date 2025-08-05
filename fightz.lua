@@ -194,7 +194,7 @@ end
         local spawnedFolder = Workspace:FindFirstChild("Spawned")
         if spawnedFolder then
             for _, obj in pairs(spawnedFolder:GetChildren()) do
-                if obj.Name:lower():find("money") then
+                if obj.Name:lower():find("Money") then
                     PickMoneyRemote:InvokeServer(obj.Name)
                 end
             end
