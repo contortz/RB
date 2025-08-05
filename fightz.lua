@@ -145,30 +145,35 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Auto Follow (smooth interval)
-    if _G.AutoFollowEnabled and now - _G._lastFollow >= followInterval then
-        local searchFolder = Workspace:FindFirstChild("Spawned") or Workspace
-        local myChar = searchFolder:FindFirstChild(player.Name)
-        if myChar and myChar:FindFirstChild("Humanoid") and myChar:FindFirstChild("HumanoidRootPart") then
-            local myHRP = myChar.HumanoidRootPart
-            local myHumanoid = myChar.Humanoid
-            local closestHRP, closestDist = nil, math.huge
-            for _, obj in pairs(searchFolder:GetChildren()) do
-                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestHRP = obj.HumanoidRootPart
-                    end
+-- Auto Follow (smooth interval)
+if _G.AutoFollowEnabled and now - _G._lastFollow >= followInterval then
+    local searchFolder = Workspace:FindFirstChild("Spawned") or Workspace
+    local myChar = searchFolder:FindFirstChild(player.Name)
+    if myChar and myChar:FindFirstChild("Humanoid") and myChar:FindFirstChild("HumanoidRootPart") then
+        local myHRP = myChar.HumanoidRootPart
+        local myHumanoid = myChar.Humanoid
+        local closestHRP, closestDist = nil, math.huge
+        
+        for _, obj in pairs(searchFolder:GetChildren()) do
+            if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestHRP = obj.HumanoidRootPart
                 end
             end
-            if closestHRP then
-                local offset = 5
-                myHumanoid.WalkToPoint = closestHRP.Position - (closestHRP.CFrame.LookVector * offset)
-            end
-            _G._lastFollow = now
         end
+        
+        if closestHRP then
+            local targetPos = closestHRP.Position
+            local direction = (targetPos - myHRP.Position).Unit
+            myHumanoid.WalkToPoint = targetPos - direction * 3 -- stay ~3 studs back
+        end
+        
+        _G._lastFollow = now
     end
+end
+
 
     -- Auto PickMoney
     if _G.AutoPickMoneyEnabled and now - _G._lastPick >= pickMoneyCooldown then
