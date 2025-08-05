@@ -189,16 +189,20 @@ end
 
 
 
-    -- Auto PickMoney
-    if _G.AutoPickMoneyEnabled and now - _G._lastPick >= pickMoneyCooldown then
-        local spawnedFolder = Workspace:FindFirstChild("Spawned")
-        if spawnedFolder then
-            for _, obj in pairs(spawnedFolder:GetChildren()) do
-                if obj.Name:lower():find("Money") then
-                    PickMoneyRemote:InvokeServer(obj.Name)
+   -- Auto PickMoney (Triggers ProximityPrompt on all Spawned Money)
+if _G.AutoPickMoneyEnabled and now - _G._lastPick >= pickMoneyCooldown then
+    local spawnedFolder = Workspace:FindFirstChild("Spawned")
+    if spawnedFolder then
+        local moneyFolder = spawnedFolder:FindFirstChild("Money")
+        if moneyFolder then
+            for _, moneyObj in pairs(moneyFolder:GetChildren()) do
+                local prompt = moneyObj:FindFirstChildOfClass("ProximityPrompt")
+                if prompt and prompt.Enabled then
+                    fireproximityprompt(prompt) -- Simulates pressing E
                 end
             end
         end
-        _G._lastPick = now
     end
-end)
+    _G._lastPick = now
+end
+
