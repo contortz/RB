@@ -10,7 +10,9 @@ local Net = ReplicatedStorage:WaitForChild("Net")
 local AutoTauntEnabled = false
 local EquipMagicEnabled = false
 local KillAllEnabled = false
+local StayUnderKeepersEnabled = false
 local lastTauntTime = 0
+local OffsetY = -10 -- How far under Keepers you want to stay
 
 --// GUI Creator
 local function createGui()
@@ -48,7 +50,7 @@ local function createGui()
         return AutoTauntEnabled
     end)
 
-    -- Equip Magic Button
+    -- Equip Magic (Default Hat) Button
     createButton("Equip Magic", EquipMagicEnabled, function()
         EquipMagicEnabled = not EquipMagicEnabled
         return EquipMagicEnabled
@@ -58,6 +60,12 @@ local function createGui()
     createButton("Kill All Players", KillAllEnabled, function()
         KillAllEnabled = not KillAllEnabled
         return KillAllEnabled
+    end)
+
+    -- Stay Under Keepers Button
+    createButton("Stay Under Keepers", StayUnderKeepersEnabled, function()
+        StayUnderKeepersEnabled = not StayUnderKeepersEnabled
+        return StayUnderKeepersEnabled
     end)
 end
 
@@ -80,7 +88,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
         end
     end
 
-    -- Keep Magic equipped
+    -- Keep Magic equipped (default hat)
     if EquipMagicEnabled then
         Net:FireServer("Cosmetic.equip", "hatSkin", "bear")
     end
@@ -99,6 +107,30 @@ RunService.Heartbeat:Connect(function(deltaTime)
                     targetHRP.CFrame                 -- Target CFrame
                 )
             end
+        end
+    end
+
+    -- Stay Under Keepers
+    if StayUnderKeepersEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = player.Character.HumanoidRootPart
+        local closestKeeper = nil
+        local closestDist = math.huge
+        
+        -- Find closest Keeper
+        for _, target in pairs(Players:GetPlayers()) do
+            if target.Team and target.Team.Name == "Keeper" and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (hrp.Position - target.Character.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestKeeper = target
+                end
+            end
+        end
+
+        -- Lock under closest Keeper
+        if closestKeeper and closestKeeper.Character and closestKeeper.Character:FindFirstChild("HumanoidRootPart") then
+            local keeperHRP = closestKeeper.Character.HumanoidRootPart
+            hrp.CFrame = CFrame.new(keeperHRP.Position.X, keeperHRP.Position.Y + OffsetY, keeperHRP.Position.Z)
         end
     end
 end)
