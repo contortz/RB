@@ -189,7 +189,6 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and 
                 end
             end
         end
-
         lastPick = now
     end)
 end
