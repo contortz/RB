@@ -9,7 +9,7 @@ local Net = ReplicatedStorage:WaitForChild("Net")
 --// Feature Toggles
 local AutoTauntEnabled = false
 local EquipMagicEnabled = false
-local ShootPlayerEnabled = false
+local KillAllEnabled = false
 local lastTauntTime = 0
 
 --// GUI Creator
@@ -54,10 +54,10 @@ local function createGui()
         return EquipMagicEnabled
     end)
 
-    -- Shoot Player Button
-    createButton("Shoot Player", ShootPlayerEnabled, function()
-        ShootPlayerEnabled = not ShootPlayerEnabled
-        return ShootPlayerEnabled
+    -- Kill All Players Button
+    createButton("Kill All Players", KillAllEnabled, function()
+        KillAllEnabled = not KillAllEnabled
+        return KillAllEnabled
     end)
 end
 
@@ -69,7 +69,7 @@ end)
 -- Initial GUI
 createGui()
 
---// Loop: Auto Taunt + Equip Magic + Auto Shoot Player
+--// Main Loop
 RunService.Heartbeat:Connect(function(deltaTime)
     -- Auto Taunt once per second
     if AutoTauntEnabled then
@@ -82,14 +82,23 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
     -- Keep Magic equipped
     if EquipMagicEnabled then
-        Net:FireServer("Cosmetic.equip", "hatSkin", "Magic")
+        Net:FireServer("Cosmetic.equip", "hatSkin", "Bear")
     end
 
-    -- Force shooting hit (kills)
-    if ShootPlayerEnabled then
-        -- Dummy target data, server may override with real target
-        local pos1 = Vector3.new(1, 10, -44)
-        local pos2 = Vector3.new(-5, 9, -45)
-        Net:FireServer("Shooting.shotPlayer", pos1, pos2, "AnyTarget", CFrame.new())
+    -- Kill all players by shooting them at HRP
+    if KillAllEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local myHRP = player.Character.HumanoidRootPart.Position
+        for _, target in pairs(Players:GetPlayers()) do
+            if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local targetHRP = target.Character.HumanoidRootPart
+                Net:FireServer(
+                    "Shooting.shotPlayer",
+                    myHRP,                           -- Origin
+                    targetHRP.Position,              -- Target position
+                    target.Name,                     -- Target name
+                    targetHRP.CFrame                 -- Target CFrame
+                )
+            end
+        end
     end
 end)
