@@ -6,7 +6,7 @@ local RunService = game:GetService("RunService")
 -- Settings
 local player = Players.LocalPlayer
 local AutoFollowEnabled = false
-local FollowDistance = 5 -- studs away from target
+local FollowDistance = 5 -- studs away
 
 --// Create UI (persistent)
 if player.PlayerGui:FindFirstChild("FollowGui") then
@@ -31,45 +31,50 @@ ToggleButton.MouseButton1Click:Connect(function()
     ToggleButton.BackgroundColor3 = AutoFollowEnabled and Color3.fromRGB(0,200,0) or Color3.fromRGB(50,50,50)
 end)
 
---// Function to follow closest player
+--// Follow Closest Player from Workspace root
 local function followClosest()
-    local searchFolder = Workspace:FindFirstChild("Live") or Workspace
+    -- Find our character
+    local myCharacter = Workspace:FindFirstChild(player.Name)
+    if not myCharacter or not myCharacter:FindFirstChild("Humanoid") or not myCharacter:FindFirstChild("HumanoidRootPart") then
+        return
+    end
 
-    local myCharacter = searchFolder:FindFirstChild(player.Name)
-    if myCharacter and myCharacter:FindFirstChild("Humanoid") and myCharacter:FindFirstChild("HumanoidRootPart") then
-        local myHumanoid = myCharacter.Humanoid
-        local myHRP = myCharacter.HumanoidRootPart
+    local myHumanoid = myCharacter.Humanoid
+    local myHRP = myCharacter.HumanoidRootPart
 
-        -- Find closest other player
-        local closestPlayer, closestDist, closestHRP = nil, math.huge, nil
-        for _, otherChar in pairs(searchFolder:GetChildren()) do
-            if otherChar.Name ~= player.Name and otherChar:FindFirstChild("HumanoidRootPart") then
-                local dist = (myHRP.Position - otherChar.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestPlayer = otherChar
-                    closestHRP = otherChar.HumanoidRootPart
-                end
+    -- Find closest character with HumanoidRootPart
+    local closestHRP
+    local closestDist = math.huge
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("Model")
+        and obj.Name ~= player.Name
+        and obj:FindFirstChild("Humanoid")
+        and obj:FindFirstChild("HumanoidRootPart") then
+            
+            local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+            if dist < closestDist then
+                closestDist = dist
+                closestHRP = obj.HumanoidRootPart
             end
         end
+    end
 
-        -- Walk towards closest player
-        if closestPlayer and closestHRP then
-            local targetPos = closestHRP.Position
-            local direction = (targetPos - myHRP.Position).Unit * (closestDist - FollowDistance)
-            myHumanoid.WalkToPoint = targetPos - direction
-        end
+    -- Walk to closest player
+    if closestHRP then
+        local targetPos = closestHRP.Position
+        local direction = (targetPos - myHRP.Position).Unit * (closestDist - FollowDistance)
+        myHumanoid.WalkToPoint = targetPos - direction
     end
 end
 
---// Update loop
+--// Run every frame
 RunService.Heartbeat:Connect(function()
     if AutoFollowEnabled then
         followClosest()
     end
 end)
 
---// Re-hook after respawn
+-- Keep working after respawn
 player.CharacterAdded:Connect(function()
     if AutoFollowEnabled then
         RunService.Heartbeat:Connect(function()
