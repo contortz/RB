@@ -2,7 +2,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
@@ -16,30 +15,23 @@ local Toggles = {
     AutoPickMoney = false
 }
 
--- Create GUI before loading remotes
-pcall(createGui)
-
--- Remotes (safe WaitForChild to avoid nil)
-local PunchRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Punch")
-local ThrowRemote = ReplicatedStorage:WaitForChild("Utils"):WaitForChild("Throwables"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Throw")
-local SwingRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Swing")
-local PickMoneyRemote = ReplicatedStorage:WaitForChild("Stats"):WaitForChild("Core"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("PickMoney")
-
 -- Function to create GUI (persistent & draggable)
 local function createGui()
+    local playerGui = player:WaitForChild("PlayerGui")
+
     -- Remove old GUI if it exists
-    if CoreGui:FindFirstChild("StreetFightGui") then
-        CoreGui.StreetFightGui:Destroy()
+    if playerGui:FindFirstChild("StreetFightGui") then
+        playerGui.StreetFightGui:Destroy()
     end
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StreetFightGui"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
+    ScreenGui.Parent = playerGui
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 200, 0, 300)
-    MainFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150) -- Dead center
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -81,12 +73,20 @@ local function createGui()
     createButton("Auto PickMoney", "AutoPickMoney")
 end
 
+-- Create GUI immediately
+pcall(createGui)
 
 -- Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
     task.wait(1)
     pcall(createGui)
 end)
+
+-- Remotes (safe WaitForChild to avoid nil)
+local PunchRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Punch")
+local ThrowRemote = ReplicatedStorage:WaitForChild("Utils"):WaitForChild("Throwables"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Throw")
+local SwingRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Swing")
+local PickMoneyRemote = ReplicatedStorage:WaitForChild("Stats"):WaitForChild("Core"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("PickMoney")
 
 -- Cooldowns
 local punchCooldown = 0.2
@@ -171,32 +171,29 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
-   -- Auto PickMoney
-if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
-    pcall(function()
-        local myHRP = myChar.HumanoidRootPart
-        local originalCFrame = myHRP.CFrame
+    -- Auto PickMoney
+    if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local myHRP = myChar.HumanoidRootPart
+            local originalCFrame = myHRP.CFrame
 
-        -- ✅ Target the correct folder
-        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        if moneyFolder then
-            for _, obj in pairs(moneyFolder:GetChildren()) do
-                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                if prompt and prompt.Enabled then
-                    local moneyPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                    if moneyPart then
-                        -- Teleport to money’s CFrame
-                        myHRP.CFrame = moneyPart.CFrame + Vector3.new(0, 2, 0)
-                        task.wait(0.05) -- Let physics register
-                        fireproximityprompt(prompt)
+            local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+            if moneyFolder then
+                for _, obj in pairs(moneyFolder:GetChildren()) do
+                    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                    if prompt and prompt.Enabled then
+                        local moneyPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                        if moneyPart then
+                            myHRP.CFrame = moneyPart.CFrame + Vector3.new(0, 2, 0)
+                            task.wait(0.05)
+                            fireproximityprompt(prompt)
+                        end
                     end
                 end
             end
-        end
 
-        -- ✅ Teleport back to original position
-        myHRP.CFrame = originalCFrame
-        lastPick = now
-    end)
-end
-
+            myHRP.CFrame = originalCFrame
+            lastPick = now
+        end)
+    end
+end)
