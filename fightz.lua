@@ -80,71 +80,92 @@ createButton("Auto PickMoney", "AutoPickMoneyEnabled")
 
 -- Main Loop
 RunService.Heartbeat:Connect(function()
-    -- Auto Punch
-    if _G.AutoPunchEnabled then
-        for _ = 1, 25 do PunchRemote:InvokeServer() end
-    end
-    
-    -- Auto Swing
-    if _G.AutoSwingEnabled then
-        for _ = 1, 25 do SwingRemote:InvokeServer() end
-    end
+    local now = tick()
 
-    -- Auto Follow
-    if _G.AutoFollowEnabled then
-        local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-        local myChar = searchFolder:FindFirstChild(player.Name)
-        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-            local myHRP = myChar.HumanoidRootPart
-            local myHumanoid = myChar.Humanoid
-            local closestHRP, closestDist = nil, math.huge
-            for _, obj in pairs(searchFolder:GetChildren()) do
-                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestHRP = obj.HumanoidRootPart
-                    end
-                end
-            end
-            if closestHRP then
-                myHumanoid.WalkToPoint = closestHRP.Position
-            end
-        end
-    end
+-- Cooldown values (in seconds)
+local punchCooldown = 0.2
+local swingCooldown = 0.2
+local throwCooldown = 0.3
+local pickMoneyCooldown = 0.5
+local followInterval = 0.1
 
-    -- Auto Throw (aimed)
-    if _G.AutoThrowEnabled then
-        local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-        local myChar = searchFolder:FindFirstChild(player.Name)
-        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-            local myHRP = myChar.HumanoidRootPart
-            local closestHRP, closestDist = nil, math.huge
-            for _, obj in pairs(searchFolder:GetChildren()) do
-                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestHRP = obj.HumanoidRootPart
-                    end
-                end
-            end
-            if closestHRP then
-                local direction = (closestHRP.Position - myHRP.Position).Unit
-                for _ = 1, 5 do ThrowRemote:InvokeServer(direction) end
-            end
-        end
-    end
+-- Last-used timestamps
+_G._lastPunch = _G._lastPunch or 0
+_G._lastSwing = _G._lastSwing or 0
+_G._lastThrow = _G._lastThrow or 0
+_G._lastPick = _G._lastPick or 0
+_G._lastFollow = _G._lastFollow or 0
 
-    -- Auto PickMoney
-    if _G.AutoPickMoneyEnabled then
-        local spawnedFolder = Workspace:FindFirstChild("Spawned")
-        if spawnedFolder then
-            for _, obj in pairs(spawnedFolder:GetChildren()) do
-                if obj.Name:lower():find("money") then
-                    PickMoneyRemote:InvokeServer(obj.Name)
+-- Auto Punch
+if _G.AutoPunchEnabled and now - _G._lastPunch >= punchCooldown then
+    PunchRemote:InvokeServer()
+    _G._lastPunch = now
+end
+
+-- Auto Swing
+if _G.AutoSwingEnabled and now - _G._lastSwing >= swingCooldown then
+    SwingRemote:InvokeServer()
+    _G._lastSwing = now
+end
+
+-- Auto Throw (aimed at closest)
+if _G.AutoThrowEnabled and now - _G._lastThrow >= throwCooldown then
+    local searchFolder = Workspace:FindFirstChild("Spawned") or Workspace
+    local myChar = searchFolder:FindFirstChild(player.Name)
+    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+        local myHRP = myChar.HumanoidRootPart
+        local closestHRP, closestDist = nil, math.huge
+        for _, obj in pairs(searchFolder:GetChildren()) do
+            if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestHRP = obj.HumanoidRootPart
                 end
             end
         end
+        if closestHRP then
+            local direction = (closestHRP.Position - myHRP.Position).Unit
+            ThrowRemote:InvokeServer(direction)
+            _G._lastThrow = now
+        end
     end
-end)
+end
+
+-- Auto Follow (smooth interval)
+if _G.AutoFollowEnabled and now - _G._lastFollow >= followInterval then
+    local searchFolder = Workspace:FindFirstChild("Spawned") or Workspace
+    local myChar = searchFolder:FindFirstChild(player.Name)
+    if myChar and myChar:FindFirstChild("Humanoid") and myChar:FindFirstChild("HumanoidRootPart") then
+        local myHRP = myChar.HumanoidRootPart
+        local myHumanoid = myChar.Humanoid
+        local closestHRP, closestDist = nil, math.huge
+        for _, obj in pairs(searchFolder:GetChildren()) do
+            if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestHRP = obj.HumanoidRootPart
+                end
+            end
+        end
+        if closestHRP then
+            local offset = 5
+            myHumanoid.WalkToPoint = closestHRP.Position - (closestHRP.CFrame.LookVector * offset)
+        end
+        _G._lastFollow = now
+    end
+end
+
+-- Auto PickMoney
+if _G.AutoPickMoneyEnabled and now - _G._lastPick >= pickMoneyCooldown then
+    local spawnedFolder = Workspace:FindFirstChild("Spawned")
+    if spawnedFolder then
+        for _, obj in pairs(spawnedFolder:GetChildren()) do
+            if obj.Name:lower():find("money") then
+                PickMoneyRemote:InvokeServer(obj.Name)
+            end
+        end
+    end
+    _G._lastPick = now
+end
