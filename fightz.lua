@@ -13,7 +13,9 @@ local Toggles = {
     AutoPunch = false,
     AutoThrow = false,
     AutoSwing = false,
-    AutoPickMoney = false
+    AutoPickMoney = false,
+    ATMESP = false,
+    PlayerESP = false
 }
 
 -- GUI
@@ -27,7 +29,7 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 300)
+    MainFrame.Size = UDim2.new(0, 200, 0, 350)
     MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
@@ -65,6 +67,8 @@ local function createGui()
     createButton("Auto Throw", "AutoThrow")
     createButton("Auto Swing", "AutoSwing")
     createButton("Auto PickMoney", "AutoPickMoney")
+    createButton("ATM ESP", "ATMESP")
+    createButton("Player ESP", "PlayerESP")
 end
 
 createGui()
@@ -74,6 +78,73 @@ player.CharacterAdded:Connect(function() task.delay(1, createGui) end)
 local PunchRemote = ReplicatedStorage:FindFirstChild("Roles") and ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons:FindFirstChild("Punch")
 local ThrowRemote = ReplicatedStorage:FindFirstChild("Utils") and ReplicatedStorage.Utils.Throwables.Default.Remotes:FindFirstChild("Throw")
 local SwingRemote = ReplicatedStorage:FindFirstChild("Roles") and ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons:FindFirstChild("Swing")
+
+-- ESP Functions
+local function updateATMESP()
+    local atmsFolder = Workspace:FindFirstChild("ATMs")
+    if not atmsFolder then return end
+    for _, atm in pairs(atmsFolder:GetChildren()) do
+        local part = atm:IsA("BasePart") and atm or atm:FindFirstChildWhichIsA("BasePart")
+        if part then
+            if Toggles.ATMESP then
+                if not part:FindFirstChild("ATM_ESP") then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "ATM_ESP"
+                    billboard.Adornee = part
+                    billboard.Size = UDim2.new(0, 100, 0, 30)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = part
+
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.BackgroundTransparency = 1
+                    label.Text = "💰 ATM"
+                    label.TextColor3 = Color3.fromRGB(0, 255, 0)
+                    label.TextStrokeTransparency = 0
+                    label.TextScaled = true
+                    label.Parent = billboard
+                end
+            else
+                if part:FindFirstChild("ATM_ESP") then
+                    part.ATM_ESP:Destroy()
+                end
+            end
+        end
+    end
+end
+
+local function updatePlayerESP()
+    local charFolder = Workspace:FindFirstChild("Characters")
+    if not charFolder then return end
+    for _, char in pairs(charFolder:GetChildren()) do
+        if char:IsA("Model") and char.Name ~= player.Name and char:FindFirstChild("HumanoidRootPart") then
+            local hrp = char.HumanoidRootPart
+            if Toggles.PlayerESP then
+                if not hrp:FindFirstChild("Player_ESP") then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "Player_ESP"
+                    billboard.Adornee = hrp
+                    billboard.Size = UDim2.new(0, 100, 0, 30)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = hrp
+
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.BackgroundTransparency = 1
+                    label.Text = char.Name
+                    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    label.TextStrokeTransparency = 0
+                    label.TextScaled = true
+                    label.Parent = billboard
+                end
+            else
+                if hrp:FindFirstChild("Player_ESP") then
+                    hrp.Player_ESP:Destroy()
+                end
+            end
+        end
+    end
+end
 
 -- Cooldowns
 local punchCooldown, swingCooldown, throwCooldown, pickMoneyCooldown, followInterval = 0.2, 0.2, 0.3, 0.5, 0.1
@@ -85,6 +156,10 @@ RunService.Heartbeat:Connect(function()
         local now = tick()
         local myChar = player.Character or Workspace:FindFirstChild(player.Name)
         if not myChar then return end
+
+        -- ESP Updates
+        if Toggles.ATMESP then updateATMESP() end
+        if Toggles.PlayerESP then updatePlayerESP() end
 
         -- Auto Punch
         if Toggles.AutoPunch and now - lastPunch >= punchCooldown then
@@ -158,7 +233,7 @@ RunService.Heartbeat:Connect(function()
                             myHRP.CFrame = part.CFrame + Vector3.new(0, 2, 0)
                             task.wait(0.05)
                             fireproximityprompt(prompt)
-                            break -- pick one at a time
+                            break
                         end
                     end
                 end
