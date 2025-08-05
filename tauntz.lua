@@ -1,56 +1,95 @@
--- Auto Taunt Script (Persists After Respawn)
+--// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
-local AutoTauntEnabled = false
-local TauntEvent = ReplicatedStorage:WaitForChild("Net")
-local args = {"Taunt.play"}
-local lastFireTime = 0
+local Net = ReplicatedStorage:WaitForChild("Net")
 
--- Function to create the GUI
+--// Feature Toggles
+local AutoTauntEnabled = false
+local EquipMagicEnabled = false
+local ShootPlayerEnabled = false
+local lastTauntTime = 0
+
+--// GUI Creator
 local function createGui()
-    -- Remove old GUI if it exists
-    if player.PlayerGui:FindFirstChild("AutoTauntGui") then
-        player.PlayerGui:FindFirstChild("AutoTauntGui"):Destroy()
+    -- Remove old GUI if exists
+    if player.PlayerGui:FindFirstChild("CustomGui") then
+        player.PlayerGui.CustomGui:Destroy()
     end
     
     local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "AutoTauntGui"
+    ScreenGui.Name = "CustomGui"
     ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
-    local ToggleButton = Instance.new("TextButton")
-    ToggleButton.Size = UDim2.new(0, 150, 0, 40)
-    ToggleButton.Position = UDim2.new(0.05, 0, 0.05, 0)
-    ToggleButton.BackgroundColor3 = AutoTauntEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
-    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    ToggleButton.Text = "Auto Taunt: " .. (AutoTauntEnabled and "ON" or "OFF")
-    ToggleButton.Parent = ScreenGui
+    local yPos = 0.05
+    local function createButton(name, initialState, callback)
+        local button = Instance.new("TextButton")
+        button.Size = UDim2.new(0, 180, 0, 40)
+        button.Position = UDim2.new(0.05, 0, yPos, 0)
+        button.BackgroundColor3 = initialState and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
+        button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        button.Text = name .. ": " .. (initialState and "ON" or "OFF")
+        button.Parent = ScreenGui
 
-    -- Toggle function
-    ToggleButton.MouseButton1Click:Connect(function()
+        button.MouseButton1Click:Connect(function()
+            local state = callback()
+            button.Text = name .. ": " .. (state and "ON" or "OFF")
+            button.BackgroundColor3 = state and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
+        end)
+
+        yPos += 0.08
+    end
+
+    -- Auto Taunt Button
+    createButton("Auto Taunt", AutoTauntEnabled, function()
         AutoTauntEnabled = not AutoTauntEnabled
-        ToggleButton.Text = "Auto Taunt: " .. (AutoTauntEnabled and "ON" or "OFF")
-        ToggleButton.BackgroundColor3 = AutoTauntEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
+        return AutoTauntEnabled
+    end)
+
+    -- Equip Magic Button
+    createButton("Equip Magic", EquipMagicEnabled, function()
+        EquipMagicEnabled = not EquipMagicEnabled
+        return EquipMagicEnabled
+    end)
+
+    -- Shoot Player Button
+    createButton("Shoot Player", ShootPlayerEnabled, function()
+        ShootPlayerEnabled = not ShootPlayerEnabled
+        return ShootPlayerEnabled
     end)
 end
 
--- Recreate GUI on spawn
+--// Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
     createGui()
 end)
 
--- Create GUI initially
+-- Initial GUI
 createGui()
 
--- Loop (fires once per second)
+--// Loop: Auto Taunt + Equip Magic + Auto Shoot Player
 RunService.Heartbeat:Connect(function(deltaTime)
+    -- Auto Taunt once per second
     if AutoTauntEnabled then
-        lastFireTime = lastFireTime + deltaTime
-        if lastFireTime >= 1 then
-            TauntEvent:FireServer(unpack(args))
-            lastFireTime = 0
+        lastTauntTime += deltaTime
+        if lastTauntTime >= 1 then
+            Net:FireServer("Taunt.play")
+            lastTauntTime = 0
         end
+    end
+
+    -- Keep Magic equipped
+    if EquipMagicEnabled then
+        Net:FireServer("Cosmetic.equip", "hatSkin", "Magic")
+    end
+
+    -- Force shooting hit (kills)
+    if ShootPlayerEnabled then
+        -- Dummy target data, server may override with real target
+        local pos1 = Vector3.new(1, 10, -44)
+        local pos2 = Vector3.new(-5, 9, -45)
+        Net:FireServer("Shooting.shotPlayer", pos1, pos2, "AnyTarget", CFrame.new())
     end
 end)
