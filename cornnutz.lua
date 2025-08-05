@@ -347,6 +347,20 @@ local pauseDistance = 5
 local pauseTime = 0.35
 local lastPause = 0
 
+-- Helper to check if purchase prompt is visible in PlayerGui
+local function purchasePromptActive()
+    local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
+    if not promptGui then return false end
+    
+    local promptFrame = promptGui:FindFirstChild("Prompt", true)
+    if not promptFrame then return false end
+    
+    local actionText = promptFrame:FindFirstChild("ActionText", true)
+    if not actionText then return false end
+
+    return string.find(actionText.Text:lower(), "purchase") ~= nil
+end
+
 -- Walk Purchase Logic with pause + prompt check
 RunService.Heartbeat:Connect(function()
     if WalkPurchaseEnabled then
@@ -359,7 +373,7 @@ RunService.Heartbeat:Connect(function()
         local bestAnimal = nil
         local closestDistance = math.huge
 
-        -- Select target
+        -- Select highest generation target (closest if tie)
         for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
             local overhead = model:FindFirstChild("AnimalOverhead", true)
             local genLabel = overhead and overhead:FindFirstChild("Generation")
@@ -391,9 +405,8 @@ RunService.Heartbeat:Connect(function()
             if dist <= pauseDistance then
                 if tick() - lastPause >= pauseTime then
                     -- ✅ Check prompt after pause
-                    local prompt = bestAnimal:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    if not (prompt and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase")) then
-                        humanoid.WalkToPoint = hrp.Position -- stop if no prompt
+                    if not purchasePromptActive() then
+                        humanoid.WalkToPoint = hrp.Position -- stop if no prompt visible
                         return
                     end
                     lastPause = tick()
@@ -404,6 +417,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
 
 
 
