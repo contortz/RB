@@ -82,7 +82,7 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
     -- Keep Magic equipped
     if EquipMagicEnabled then
-        Net:FireServer("Cosmetic.equip", "hatSkin", "magic")
+        Net:FireServer("Cosmetic.equip", "hatSkin", "bear")
     end
 
     -- Kill all players by shooting them at HRP
