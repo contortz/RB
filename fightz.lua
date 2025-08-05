@@ -68,12 +68,13 @@ local function createGui()
     createButton("Auto Swing", "AutoSwing")
     createButton("Auto PickMoney", "AutoPickMoney")
     createButton("ATM ESP", "ATMESP")
-    createButton("Player ESP", "PlayerESP")
+-- After Player ESP toggle
+createButton("Player ESP", "PlayerESP")
 
-    -- ATM Teleport Button
+-- ATM Teleport Button
 local tpATMButton = Instance.new("TextButton")
 tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
-tpATMButton.Position = UDim2.new(0.05, 0, yPos, 0)
+tpATMButton.Position = UDim2.new(0.05, 0, yPos, 0) -- ✅ uses updated yPos
 tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
 tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 tpATMButton.Text = "Teleport Nearest ATM"
@@ -103,7 +104,6 @@ tpATMButton.MouseButton1Click:Connect(function()
 end)
 yPos += 0.15
 
-end
 
 createGui()
 player.CharacterAdded:Connect(function() task.delay(1, createGui) end)
