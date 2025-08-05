@@ -168,24 +168,28 @@ RunService.Heartbeat:Connect(function()
     end
 
     -- Auto PickMoney
-    if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local myHRP = myChar.HumanoidRootPart
-            local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-            if moneyFolder then
-                for _, obj in pairs(moneyFolder:GetChildren()) do
-                    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                    if prompt and prompt.Enabled then
-                        local targetPart = obj:FindFirstChildWhichIsA("BasePart")
-                        if targetPart then
-                            myHRP.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
-                            task.wait(0.05)
-                            fireproximityprompt(prompt)
-                        end
-                    end
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+    pcall(function()
+        local myHRP = myChar.HumanoidRootPart
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        
+        if moneyFolder then
+            for _, obj in pairs(moneyFolder:GetChildren()) do
+                -- ✅ Find prompt
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                
+                -- ✅ Find actual base part of the money model
+                local basePart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                
+                if prompt and prompt.Enabled and basePart then
+                    -- Teleport to the BasePart’s CFrame
+                    myHRP.CFrame = basePart.CFrame + Vector3.new(0, 2, 0)
+                    task.wait(0.05)
+                    fireproximityprompt(prompt)
                 end
             end
-            lastPick = now
-        end)
-    end
-end)
+        end
+
+        lastPick = now
+    end)
+end
