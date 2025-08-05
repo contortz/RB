@@ -170,34 +170,32 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
-    -- Auto PickMoney
-    if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local myHRP = myChar.HumanoidRootPart
-            local originalCFrame = myHRP.CFrame
+   -- Auto PickMoney
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+    pcall(function()
+        local myHRP = myChar.HumanoidRootPart
+        local originalCFrame = myHRP.CFrame
 
-            for _, obj in pairs(Workspace:GetChildren()) do
-                if obj:IsA("Model") and obj:FindFirstChildOfClass("ProximityPrompt") then
-                    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                    if prompt and prompt.Enabled then
-                        local moneyPos
-                        if obj.PrimaryPart then
-                            moneyPos = obj.PrimaryPart.Position
-                        elseif obj:FindFirstChild("Part") then
-                            moneyPos = obj.Part.Position
-                        else
-                            moneyPos = obj:GetModelCFrame().Position
-                        end
-                        
-                        myHRP.CFrame = CFrame.new(moneyPos + Vector3.new(0, 3, 0))
-                        task.wait(0.05)
+        -- ✅ Target the correct folder
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        if moneyFolder then
+            for _, obj in pairs(moneyFolder:GetChildren()) do
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                if prompt and prompt.Enabled then
+                    local moneyPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                    if moneyPart then
+                        -- Teleport to money’s CFrame
+                        myHRP.CFrame = moneyPart.CFrame + Vector3.new(0, 2, 0)
+                        task.wait(0.05) -- Let physics register
                         fireproximityprompt(prompt)
                     end
                 end
             end
+        end
 
-            myHRP.CFrame = originalCFrame
-            lastPick = now
-        end)
-    end
-end)
+        -- ✅ Teleport back to original position
+        myHRP.CFrame = originalCFrame
+        lastPick = now
+    end)
+end
+
