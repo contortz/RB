@@ -17,7 +17,8 @@ local Toggles = {
 
 -- Function to create GUI (persistent & draggable)
 local function createGui()
-    local playerGui = player:WaitForChild("PlayerGui")
+    local playerGui = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
+
 
     -- Remove old GUI if it exists
     if playerGui:FindFirstChild("StreetFightGui") then
@@ -73,18 +74,15 @@ local function createGui()
     createButton("Auto PickMoney", "AutoPickMoney")
 end
 
--- Create GUI once PlayerGui is available
-task.spawn(function()
-    repeat task.wait() until player:FindFirstChild("PlayerGui")
-    pcall(createGui)
-end)
+-- Create GUI immediately
+createGui()
 
 -- Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
-    task.delay(1, function()
-        pcall(createGui)
-    end)
+    task.wait(1)
+    createGui()
 end)
+
 
 
 -- Remotes (safe WaitForChild to avoid nil)
