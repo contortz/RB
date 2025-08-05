@@ -11,8 +11,11 @@ local AutoTauntEnabled = false
 local EquipMagicEnabled = false
 local KillAllEnabled = false
 local StayUnderKeepersEnabled = false
+local StayBehindKeeperEnabled = false
 local lastTauntTime = 0
 local OffsetY = -10 -- How far under Keepers you want to stay
+local BehindOffsetY = 0 -- Height when behind
+local BehindDistance = -5 -- Distance behind Keeper
 
 --// GUI Creator
 local function createGui()
@@ -66,6 +69,12 @@ local function createGui()
     createButton("Stay Under Keepers", StayUnderKeepersEnabled, function()
         StayUnderKeepersEnabled = not StayUnderKeepersEnabled
         return StayUnderKeepersEnabled
+    end)
+
+    -- Stay Behind Keeper Button
+    createButton("Stay Behind Keeper", StayBehindKeeperEnabled, function()
+        StayBehindKeeperEnabled = not StayBehindKeeperEnabled
+        return StayBehindKeeperEnabled
     end)
 end
 
@@ -124,7 +133,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
         local closestKeeper = nil
         local closestDist = math.huge
         
-        -- Find closest Keeper
         for _, target in pairs(Players:GetPlayers()) do
             if target.Team and target.Team.Name == "Keeper" and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
                 local dist = (hrp.Position - target.Character.HumanoidRootPart.Position).Magnitude
@@ -135,10 +143,31 @@ RunService.Heartbeat:Connect(function(deltaTime)
             end
         end
 
-        -- Lock under closest Keeper
         if closestKeeper and closestKeeper.Character and closestKeeper.Character:FindFirstChild("HumanoidRootPart") then
             local keeperHRP = closestKeeper.Character.HumanoidRootPart
             hrp.CFrame = CFrame.new(keeperHRP.Position.X, keeperHRP.Position.Y + OffsetY, keeperHRP.Position.Z)
+        end
+    end
+
+    -- Stay Behind Keeper
+    if StayBehindKeeperEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local hrp = player.Character.HumanoidRootPart
+        local closestKeeper = nil
+        local closestDist = math.huge
+        
+        for _, target in pairs(Players:GetPlayers()) do
+            if target.Team and target.Team.Name == "Keeper" and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (hrp.Position - target.Character.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestKeeper = target
+                end
+            end
+        end
+
+        if closestKeeper and closestKeeper.Character and closestKeeper.Character:FindFirstChild("HumanoidRootPart") then
+            local keeperHRP = closestKeeper.Character.HumanoidRootPart
+            hrp.CFrame = keeperHRP.CFrame * CFrame.new(0, BehindOffsetY, BehindDistance)
         end
     end
 end)
