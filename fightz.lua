@@ -16,6 +16,9 @@ local Toggles = {
     AutoPickMoney = false
 }
 
+-- Create GUI before loading remotes
+pcall(createGui)
+
 -- Remotes (safe WaitForChild to avoid nil)
 local PunchRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Punch")
 local ThrowRemote = ReplicatedStorage:WaitForChild("Utils"):WaitForChild("Throwables"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Throw")
@@ -78,8 +81,6 @@ local function createGui()
     createButton("Auto PickMoney", "AutoPickMoney")
 end
 
--- Create GUI initially
-pcall(createGui)
 
 -- Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
