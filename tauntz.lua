@@ -90,14 +90,22 @@ RunService.Heartbeat:Connect(function(deltaTime)
 
     -- Keep Magic equipped (default hat)
     if EquipMagicEnabled then
-        Net:FireServer("Cosmetic.equip", "hatSkin", "magic")
+        Net:FireServer("Cosmetic.equip", "hatSkin", "default")
     end
 
-    -- Kill all players by shooting them at HRP
+    -- Kill all players by shooting them at HRP (Skip Keepers / Own Team)
     if KillAllEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        local myTeam = player.Team and player.Team.Name
         local myHRP = player.Character.HumanoidRootPart.Position
+        
         for _, target in pairs(Players:GetPlayers()) do
-            if target ~= player and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            if target ~= player
+                and target.Team
+                and target.Team.Name ~= "Keeper"
+                and target.Team.Name ~= myTeam
+                and target.Character
+                and target.Character:FindFirstChild("HumanoidRootPart") then
+                
                 local targetHRP = target.Character.HumanoidRootPart
                 Net:FireServer(
                     "Shooting.shotPlayer",
