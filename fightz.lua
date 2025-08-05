@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 
@@ -13,14 +14,10 @@ local AutoSwingEnabled = false
 local AutoPickMoneyEnabled = false
 
 -- Remotes
-local PunchRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Punch")
-local ThrowRemote = ReplicatedStorage:WaitForChild("Utils"):WaitForChild("Throwables"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Throw")
-local SwingRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Swing")
-local PickMoneyRemote = ReplicatedStorage:WaitForChild("Stats"):WaitForChild("Core"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("PickMoney")
-
--- Default Throw Vector + PickMoney ID
-local ThrowVector = Vector3.new(0.09, 0, -0.99)
-local PickMoneyID = "2c476e20-7e93-4ad0-bdc8-bd781e73c0e9"
+local PunchRemote = ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Punch
+local ThrowRemote = ReplicatedStorage.Utils.Throwables.Default.Remotes.Throw
+local SwingRemote = ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Swing
+local PickMoneyRemote = ReplicatedStorage.Stats.Core.Default.Remotes.PickMoney
 
 -- Create GUI (persistent & draggable)
 if player.PlayerGui:FindFirstChild("StreetFightGui") then
@@ -33,7 +30,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player.PlayerGui
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 250)
+MainFrame.Size = UDim2.new(0, 200, 0, 300) -- increased height
 MainFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.Active = true
@@ -83,99 +80,71 @@ createButton("Auto PickMoney", "AutoPickMoneyEnabled")
 
 -- Main Loop
 RunService.Heartbeat:Connect(function()
-    -- Auto Punch (25/sec)
+    -- Auto Punch
     if _G.AutoPunchEnabled then
-        for _ = 1, 25 do
-            PunchRemote:InvokeServer()
+        for _ = 1, 25 do PunchRemote:InvokeServer() end
+    end
+    
+    -- Auto Swing
+    if _G.AutoSwingEnabled then
+        for _ = 1, 25 do SwingRemote:InvokeServer() end
+    end
+
+    -- Auto Follow
+    if _G.AutoFollowEnabled then
+        local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
+        local myChar = searchFolder:FindFirstChild(player.Name)
+        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+            local myHRP = myChar.HumanoidRootPart
+            local myHumanoid = myChar.Humanoid
+            local closestHRP, closestDist = nil, math.huge
+            for _, obj in pairs(searchFolder:GetChildren()) do
+                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestHRP = obj.HumanoidRootPart
+                    end
+                end
+            end
+            if closestHRP then
+                myHumanoid.WalkToPoint = closestHRP.Position
+            end
         end
     end
 
-    -- Auto Throw (5/sec for stability)
+    -- Auto Throw (aimed)
     if _G.AutoThrowEnabled then
-        for _ = 1, 5 do
-            ThrowRemote:InvokeServer(ThrowVector)
+        local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
+        local myChar = searchFolder:FindFirstChild(player.Name)
+        if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+            local myHRP = myChar.HumanoidRootPart
+            local closestHRP, closestDist = nil, math.huge
+            for _, obj in pairs(searchFolder:GetChildren()) do
+                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestHRP = obj.HumanoidRootPart
+                    end
+                end
+            end
+            if closestHRP then
+                local direction = (closestHRP.Position - myHRP.Position).Unit
+                for _ = 1, 5 do ThrowRemote:InvokeServer(direction) end
+            end
         end
     end
 
-
--- Auto Follow (walk to closest player)
-if _G.AutoFollowEnabled then
-    local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-    local myChar = searchFolder:FindFirstChild(player.Name)
-
-    if myChar and myChar:FindFirstChild("Humanoid") and myChar:FindFirstChild("HumanoidRootPart") then
-        local myHRP = myChar.HumanoidRootPart
-        local myHumanoid = myChar.Humanoid
-
-        local closestHRP = nil
-        local closestDist = math.huge
-
-        for _, obj in pairs(searchFolder:GetChildren()) do
-            if obj:IsA("Model")
-            and obj.Name ~= player.Name
-            and obj:FindFirstChild("Humanoid")
-            and obj:FindFirstChild("HumanoidRootPart") then
-                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestHRP = obj.HumanoidRootPart
+    -- Auto PickMoney
+    if _G.AutoPickMoneyEnabled then
+        local spawnedFolder = Workspace:FindFirstChild("Spawned")
+        if spawnedFolder then
+            for _, obj in pairs(spawnedFolder:GetChildren()) do
+                if obj.Name:lower():find("money") then
+                    PickMoneyRemote:InvokeServer(obj.Name)
                 end
             end
         end
-
-        if closestHRP then
-            local targetPos = closestHRP.Position
-            local direction = (targetPos - myHRP.Position).Unit * (closestDist - 5)
-            myHumanoid.WalkToPoint = targetPos - direction
-        end
     end
-end
-
-
--- Auto Throw (aim at closest player)
-if _G.AutoThrowEnabled then
-    local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-    local myChar = searchFolder:FindFirstChild(player.Name)
-
-    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
-        local myHRP = myChar.HumanoidRootPart
-        local closestHRP
-        local closestDist = math.huge
-
-        -- Find closest enemy
-        for _, obj in pairs(searchFolder:GetChildren()) do
-            if obj:IsA("Model")
-            and obj.Name ~= player.Name
-            and obj:FindFirstChild("Humanoid")
-            and obj:FindFirstChild("HumanoidRootPart") then
-                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestHRP = obj.HumanoidRootPart
-                end
-            end
-        end
-
-        -- Throw at target if found
-        if closestHRP then
-            local direction = (closestHRP.Position - myHRP.Position).Unit
-            for _ = 1, 5 do
-                ThrowRemote:InvokeServer(direction)
-            end
-        end
-    end
-end
-
-
-    --- Auto PickMoney (grab money from Workspace.Spawned)
-if _G.AutoPickMoneyEnabled then
-    local spawnedFolder = Workspace:FindFirstChild("Spawned")
-    if spawnedFolder then
-        for _, obj in pairs(spawnedFolder:GetChildren()) do
-            -- Look for money objects
-            if obj.Name:lower():find("Money") then
-                PickMoneyRemote:InvokeServer(obj.Name)
-            end
-        end
-    end
-end
+end)
