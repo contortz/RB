@@ -171,33 +171,23 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
--- Auto PickMoney (spawn to money and stay there)
+-- Auto PickMoney (spawn to money prompt position)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
     pcall(function()
         local myHRP = myChar.HumanoidRootPart
-
         local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        
         if moneyFolder then
-            local closestMoney, closestDist = nil, math.huge
-
             for _, obj in pairs(moneyFolder:GetChildren()) do
-                local moneyPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                if moneyPart then
-                    local dist = (myHRP.Position - moneyPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestMoney = moneyPart
-                    end
-                end
-            end
-
-            -- Teleport to closest money and fire prompt
-            if closestMoney then
-                myHRP.CFrame = closestMoney.CFrame + Vector3.new(0, 2, 0)
-                task.wait(0.05)
-                local prompt = closestMoney.Parent:FindFirstChildOfClass("ProximityPrompt")
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
                 if prompt and prompt.Enabled then
-                    fireproximityprompt(prompt)
+                    -- Try to find ANY BasePart inside to use for CFrame
+                    local targetPart = obj:FindFirstChildWhichIsA("BasePart")
+                    if targetPart then
+                        myHRP.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
+                        task.wait(0.05)
+                        fireproximityprompt(prompt)
+                    end
                 end
             end
         end
@@ -205,4 +195,3 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and 
         lastPick = now
     end)
 end
-
