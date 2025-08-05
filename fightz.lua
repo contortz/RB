@@ -71,38 +71,42 @@ local function createGui()
     createButton("ATM ESP", "ATMESP")
     createButton("Player ESP", "PlayerESP")
 
-    -- ATM Teleport Button
-    local tpATMButton = Instance.new("TextButton")
-    tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
-    tpATMButton.Position = UDim2.new(0.05, 0, yPos, 0)
-    tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-    tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tpATMButton.Text = "Teleport Nearest ATM"
-    tpATMButton.Parent = MainFrame
-    tpATMButton.MouseButton1Click:Connect(function()
-        local myChar = player.Character
-        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
-        local myHRP = myChar.HumanoidRootPart
+    -- ATM Teleport (Cycle Mode)
+local atmIndex = 1 -- Tracks which ATM we are on
 
-        local atmsFolder = Workspace:FindFirstChild("ATMs")
-        if atmsFolder then
-            local closestATM, closestDist
-            for _, atm in pairs(atmsFolder:GetChildren()) do
-                local part = atm:IsA("BasePart") and atm or atm:FindFirstChildWhichIsA("BasePart")
-                if part then
-                    local dist = (myHRP.Position - part.Position).Magnitude
-                    if not closestDist or dist < closestDist then
-                        closestDist = dist
-                        closestATM = part
-                    end
-                end
-            end
-            if closestATM then
-                myHRP.CFrame = closestATM.CFrame + Vector3.new(0, 5, 0)
-            end
+local tpATMButton = Instance.new("TextButton")
+tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
+tpATMButton.Position = UDim2.new(0.05, 0, yPos, 0)
+tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpATMButton.Text = "Teleport Next ATM"
+tpATMButton.Parent = MainFrame
+tpATMButton.MouseButton1Click:Connect(function()
+    local myChar = player.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+    local myHRP = myChar.HumanoidRootPart
+
+    local atmsFolder = Workspace:FindFirstChild("ATMs")
+    if atmsFolder and #atmsFolder:GetChildren() > 0 then
+        -- Wrap around if index goes past total ATMs
+        if atmIndex > #atmsFolder:GetChildren() then
+            atmIndex = 1
         end
-    end)
-    yPos += 0.15
+
+        -- Get ATM at current index
+        local atm = atmsFolder:GetChildren()[atmIndex]
+        local part = atm:IsA("BasePart") and atm or atm:FindFirstChildWhichIsA("BasePart")
+
+        -- Teleport to it
+        if part then
+            myHRP.CFrame = part.CFrame + Vector3.new(0, 5, 0)
+        end
+
+        -- Move to next index
+        atmIndex += 1
+    end
+end)
+yPos += 0.15
 end -- ✅ CLOSES createGui()
 
 
