@@ -564,7 +564,7 @@ end)
 -- Check if "IN MACHINE"
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
-    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "fUSING"
+    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "FUSING"
 end
 
 -- World ESP
