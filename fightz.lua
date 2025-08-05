@@ -167,8 +167,15 @@ if _G.AutoThrowEnabled then
 end
 
 
-    -- Auto PickMoney (constant attempt)
-    if _G.AutoPickMoneyEnabled then
-        PickMoneyRemote:InvokeServer(PickMoneyID)
+    --- Auto PickMoney (grab money from Workspace.Spawned)
+if _G.AutoPickMoneyEnabled then
+    local spawnedFolder = Workspace:FindFirstChild("Spawned")
+    if spawnedFolder then
+        for _, obj in pairs(spawnedFolder:GetChildren()) do
+            -- Look for money objects
+            if obj.Name:lower():find("Money") then
+                PickMoneyRemote:InvokeServer(obj.Name)
+            end
+        end
     end
-end)
+end
