@@ -167,23 +167,25 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
- if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+-- Auto PickMoney (Warp to money base parts safely)
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown 
+and myChar and myChar:FindFirstChild("HumanoidRootPart") then
     pcall(function()
         local myHRP = myChar.HumanoidRootPart
         local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
         
         if moneyFolder then
             for _, obj in pairs(moneyFolder:GetChildren()) do
-                -- 🧠 Just get the base part of the object
+                -- ✅ Find the base part of the money model
                 local basePart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
                 
-                if basePart then
+                -- ✅ Triple check to avoid nil or destroyed parts
+                if basePart and basePart.Parent and basePart:IsDescendantOf(moneyFolder) then
                     myHRP.CFrame = basePart.CFrame + Vector3.new(0, 2, 0)
                     task.wait(0.05)
                 end
             end
         end
-
         lastPick = now
     end)
 end
