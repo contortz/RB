@@ -167,25 +167,30 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
--- Auto PickMoney (Warp to money base parts safely)
+-- Auto PickMoney (Warp to money without blocking Heartbeat)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown 
 and myChar and myChar:FindFirstChild("HumanoidRootPart") then
     pcall(function()
         local myHRP = myChar.HumanoidRootPart
         local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        
+
         if moneyFolder then
+            -- Just grab the first valid money part this frame
+            local targetMoney = nil
             for _, obj in pairs(moneyFolder:GetChildren()) do
-                -- ✅ Find the base part of the money model
                 local basePart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                
-                -- ✅ Triple check to avoid nil or destroyed parts
-                if basePart and basePart.Parent and basePart:IsDescendantOf(moneyFolder) then
-                    myHRP.CFrame = basePart.CFrame + Vector3.new(0, 2, 0)
-                    task.wait(0.05)
+                if basePart and basePart.Parent then
+                    targetMoney = basePart
+                    break -- stop after first one this frame
                 end
+            end
+
+            -- Teleport once per Heartbeat (no blocking wait)
+            if targetMoney then
+                myHRP.CFrame = targetMoney.CFrame + Vector3.new(0, 2, 0)
             end
         end
         lastPick = now
     end)
 end
+
