@@ -73,14 +73,19 @@ local function createGui()
     createButton("Auto PickMoney", "AutoPickMoney")
 end
 
--- Create GUI immediately
-pcall(createGui)
+-- Create GUI once PlayerGui is available
+task.spawn(function()
+    repeat task.wait() until player:FindFirstChild("PlayerGui")
+    pcall(createGui)
+end)
 
 -- Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
-    task.wait(1)
-    pcall(createGui)
+    task.delay(1, function()
+        pcall(createGui)
+    end)
 end)
+
 
 -- Remotes (safe WaitForChild to avoid nil)
 local PunchRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Punch")
