@@ -167,28 +167,23 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
-    -- Auto PickMoney
-if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
     pcall(function()
         local myHRP = myChar.HumanoidRootPart
         local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
         
         if moneyFolder then
             for _, obj in pairs(moneyFolder:GetChildren()) do
-                -- ✅ Find prompt
-                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                
-                -- ✅ Find actual base part of the money model
+                -- 🧠 Just get the base part of the object
                 local basePart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
                 
-                if prompt and prompt.Enabled and basePart then
-                    -- Teleport to the BasePart’s CFrame
+                if basePart then
                     myHRP.CFrame = basePart.CFrame + Vector3.new(0, 2, 0)
                     task.wait(0.05)
-                    fireproximityprompt(prompt)
                 end
             end
         end
+
         lastPick = now
     end)
 end
