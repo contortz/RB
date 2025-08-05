@@ -14,7 +14,7 @@ if player.PlayerGui:FindFirstChild("FollowGui") then
 end
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "FollowGui"
-ScreenGui.ResetOnSpawn = false -- 🔹 keeps UI on respawn
+ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = player.PlayerGui
 
 local ToggleButton = Instance.new("TextButton")
@@ -33,17 +33,16 @@ end)
 
 --// Function to follow closest player
 local function followClosest()
-    local liveFolder = Workspace:FindFirstChild("Live")
-    if not liveFolder then return end
+    local searchFolder = Workspace:FindFirstChild("Live") or Workspace
 
-    local myCharacter = liveFolder:FindFirstChild(player.Name)
+    local myCharacter = searchFolder:FindFirstChild(player.Name)
     if myCharacter and myCharacter:FindFirstChild("Humanoid") and myCharacter:FindFirstChild("HumanoidRootPart") then
         local myHumanoid = myCharacter.Humanoid
         local myHRP = myCharacter.HumanoidRootPart
 
         -- Find closest other player
         local closestPlayer, closestDist, closestHRP = nil, math.huge, nil
-        for _, otherChar in pairs(liveFolder:GetChildren()) do
+        for _, otherChar in pairs(searchFolder:GetChildren()) do
             if otherChar.Name ~= player.Name and otherChar:FindFirstChild("HumanoidRootPart") then
                 local dist = (myHRP.Position - otherChar.HumanoidRootPart.Position).Magnitude
                 if dist < closestDist then
@@ -72,7 +71,6 @@ end)
 
 --// Re-hook after respawn
 player.CharacterAdded:Connect(function()
-    -- Character respawned, keep following if enabled
     if AutoFollowEnabled then
         RunService.Heartbeat:Connect(function()
             if AutoFollowEnabled then
