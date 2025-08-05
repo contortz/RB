@@ -171,29 +171,38 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
-    -- Auto PickMoney
-    if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local myHRP = myChar.HumanoidRootPart
-            local originalCFrame = myHRP.CFrame
+-- Auto PickMoney (spawn to money and stay there)
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+    pcall(function()
+        local myHRP = myChar.HumanoidRootPart
 
-            local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-            if moneyFolder then
-                for _, obj in pairs(moneyFolder:GetChildren()) do
-                    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                    if prompt and prompt.Enabled then
-                        local moneyPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
-                        if moneyPart then
-                            myHRP.CFrame = moneyPart.CFrame + Vector3.new(0, 2, 0)
-                            task.wait(0.05)
-                            fireproximityprompt(prompt)
-                        end
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        if moneyFolder then
+            local closestMoney, closestDist = nil, math.huge
+
+            for _, obj in pairs(moneyFolder:GetChildren()) do
+                local moneyPart = obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")
+                if moneyPart then
+                    local dist = (myHRP.Position - moneyPart.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestMoney = moneyPart
                     end
                 end
             end
 
-            myHRP.CFrame = originalCFrame
-            lastPick = now
-        end)
-    end
-end)
+            -- Teleport to closest money and fire prompt
+            if closestMoney then
+                myHRP.CFrame = closestMoney.CFrame + Vector3.new(0, 2, 0)
+                task.wait(0.05)
+                local prompt = closestMoney.Parent:FindFirstChildOfClass("ProximityPrompt")
+                if prompt and prompt.Enabled then
+                    fireproximityprompt(prompt)
+                end
+            end
+        end
+
+        lastPick = now
+    end)
+end
+
