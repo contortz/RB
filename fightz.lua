@@ -114,30 +114,47 @@ local function updateATMESP()
 end
 
 local function updatePlayerESP()
+    local myChar = player.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+    local myHRP = myChar.HumanoidRootPart
+
     local charFolder = Workspace:FindFirstChild("Characters")
     if not charFolder then return end
+
     for _, char in pairs(charFolder:GetChildren()) do
         if char:IsA("Model") and char.Name ~= player.Name and char:FindFirstChild("HumanoidRootPart") then
             local hrp = char.HumanoidRootPart
+            local humanoid = char:FindFirstChild("Humanoid")
+            local healthText = humanoid and math.floor(humanoid.Health) or "?"
+            local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
+
             if Toggles.PlayerESP then
+                -- Create ESP if not exists
                 if not hrp:FindFirstChild("Player_ESP") then
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "Player_ESP"
                     billboard.Adornee = hrp
-                    billboard.Size = UDim2.new(0, 100, 0, 30)
+                    billboard.Size = UDim2.new(0, 150, 0, 40)
                     billboard.AlwaysOnTop = true
                     billboard.Parent = hrp
 
                     local label = Instance.new("TextLabel")
                     label.Size = UDim2.new(1, 0, 1, 0)
                     label.BackgroundTransparency = 1
-                    label.Text = char.Name
                     label.TextColor3 = Color3.fromRGB(255, 0, 0)
                     label.TextStrokeTransparency = 0
                     label.TextScaled = true
+                    label.Text = string.format("%s | HP: %s | %dm", char.Name, healthText, distText)
                     label.Parent = billboard
+                else
+                    -- Update ESP text
+                    local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
+                    if label then
+                        label.Text = string.format("%s | HP: %s | %dm", char.Name, healthText, distText)
+                    end
                 end
             else
+                -- Remove ESP if toggle off
                 if hrp:FindFirstChild("Player_ESP") then
                     hrp.Player_ESP:Destroy()
                 end
@@ -145,6 +162,7 @@ local function updatePlayerESP()
         end
     end
 end
+
 
 -- Cooldowns
 local punchCooldown, swingCooldown, throwCooldown, pickMoneyCooldown, followInterval = 0.2, 0.2, 0.3, 0.5, 0.1
