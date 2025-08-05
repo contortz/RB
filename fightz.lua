@@ -3,6 +3,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
+local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 
@@ -17,22 +18,19 @@ local Toggles = {
 
 -- Function to create GUI (persistent & draggable)
 local function createGui()
-    local playerGui = player:FindFirstChild("PlayerGui") or player:WaitForChild("PlayerGui")
-
-
     -- Remove old GUI if it exists
-    if playerGui:FindFirstChild("StreetFightGui") then
-        playerGui.StreetFightGui:Destroy()
+    if CoreGui:FindFirstChild("StreetFightGui") then
+        CoreGui.StreetFightGui:Destroy()
     end
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StreetFightGui"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = playerGui
+    ScreenGui.Parent = CoreGui -- ✅ CoreGui so it always works
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 200, 0, 300)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150) -- Dead center
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150) -- Center
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -74,18 +72,17 @@ local function createGui()
     createButton("Auto PickMoney", "AutoPickMoney")
 end
 
--- Create GUI immediately
+-- ✅ Create GUI immediately
 createGui()
 
--- Recreate GUI on respawn
+-- ✅ Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
-    task.wait(1)
-    createGui()
+    task.delay(1, function()
+        createGui()
+    end)
 end)
 
-
-
--- Remotes (safe WaitForChild to avoid nil)
+-- Remotes
 local PunchRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Punch")
 local ThrowRemote = ReplicatedStorage:WaitForChild("Utils"):WaitForChild("Throwables"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Throw")
 local SwingRemote = ReplicatedStorage:WaitForChild("Roles"):WaitForChild("Tools"):WaitForChild("Default"):WaitForChild("Remotes"):WaitForChild("Weapons"):WaitForChild("Swing")
@@ -128,7 +125,6 @@ RunService.Heartbeat:Connect(function()
             local myHRP = myChar.HumanoidRootPart
             local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
             local closestHRP, closestDist = nil, math.huge
-
             for _, obj in pairs(searchFolder:GetChildren()) do
                 if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
                     local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
@@ -138,7 +134,6 @@ RunService.Heartbeat:Connect(function()
                     end
                 end
             end
-
             if closestHRP then
                 local direction = (closestHRP.Position - myHRP.Position).Unit
                 ThrowRemote:InvokeServer(direction)
@@ -154,7 +149,6 @@ RunService.Heartbeat:Connect(function()
             local myHumanoid = myChar:FindFirstChild("Humanoid")
             local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
             local closestHRP, closestDist = nil, math.huge
-
             for _, obj in pairs(searchFolder:GetChildren()) do
                 if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
                     local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
@@ -164,7 +158,6 @@ RunService.Heartbeat:Connect(function()
                     end
                 end
             end
-
             if closestHRP and myHumanoid then
                 local targetPos = closestHRP.Position
                 local direction = (targetPos - myHRP.Position).Unit * (closestDist - 5)
@@ -174,27 +167,25 @@ RunService.Heartbeat:Connect(function()
         end)
     end
 
--- Auto PickMoney (spawn to money prompt position)
-if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
-    pcall(function()
-        local myHRP = myChar.HumanoidRootPart
-        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        
-        if moneyFolder then
-            for _, obj in pairs(moneyFolder:GetChildren()) do
-                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                if prompt and prompt.Enabled then
-                    -- Try to find ANY BasePart inside to use for CFrame
-                    local targetPart = obj:FindFirstChildWhichIsA("BasePart")
-                    if targetPart then
-                        myHRP.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
-                        task.wait(0.05)
-                        fireproximityprompt(prompt)
+    -- Auto PickMoney
+    if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar and myChar:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local myHRP = myChar.HumanoidRootPart
+            local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+            if moneyFolder then
+                for _, obj in pairs(moneyFolder:GetChildren()) do
+                    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                    if prompt and prompt.Enabled then
+                        local targetPart = obj:FindFirstChildWhichIsA("BasePart")
+                        if targetPart then
+                            myHRP.CFrame = targetPart.CFrame + Vector3.new(0, 2, 0)
+                            task.wait(0.05)
+                            fireproximityprompt(prompt)
+                        end
                     end
                 end
             end
-        end
-
-        lastPick = now
-    end)
-end
+            lastPick = now
+        end)
+    end
+end)
