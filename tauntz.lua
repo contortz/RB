@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local Net = ReplicatedStorage:WaitForChild("Net")
@@ -13,9 +14,11 @@ local KillAllEnabled = false
 local StayUnderKeepersEnabled = false
 local StayBehindKeeperEnabled = false
 local lastTauntTime = 0
-local OffsetY = -10 -- How far under Keepers you want to stay
+
+-- Position offsets
+local OffsetY = -10 -- Under Keepers
 local BehindOffsetY = 0 -- Height when behind
-local BehindDistance = -5 -- Distance behind Keeper
+local BehindDistance = 5 -- Default distance behind Keeper
 
 --// GUI Creator
 local function createGui()
@@ -47,34 +50,66 @@ local function createGui()
         yPos += 0.08
     end
 
-    -- Auto Taunt Button
+    -- Toggle Buttons
     createButton("Auto Taunt", AutoTauntEnabled, function()
         AutoTauntEnabled = not AutoTauntEnabled
         return AutoTauntEnabled
     end)
 
-    -- Equip Magic (Default Hat) Button
     createButton("Equip Magic", EquipMagicEnabled, function()
         EquipMagicEnabled = not EquipMagicEnabled
         return EquipMagicEnabled
     end)
 
-    -- Kill All Players Button
     createButton("Kill All Players", KillAllEnabled, function()
         KillAllEnabled = not KillAllEnabled
         return KillAllEnabled
     end)
 
-    -- Stay Under Keepers Button
     createButton("Stay Under Keepers", StayUnderKeepersEnabled, function()
         StayUnderKeepersEnabled = not StayUnderKeepersEnabled
         return StayUnderKeepersEnabled
     end)
 
-    -- Stay Behind Keeper Button
     createButton("Stay Behind Keeper", StayBehindKeeperEnabled, function()
         StayBehindKeeperEnabled = not StayBehindKeeperEnabled
         return StayBehindKeeperEnabled
+    end)
+
+    -- Slider Label
+    local sliderLabel = Instance.new("TextLabel")
+    sliderLabel.Size = UDim2.new(0, 180, 0, 20)
+    sliderLabel.Position = UDim2.new(0.05, 0, yPos, 0)
+    sliderLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    sliderLabel.Text = "Behind Distance: " .. BehindDistance
+    sliderLabel.Parent = ScreenGui
+    yPos += 0.04
+
+    -- Slider Bar
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(0, 180, 0, 10)
+    sliderFrame.Position = UDim2.new(0.05, 0, yPos, 0)
+    sliderFrame.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    sliderFrame.Parent = ScreenGui
+
+    -- Slider Handle
+    local sliderHandle = Instance.new("Frame")
+    sliderHandle.Size = UDim2.new(0, 10, 0, 20)
+    sliderHandle.Position = UDim2.new(BehindDistance / 20, -5, -0.5, 0) -- scale handle
+    sliderHandle.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    sliderHandle.Parent = sliderFrame
+    sliderHandle.Active = true
+    sliderHandle.Draggable = true
+
+    -- Slider Logic
+    sliderHandle.MouseMoved:Connect(function(x)
+        if UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then
+            local sliderX = math.clamp((x - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
+            sliderHandle.Position = UDim2.new(sliderX, -5, -0.5, 0)
+            BehindDistance = math.floor(sliderX * 20) -- range 0–20 studs
+            sliderLabel.Text = "Behind Distance: " .. BehindDistance
+        end
     end)
 end
 
@@ -102,27 +137,19 @@ RunService.Heartbeat:Connect(function(deltaTime)
         Net:FireServer("Cosmetic.equip", "hatSkin", "default")
     end
 
-    -- Kill all players by shooting them at HRP (Skip Keepers / Own Team)
+    -- Kill all players except Keepers / own team
     if KillAllEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local myTeam = player.Team and player.Team.Name
         local myHRP = player.Character.HumanoidRootPart.Position
-        
         for _, target in pairs(Players:GetPlayers()) do
             if target ~= player
-                and target.Team
-                and target.Team.Name ~= "Keeper"
-                and target.Team.Name ~= myTeam
-                and target.Character
-                and target.Character:FindFirstChild("HumanoidRootPart") then
-                
+            and target.Team
+            and target.Team.Name ~= "Keeper"
+            and target.Team.Name ~= myTeam
+            and target.Character
+            and target.Character:FindFirstChild("HumanoidRootPart") then
                 local targetHRP = target.Character.HumanoidRootPart
-                Net:FireServer(
-                    "Shooting.shotPlayer",
-                    myHRP,                           -- Origin
-                    targetHRP.Position,              -- Target position
-                    target.Name,                     -- Target name
-                    targetHRP.CFrame                 -- Target CFrame
-                )
+                Net:FireServer("Shooting.shotPlayer", myHRP, targetHRP.Position, target.Name, targetHRP.CFrame)
             end
         end
     end
@@ -130,44 +157,5 @@ RunService.Heartbeat:Connect(function(deltaTime)
     -- Stay Under Keepers
     if StayUnderKeepersEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = player.Character.HumanoidRootPart
-        local closestKeeper = nil
-        local closestDist = math.huge
-        
+        local closestKeeper, closestDist = nil, math.huge
         for _, target in pairs(Players:GetPlayers()) do
-            if target.Team and target.Team.Name == "Keeper" and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (hrp.Position - target.Character.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestKeeper = target
-                end
-            end
-        end
-
-        if closestKeeper and closestKeeper.Character and closestKeeper.Character:FindFirstChild("HumanoidRootPart") then
-            local keeperHRP = closestKeeper.Character.HumanoidRootPart
-            hrp.CFrame = CFrame.new(keeperHRP.Position.X, keeperHRP.Position.Y + OffsetY, keeperHRP.Position.Z)
-        end
-    end
-
-    -- Stay Behind Keeper
-    if StayBehindKeeperEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = player.Character.HumanoidRootPart
-        local closestKeeper = nil
-        local closestDist = math.huge
-        
-        for _, target in pairs(Players:GetPlayers()) do
-            if target.Team and target.Team.Name == "Keeper" and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (hrp.Position - target.Character.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestKeeper = target
-                end
-            end
-        end
-
-        if closestKeeper and closestKeeper.Character and closestKeeper.Character:FindFirstChild("HumanoidRootPart") then
-            local keeperHRP = closestKeeper.Character.HumanoidRootPart
-            hrp.CFrame = keeperHRP.CFrame * CFrame.new(0, BehindOffsetY, BehindDistance)
-        end
-    end
-end)
