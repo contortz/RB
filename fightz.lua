@@ -189,20 +189,40 @@ end
 
 
 
-   -- Auto PickMoney (Triggers ProximityPrompt on all Spawned Money)
+ -- Auto PickMoney (Teleport to money + fire ProximityPrompt)
 if _G.AutoPickMoneyEnabled and now - _G._lastPick >= pickMoneyCooldown then
-    local spawnedFolder = Workspace:FindFirstChild("Spawned")
-    if spawnedFolder then
-        local moneyFolder = spawnedFolder:FindFirstChild("Money")
-        if moneyFolder then
-            for _, moneyObj in pairs(moneyFolder:GetChildren()) do
-                local prompt = moneyObj:FindFirstChildOfClass("ProximityPrompt")
+    local myChar = player.Character or Workspace:FindFirstChild(player.Name)
+    if myChar and myChar:FindFirstChild("HumanoidRootPart") then
+        local myHRP = myChar.HumanoidRootPart
+        local originalCFrame = myHRP.CFrame
+
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") and obj:FindFirstChildOfClass("ProximityPrompt") then
+                local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
                 if prompt and prompt.Enabled then
-                    fireproximityprompt(prompt) -- Simulates pressing E
+                    local moneyPos
+                    if obj.PrimaryPart then
+                        moneyPos = obj.PrimaryPart.Position
+                    elseif obj:FindFirstChild("Part") then
+                        moneyPos = obj.Part.Position
+                    else
+                        moneyPos = obj:GetModelCFrame().Position
+                    end
+                    
+                    -- Teleport to money
+                    myHRP.CFrame = CFrame.new(moneyPos + Vector3.new(0, 3, 0))
+                    task.wait(0.05) -- small delay to register position
+                    
+                    -- Trigger prompt
+                    fireproximityprompt(prompt)
                 end
             end
         end
+        
+        -- Optionally teleport back
+        myHRP.CFrame = originalCFrame
     end
     _G._lastPick = now
 end
+
 
