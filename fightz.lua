@@ -31,10 +31,17 @@ ToggleButton.MouseButton1Click:Connect(function()
     ToggleButton.BackgroundColor3 = AutoFollowEnabled and Color3.fromRGB(0,200,0) or Color3.fromRGB(50,50,50)
 end)
 
---// Follow Closest Player from Workspace root
+--// Function to get search folder
+local function getSearchFolder()
+    return Workspace:FindFirstChild("Characters") or Workspace
+end
+
+--// Follow Closest Player
 local function followClosest()
+    local searchFolder = getSearchFolder()
+
     -- Find our character
-    local myCharacter = Workspace:FindFirstChild(player.Name)
+    local myCharacter = searchFolder:FindFirstChild(player.Name)
     if not myCharacter or not myCharacter:FindFirstChild("Humanoid") or not myCharacter:FindFirstChild("HumanoidRootPart") then
         return
     end
@@ -42,10 +49,10 @@ local function followClosest()
     local myHumanoid = myCharacter.Humanoid
     local myHRP = myCharacter.HumanoidRootPart
 
-    -- Find closest character with HumanoidRootPart
+    -- Find closest other character
     local closestHRP
     local closestDist = math.huge
-    for _, obj in pairs(Workspace:GetChildren()) do
+    for _, obj in pairs(searchFolder:GetChildren()) do
         if obj:IsA("Model")
         and obj.Name ~= player.Name
         and obj:FindFirstChild("Humanoid")
@@ -67,14 +74,14 @@ local function followClosest()
     end
 end
 
---// Run every frame
+--// Update loop
 RunService.Heartbeat:Connect(function()
     if AutoFollowEnabled then
         followClosest()
     end
 end)
 
--- Keep working after respawn
+-- Keep following after respawn
 player.CharacterAdded:Connect(function()
     if AutoFollowEnabled then
         RunService.Heartbeat:Connect(function()
