@@ -1,4 +1,4 @@
--- Auto Taunt Script
+-- Auto Taunt Script (Once Per Second)
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -9,6 +9,7 @@ local player = Players.LocalPlayer
 local AutoTauntEnabled = false
 local TauntEvent = ReplicatedStorage:WaitForChild("Net")
 local args = {"Taunt.play"}
+local lastFireTime = 0
 
 -- Create GUI
 local ScreenGui = Instance.new("ScreenGui")
@@ -29,11 +30,13 @@ ToggleButton.MouseButton1Click:Connect(function()
     ToggleButton.BackgroundColor3 = AutoTauntEnabled and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
 end)
 
--- Loop
-RunService.Heartbeat:Connect(function()
+-- Loop (fires once per second)
+RunService.Heartbeat:Connect(function(deltaTime)
     if AutoTauntEnabled then
-        for count = 1, 1000 do
+        lastFireTime = lastFireTime + deltaTime
+        if lastFireTime >= 1 then
             TauntEvent:FireServer(unpack(args))
+            lastFireTime = 0
         end
     end
 end)
