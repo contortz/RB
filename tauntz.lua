@@ -29,6 +29,7 @@ local function createGui()
     
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "CustomGui"
+    ScreenGui.ResetOnSpawn = false
     ScreenGui.Parent = player:WaitForChild("PlayerGui")
 
     local yPos = 0.05
@@ -76,6 +77,9 @@ local function createGui()
         return StayBehindKeeperEnabled
     end)
 
+    -- Add extra spacing for slider
+    yPos += 0.05
+
     -- Slider Label
     local sliderLabel = Instance.new("TextLabel")
     sliderLabel.Size = UDim2.new(0, 180, 0, 20)
@@ -84,7 +88,7 @@ local function createGui()
     sliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     sliderLabel.Text = "Behind Distance: " .. BehindDistance
     sliderLabel.Parent = ScreenGui
-    yPos += 0.04
+    yPos += 0.03
 
     -- Slider Bar
     local sliderFrame = Instance.new("Frame")
@@ -115,11 +119,11 @@ end
 
 --// Recreate GUI on respawn
 player.CharacterAdded:Connect(function()
-    createGui()
+    pcall(createGui)
 end)
 
 -- Initial GUI
-createGui()
+pcall(createGui)
 
 --// Main Loop
 RunService.Heartbeat:Connect(function(deltaTime)
@@ -190,7 +194,6 @@ RunService.Heartbeat:Connect(function(deltaTime)
         end
         if closestKeeper then
             local keeperHRP = closestKeeper.Character.HumanoidRootPart
-            -- Corrected to always be behind Keeper
             local behindPos = keeperHRP.Position + keeperHRP.CFrame.LookVector * -math.abs(BehindDistance)
             hrp.CFrame = CFrame.new(behindPos.X, keeperHRP.Position.Y + BehindOffsetY, behindPos.Z)
         end
