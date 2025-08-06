@@ -174,6 +174,28 @@ local ScanBtn = createButton("🔍 Scan Plots", 155, Color3.fromRGB(60,60,60))
 local StealBtn = createButton("💸 Steal from Victim", 180, Color3.fromRGB(80,20,20))
 local ReverseBtn = createButton("🔄 Reverse Steal", 205, Color3.fromRGB(20,80,20))
 
+--// Delivery Remote
+local DeliveryRemote = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net"))
+    :RemoteEvent("de34c182-de89-4c83-a3a4-7e76a719e789")
+
+--// Create Button
+local DeliverBtn = Instance.new("TextButton", Frame)
+DeliverBtn.Size = UDim2.new(1, -10, 0, 25)
+DeliverBtn.Position = UDim2.new(0, 5, 0, 230)
+DeliverBtn.Text = "📦 Simulate Delivery"
+DeliverBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 80)
+DeliverBtn.TextColor3 = Color3.new(1, 1, 1)
+
+--// Button Logic
+DeliverBtn.MouseButton1Click:Connect(function()
+    local deliveryUUID = "128ed252-43ef-423b-8d83-bcbc692628b7"
+    for repeatIndex = 1, 20 do
+        DeliveryRemote:FireServer(deliveryUUID)
+        task.wait(0.05) -- small spacing to match legit pattern
+    end
+end)
+
+
 --// Scan Function
 local function ScanPlots()
     yourUUID, victimUUID = nil, nil
