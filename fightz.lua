@@ -298,142 +298,100 @@ RunService.Heartbeat:Connect(function()
         -- Auto Punch
         if Toggles.AutoPunch and now - lastPunch >= punchCooldown then
             lastPunch = now
-            pcall(function() PunchRemote:InvokeServer() end)
+            PunchRemote:InvokeServer()
         end
 
         -- Auto Swing
         if Toggles.AutoSwing and now - lastSwing >= swingCooldown then
             lastSwing = now
-            pcall(function() SwingRemote:InvokeServer() end)
+            SwingRemote:InvokeServer()
         end
 
-        -- Auto Pick Money ✅ (no nested Heartbeat)
+        -- Auto Pick Money
         if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
             lastPick = now
-
             local moneyFolder = Workspace:FindFirstChild("Spawned")
             if moneyFolder then moneyFolder = moneyFolder:FindFirstChild("Money") end
-
-            local pickMoneyRemote
-            local stats = ReplicatedStorage:FindFirstChild("Stats")
-            if stats then
-                local core = stats:FindFirstChild("Core")
-                if core then
-                    local default = core:FindFirstChild("Default")
-                    if default then
-                        local remotes = default:FindFirstChild("Remotes")
-                        if remotes then
-                            pickMoneyRemote = remotes:FindFirstChild("PickMoney")
-                        end
-                    end
-                end
-            end
-
+            local pickMoneyRemote = ReplicatedStorage.Stats?.Core?.Default?.Remotes?.PickMoney
             if pickMoneyRemote and moneyFolder then
                 for _, money in ipairs(moneyFolder:GetChildren()) do
-                    pcall(function()
-                        pickMoneyRemote:InvokeServer(money.Name)
-                    end)
+                    pickMoneyRemote:InvokeServer(money.Name)
                 end
             end
         end
-    end)
-end)
 
-
-
-
--- Auto Shoot
-if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
-    local myHRP = myChar.HumanoidRootPart
-    local closestPlayer, closestPart
-    local closestDist = math.huge
-
-    -- Loop through all players
-    for _, otherPlayer in pairs(Players:GetPlayers()) do
-        if otherPlayer ~= player and otherPlayer.Character then
-            local char = otherPlayer.Character
-            local humanoid = char:FindFirstChildOfClass("Humanoid")
-            
-            -- ✅ Skip if dead or no humanoid
-            if humanoid and humanoid.Health > 0 then
-                -- Search for any BasePart to shoot at
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        local dist = (myHRP.Position - part.Position).Magnitude
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestPlayer = otherPlayer
-                            closestPart = part
+        -- Auto Shoot ✅ (inside Heartbeat now)
+        if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
+            local myHRP = myChar.HumanoidRootPart
+            local closestPart, closestDist = nil, math.huge
+            for _, otherPlayer in pairs(Players:GetPlayers()) do
+                if otherPlayer ~= player and otherPlayer.Character then
+                    local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        for _, part in pairs(otherPlayer.Character:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                local dist = (myHRP.Position - part.Position).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestPart = part
+                                end
+                            end
                         end
                     end
                 end
             end
+            if closestPart then
+                local direction = (closestPart.Position - myHRP.Position).Unit
+                local args = {{
+                    Instance = closestPart,
+                    Distance = closestDist,
+                    Normal = direction,
+                    Position = closestPart.Position
+                }}
+                ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Shoot:InvokeServer(unpack(args))
+            end
         end
-    end
 
-    -- Shoot at closest part
-    if closestPart then
-        local direction = (closestPart.Position - myHRP.Position).Unit
-        local args = {{
-            Instance = closestPart,
-            Distance = closestDist,
-            Normal = direction,
-            Position = closestPart.Position
-        }}
-
-        pcall(function()
-            ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Shoot:InvokeServer(unpack(args))
-        end)
-    end
-end
-
-
-        
-        
         -- Auto Throw
         if Toggles.AutoThrow and now - lastThrow >= throwCooldown and myChar:FindFirstChild("HumanoidRootPart") then
             lastThrow = now
-            pcall(function()
-                local myHRP = myChar.HumanoidRootPart
-                local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-                local closestHRP, closestDist = nil, math.huge
-                for _, obj in pairs(searchFolder:GetChildren()) do
-                    if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                        local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestHRP = obj.HumanoidRootPart
-                        end
+            local myHRP = myChar.HumanoidRootPart
+            local closestHRP, closestDist = nil, math.huge
+            local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
+            for _, obj in pairs(searchFolder:GetChildren()) do
+                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestHRP = obj.HumanoidRootPart
                     end
                 end
-                if closestHRP then
-                    local direction = (closestHRP.Position - myHRP.Position).Unit
-                    ThrowRemote:InvokeServer(direction)
-                end
-            end)
+            end
+            if closestHRP then
+                local direction = (closestHRP.Position - myHRP.Position).Unit
+                ThrowRemote:InvokeServer(direction)
+            end
         end
 
         -- Auto Follow
         if Toggles.AutoFollow and now - lastFollow >= followInterval and myChar:FindFirstChild("HumanoidRootPart") then
             lastFollow = now
-            pcall(function()
-                local myHRP = myChar.HumanoidRootPart
-                local myHumanoid = myChar:FindFirstChild("Humanoid")
-                local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-                local closestHRP, closestDist = nil, math.huge
-                for _, obj in pairs(searchFolder:GetChildren()) do
-                    if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                        local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestHRP = obj.HumanoidRootPart
-                        end
+            local myHRP = myChar.HumanoidRootPart
+            local myHumanoid = myChar:FindFirstChild("Humanoid")
+            local closestHRP, closestDist = nil, math.huge
+            local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
+            for _, obj in pairs(searchFolder:GetChildren()) do
+                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestHRP = obj.HumanoidRootPart
                     end
                 end
-                if closestHRP and myHumanoid then
-                    myHumanoid.WalkToPoint = closestHRP.Position
-                end
-            end)
+            end
+            if closestHRP and myHumanoid then
+                myHumanoid.WalkToPoint = closestHRP.Position
+            end
         end
-
+    end)
+end)
