@@ -7,8 +7,8 @@ local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 local serverTime = Workspace:GetServerTimeNow()
 
--- Remotes from decompile
-local StealRemote = require(ReplicatedStorage.Packages.Net):RemoteEvent("d8276bf9-acc4-4361-9149-ffd91b3fed52")
+-- Remotes
+local StealRemote = require(ReplicatedStorage.Packages.Net):RemoteEvent("39c0ed9f-fd96-4f2c-89c8-b7a9b2d44d2e")
 local ClaimCoinsRemote = ReplicatedStorage.Packages.Net["RE/PlotService/ClaimCoins"]
 
 -- Create GUI
@@ -40,7 +40,7 @@ ClaimBtn.TextColor3 = Color3.new(1, 1, 1)
 ClaimBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 ClaimBtn.Parent = Frame
 
--- Mass Steal Function
+-- Function: Mass Steal
 local function MassSteal()
     for _, plot in ipairs(Workspace.Map.Plots:GetChildren()) do
         local podiums = plot:FindFirstChild("AnimalPodiums")
@@ -48,16 +48,26 @@ local function MassSteal()
             for _, podium in ipairs(podiums:GetChildren()) do
                 local claimFolder = podium:FindFirstChild("Claim")
                 if claimFolder then
-                    -- Fire with UUIDs from decompile
-                    StealRemote:FireServer(serverTime + 71, "e48572ed-dadc-4d9b-9124-315d813815db")
-                    StealRemote:FireServer(serverTime + 71, "614ca939-6c52-4dab-b3ab-5cde12e0a5f2")
+                    -- Dynamically find any StringValues in the plot (Base/Object UUIDs)
+                    local baseUUID, objectUUID
+                    for _, obj in ipairs(plot:GetDescendants()) do
+                        if obj:IsA("StringValue") and string.match(obj.Value, "%-") then
+                            if not baseUUID then baseUUID = obj.Value
+                            elseif not objectUUID then objectUUID = obj.Value
+                            end
+                        end
+                    end
+                    -- If found, fire remote
+                    if baseUUID and objectUUID then
+                        StealRemote:FireServer(serverTime + 71, baseUUID, objectUUID, tonumber(podium.Name))
+                    end
                 end
             end
         end
     end
 end
 
--- Mass Claim Function
+-- Function: Mass Claim (1–10)
 local function MassClaim()
     for i = 1, 10 do
         ClaimCoinsRemote:FireServer(i)
