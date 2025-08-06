@@ -47,14 +47,14 @@ local function createGui()
 
 
 -- Minimize Button
-local minimizeBtn = Instance.new("TextButton")
-minimizeBtn.Size = UDim2.new(0, 30, 0, 30) -- Same height as TitleLabel
-minimizeBtn.Position = UDim2.new(1, -30, 0, 0) -- Flush to right
-minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
-minimizeBtn.Text = "-"
-minimizeBtn.ZIndex = 999
-minimizeBtn.Parent = MainFrame
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
+    minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
+    minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+    minimizeBtn.Text = "-"
+    minimizeBtn.ZIndex = 999
+    minimizeBtn.Parent = MainFrame
 
 
 
