@@ -9,8 +9,8 @@ local PrepRemote = Net:RemoteEvent("d8276bf9-acc4-4361-9149-ffd91b3fed52") -- Pr
 local GrabRemote = Net:RemoteEvent("39c0ed9f-fd96-4f2c-89c8-b7a9b2d44d2e") -- Final grab
 local DeliveryRemote = Net:RemoteEvent("de34c182-de89-4c83-a3a4-7e76a719e789") -- Delivery
 
---// Conch (AliceSaidHi)
-local Conch = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Conch"))
+--// Conch UI
+local ConchUI = require(ReplicatedStorage.Packages.Conch["alicesaidhi+conch_ui"].conch_ui)
 
 --// UUIDs
 local yourUUID = nil
@@ -21,7 +21,7 @@ local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "PlotScanStealGui"
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 300, 0, 260) -- Added height for Console button
+Frame.Size = UDim2.new(0, 300, 0, 285) -- Added height for Console button
 Frame.Position = UDim2.new(0.3, 0, 0.15, 0)
 Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Frame.Active = true
@@ -57,16 +57,18 @@ local function createButton(text, yPos, color)
 end
 
 -- Buttons
-local ScanBtn     = createButton("🔍 Scan Plots", 155, Color3.fromRGB(60,60,60))
-local StealBtn    = createButton("💸 Steal from Victim", 180, Color3.fromRGB(80,20,20))
-local ReverseBtn  = createButton("🔄 Reverse Steal", 205, Color3.fromRGB(20,80,20))
-local DeliverBtn  = createButton("📦 Simulate Delivery", 230, Color3.fromRGB(20,20,80))
-local ConsoleBtn  = createButton("🖥️ Launch Console", 255, Color3.fromRGB(50,50,100)) -- Console button
+local ScanBtn    = createButton("🔍 Scan Plots", 155, Color3.fromRGB(60,60,60))
+local StealBtn   = createButton("💸 Steal from Victim", 180, Color3.fromRGB(80,20,20))
+local ReverseBtn = createButton("🔄 Reverse Steal", 205, Color3.fromRGB(20,80,20))
+local DeliverBtn = createButton("📦 Simulate Delivery", 230, Color3.fromRGB(20,20,80))
+local ConsoleBtn = createButton("🖥 Launch Conch Console", 255, Color3.fromRGB(50,50,100))
 
 --// Scan Function
 local function ScanPlots()
     yourUUID, victimUUID = nil, nil
-    for _, c in ipairs(Results:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
+    for _, c in ipairs(Results:GetChildren()) do 
+        if c:IsA("TextLabel") then c:Destroy() end 
+    end
     
     for _, plot in ipairs(Workspace.Plots:GetChildren()) do
         local podium = plot:FindFirstChild("AnimalPodiums") and plot.AnimalPodiums:FindFirstChild("2")
@@ -98,7 +100,11 @@ end
 
 --// Steal Function
 local function DoSteal(fromUUID, toUUID)
-    if not (fromUUID and toUUID) then warn("❌ Scan first!") return end
+    if not (fromUUID and toUUID) then 
+        warn("❌ Scan first!") 
+        return 
+    end
+    
     local serverTime = Workspace:GetServerTimeNow()
     PrepRemote:FireServer(serverTime, fromUUID)
     PrepRemote:FireServer(serverTime, toUUID)
@@ -117,7 +123,15 @@ end
 
 --// Launch Console
 local function LaunchConsole()
-    Conch.start()
+    if ConchUI.Init then
+        ConchUI:Init()
+    elseif ConchUI.Launch then
+        ConchUI:Launch()
+    elseif ConchUI.Start then
+        ConchUI:Start()
+    else
+        warn("⚠ No obvious start function found in ConchUI")
+    end
 end
 
 -- Button Events
