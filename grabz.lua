@@ -65,12 +65,11 @@ local function ScanPlots()
         if child:IsA("TextLabel") then child:Destroy() end
     end
     
-    for _, plot in ipairs(Workspace.Map.Plots:GetChildren()) do
+    for _, plot in ipairs(Workspace.Plots:GetChildren()) do
         local podium = plot:FindFirstChild("AnimalPodiums") and plot.AnimalPodiums:FindFirstChild("2")
         if podium and podium:FindFirstChild("Base") and podium.Base:FindFirstChild("Spawn") then
             local attach = podium.Base.Spawn:FindFirstChild("Attachment")
             if attach and attach:FindFirstChild("AnimalOverhead") then
-                -- Search descendants for DisplayName
                 for _, desc in ipairs(attach.AnimalOverhead:GetDescendants()) do
                     if desc:IsA("TextLabel") and desc.Name == "DisplayName" then
                         local name = desc.Text
@@ -85,7 +84,6 @@ local function ScanPlots()
                         
                         Results.CanvasSize = UDim2.new(0, 0, 0, #Results:GetChildren() * 22)
                         
-                        -- Identify your UUID & victim UUID automatically
                         if name == "Cocofanto Elefanto" then
                             yourUUID = uuid
                         elseif name == "Fluriflura" then
@@ -97,6 +95,7 @@ local function ScanPlots()
         end
     end
 end
+
 
 
 -- Function: Steal
