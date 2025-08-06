@@ -13,6 +13,7 @@ local Toggles = {
     AutoPunch = false,
     AutoThrow = false,
     AutoSwing = false,
+    AutoShoot = false,
     AutoPickMoney = false,
     ATMESP = false,
     PlayerESP = false
@@ -101,9 +102,13 @@ miniIcon.Position = UDim2.new(0, 15, 0.27, -50) -- ⬆️ moved up 10 pixels
     createButton("Auto Punch", "AutoPunch")
     createButton("Auto Throw", "AutoThrow")
     createButton("Auto Swing", "AutoSwing")
+    createButton("Auto Shoot", "AutoShoot")
     createButton("Auto PickMoney", "AutoPickMoney")
     createButton("ATM ESP", "ATMESP")
     createButton("Player ESP", "PlayerESP")
+
+
+
 
     -- ATM Teleport (Cycle Mode)
 local atmIndex = 1 -- Tracks which ATM we are on
@@ -302,6 +307,41 @@ RunService.Heartbeat:Connect(function()
             pcall(function() SwingRemote:InvokeServer() end)
         end
 
+
+
+         -- Auto Shoot
+        if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
+            local myHRP = myChar.HumanoidRootPart
+            local closestHRP
+            local closestDist = math.huge
+
+            for _, otherPlayer in pairs(Players:GetPlayers()) do
+                if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local otherHRP = otherPlayer.Character.HumanoidRootPart
+                    local dist = (myHRP.Position - otherHRP.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestHRP = otherHRP
+                    end
+                end
+            end
+
+            if closestHRP then
+                local shootPos = closestHRP.Position
+                local targetPart = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Part") or closestHRP
+                local args = {{
+                    Instance = targetPart,
+                    Distance = (shootPos - targetPart.Position).Magnitude,
+                    Normal = Vector3.new(-1, 0, 0),
+                    Position = shootPos
+                }}
+                pcall(function()
+                    ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Shoot:InvokeServer(unpack(args))
+                end)
+            end
+        end
+        
+        
         -- Auto Throw
         if Toggles.AutoThrow and now - lastThrow >= throwCooldown and myChar:FindFirstChild("HumanoidRootPart") then
             lastThrow = now
