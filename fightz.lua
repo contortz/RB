@@ -403,13 +403,17 @@ end
             end)
         end
 
--- Auto PickMoney (Safe Remote Call)
+-- Auto PickMoney (Safe + Proper Args)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
+        -- ✅ Find Money folder safely
         local moneyFolder = Workspace:FindFirstChild("Spawned")
-        if moneyFolder then moneyFolder = moneyFolder:FindFirstChild("Money") end
+        if moneyFolder then
+            moneyFolder = moneyFolder:FindFirstChild("Money")
+        end
 
+        -- ✅ Find PickMoney Remote safely
         local pickMoneyRemote
         local stats = ReplicatedStorage:FindFirstChild("Stats")
         if stats then
@@ -425,17 +429,22 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
             end
         end
 
+        -- ✅ Invoke server if everything exists
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                print("Attempting PickMoney for:", money.Name)
-                local ok, err = pcall(function()
-                    pickMoneyRemote:InvokeServer(money.Name) -- try raw Name
+                pcall(function()
+                    -- 🔍 Try both formats (Name directly or inside a table)
+                    local success = pcall(function()
+                        return pickMoneyRemote:InvokeServer(money.Name)
+                    end)
+
+                    if not success then
+                        pickMoneyRemote:InvokeServer({money.Name})
+                    end
                 end)
-                if not ok then
-                    warn("PickMoney error:", err)
-                end
             end
         end
     end)
 end
+
 
