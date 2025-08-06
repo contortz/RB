@@ -284,14 +284,14 @@ end
 local punchCooldown, swingCooldown, throwCooldown, pickMoneyCooldown, followInterval = 0.2, 0.2, 0.3, 0.5, 0.1
 local lastPunch, lastSwing, lastThrow, lastPick, lastFollow = 0, 0, 0, 0, 0
 
--- Main Loop
+-- Main Heartbeat (single connection)
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local now = tick()
         local myChar = player.Character or Workspace:FindFirstChild(player.Name)
         if not myChar then return end
 
-        -- ESP Updates
+        -- ESP
         if Toggles.ATMESP then updateATMESP() end
         if Toggles.PlayerESP then updatePlayerESP() end
 
@@ -306,6 +306,40 @@ RunService.Heartbeat:Connect(function()
             lastSwing = now
             pcall(function() SwingRemote:InvokeServer() end)
         end
+
+        -- Auto Pick Money ✅ (no nested Heartbeat)
+        if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
+            lastPick = now
+
+            local moneyFolder = Workspace:FindFirstChild("Spawned")
+            if moneyFolder then moneyFolder = moneyFolder:FindFirstChild("Money") end
+
+            local pickMoneyRemote
+            local stats = ReplicatedStorage:FindFirstChild("Stats")
+            if stats then
+                local core = stats:FindFirstChild("Core")
+                if core then
+                    local default = core:FindFirstChild("Default")
+                    if default then
+                        local remotes = default:FindFirstChild("Remotes")
+                        if remotes then
+                            pickMoneyRemote = remotes:FindFirstChild("PickMoney")
+                        end
+                    end
+                end
+            end
+
+            if pickMoneyRemote and moneyFolder then
+                for _, money in ipairs(moneyFolder:GetChildren()) do
+                    pcall(function()
+                        pickMoneyRemote:InvokeServer(money.Name)
+                    end)
+                end
+            end
+        end
+    end)
+end)
+
 
 
 
@@ -403,48 +437,3 @@ end
             end)
         end
 
--- Safe AutoPickMoney with Debug
-RunService.Heartbeat:Connect(function()
-    pcall(function()
-        if Toggles.AutoPickMoney and tick() - lastPick >= pickMoneyCooldown then
-            lastPick = tick()
-            
-            local moneyFolder = Workspace:FindFirstChild("Spawned")
-            if moneyFolder then
-                moneyFolder = moneyFolder:FindFirstChild("Money")
-            end
-
-            local pickMoneyRemote
-            local stats = ReplicatedStorage:FindFirstChild("Stats")
-            if stats then
-                local core = stats:FindFirstChild("Core")
-                if core then
-                    local default = core:FindFirstChild("Default")
-                    if default then
-                        local remotes = default:FindFirstChild("Remotes")
-                        if remotes then
-                            pickMoneyRemote = remotes:FindFirstChild("PickMoney")
-                        end
-                    end
-                end
-            end
-
-            -- Debugging: Check remote exists
-            if not pickMoneyRemote then
-                warn("PickMoney remote not found")
-                return
-            end
-
-            if moneyFolder then
-                for _, money in ipairs(moneyFolder:GetChildren()) do
-                    if money.Name then
-                        print("Trying PickMoney:", money.Name)
-                        pcall(function()
-                            pickMoneyRemote:InvokeServer(money.Name)
-                        end)
-                    end
-                end
-            end
-        end
-    end)
-end)
