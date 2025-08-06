@@ -243,6 +243,15 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
+            -- ✅ Check PvP status
+            local pvpStatus = "Idle"
+            local pvpFlag = char:FindFirstChild("PvP") or char:FindFirstChildWhichIsA("BoolValue")
+            if pvpFlag and pvpFlag.Value == true then
+                pvpStatus = "PvP"
+            elseif char:GetAttribute("PvP") == true then
+                pvpStatus = "PvP"
+            end
+
             if Toggles.PlayerESP then
                 -- Create ESP if missing
                 if not hrp:FindFirstChild("Player_ESP") then
@@ -259,13 +268,13 @@ local function updatePlayerESP()
                     label.TextColor3 = Color3.fromRGB(255, 0, 0)
                     label.TextStrokeTransparency = 0
                     label.TextScaled = true
-                    label.Text = string.format("%s | HP: %s | %dm", char.Name, healthText, distText)
+                    label.Text = string.format("%s | HP: %s | %dm | %s", char.Name, healthText, distText, pvpStatus)
                     label.Parent = billboard
                 else
                     -- Update text
                     local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
                     if label then
-                        label.Text = string.format("%s | HP: %s | %dm", char.Name, healthText, distText)
+                        label.Text = string.format("%s | HP: %s | %dm | %s", char.Name, healthText, distText, pvpStatus)
                     end
                 end
             else
@@ -277,6 +286,7 @@ local function updatePlayerESP()
         end
     end
 end
+
 
 
 
