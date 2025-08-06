@@ -234,8 +234,8 @@ local function updatePlayerESP()
     local myHRP = myChar.HumanoidRootPart
 
     local charFolder = Workspace:FindFirstChild("Characters")
-    local playersFolder = Workspace:FindFirstChild("Players")
-    if not charFolder or not playersFolder then return end
+    local playersFolder = Workspace:FindFirstChild("Players") -- ✅ PvP source
+    if not charFolder then return end
 
     for _, char in pairs(charFolder:GetChildren()) do
         if char:IsA("Model") and char.Name ~= player.Name and char:FindFirstChild("HumanoidRootPart") then
@@ -244,16 +244,19 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
-            -- ✅ PvP check (safe match by name)
-            local pvpStatus = "Idle"
-            local playerObj = playersFolder:FindFirstChild(char.Name)
-            if playerObj and playerObj:GetAttribute("PvP") == true then
-                pvpStatus = "PvP"
+            -- ✅ PvP status (default Idle)
+            local pvpStatus = ""
+            if playersFolder then
+                local playerObj = playersFolder:FindFirstChild(char.Name)
+                if playerObj and playerObj:GetAttribute("PvP") then
+                    pvpStatus = " | PvP"
+                else
+                    pvpStatus = " | Idle"
+                end
             end
 
-            local textColor = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
-
             if Toggles.PlayerESP then
+                -- Create ESP if missing
                 if not hrp:FindFirstChild("Player_ESP") then
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "Player_ESP"
@@ -265,21 +268,20 @@ local function updatePlayerESP()
                     local label = Instance.new("TextLabel")
                     label.Size = UDim2.new(1, 0, 1, 0)
                     label.BackgroundTransparency = 1
-                    label.TextColor3 = textColor
+                    label.TextColor3 = Color3.fromRGB(255, 0, 0)
                     label.TextStrokeTransparency = 0
                     label.TextScaled = true
-                    label.Text = string.format("%s | HP: %s | %dm | %s",
-                        char.Name, healthText, distText, pvpStatus)
+                    label.Text = string.format("%s | HP: %s | %dm%s", char.Name, healthText, distText, pvpStatus)
                     label.Parent = billboard
                 else
+                    -- Update text
                     local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
                     if label then
-                        label.Text = string.format("%s | HP: %s | %dm | %s",
-                            char.Name, healthText, distText, pvpStatus)
-                        label.TextColor3 = textColor
+                        label.Text = string.format("%s | HP: %s | %dm%s", char.Name, healthText, distText, pvpStatus)
                     end
                 end
             else
+                -- ✅ Remove ESP if toggle is off
                 if hrp:FindFirstChild("Player_ESP") then
                     hrp.Player_ESP:Destroy()
                 end
@@ -287,6 +289,7 @@ local function updatePlayerESP()
         end
     end
 end
+
 
 
 
