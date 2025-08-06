@@ -45,6 +45,38 @@ local function createGui()
     TitleLabel.Text = "Street Fight by Dreamz"
     TitleLabel.Parent = MainFrame
 
+
+    -- Minimize Button
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
+    minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
+    minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+    minimizeBtn.Text = "-"
+    minimizeBtn.ZIndex = 999
+    minimizeBtn.Parent = MainFrame
+
+    -- Icon when minimized
+    local miniIcon = Instance.new("ImageButton")
+    miniIcon.Size = UDim2.new(0, 40, 0, 40)
+    miniIcon.Position = UDim2.new(0, 15, 0.27, 0) -- Adjust position
+    miniIcon.BackgroundTransparency = 1
+    miniIcon.Image = "rbxassetid://76154122039576" -- Replace with your icon asset
+    miniIcon.ZIndex = 999
+    miniIcon.Visible = false
+    miniIcon.Parent = ScreenGui
+
+    -- Toggle Minimize
+    minimizeBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = false
+        miniIcon.Visible = true
+    end)
+
+    miniIcon.MouseButton1Click:Connect(function()
+        MainFrame.Visible = true
+        miniIcon.Visible = false
+    end)
+
     local yPos = 0.15
     local function createButton(name, toggleKey)
         local button = Instance.new("TextButton")
