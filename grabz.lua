@@ -1,10 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Players = game:GetService("Players")
-local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- ✅ Get conch_ui table (which has .mount and .bind_to methods)
+-- Full path to the Conch UI module
 local conch_ui = require(
-    ReplicatedStorage:WaitForChild("Packages")
+    ReplicatedStorage
+        :WaitForChild("Packages")
         :WaitForChild("Conch")
         :WaitForChild("roblox_packages")
         :WaitForChild(".pesde")
@@ -13,7 +12,7 @@ local conch_ui = require(
         :WaitForChild("conch")
 )
 
--- ✅ Mount it
+-- Try to mount the UI
 local success, err = pcall(function()
     conch_ui.mount()
 end)
