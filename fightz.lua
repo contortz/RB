@@ -58,8 +58,8 @@ local function createGui()
 
     -- Icon when minimized
     local miniIcon = Instance.new("ImageButton")
-miniIcon.Size = UDim2.new(0, 120, 0, 120) -- ⬆️ increased size
-miniIcon.Position = UDim2.new(0, 15, 0.27, -25) -- ⬆️ moved up 10 pixels
+miniIcon.Size = UDim2.new(0, 60, 0, 60) -- ⬆️ increased size
+miniIcon.Position = UDim2.new(0, 15, 0.27, -50) -- ⬆️ moved up 10 pixels
     miniIcon.BackgroundTransparency = 1
     miniIcon.Image = "rbxassetid://76154122039576" -- Replace with your icon asset
     miniIcon.ZIndex = 999
