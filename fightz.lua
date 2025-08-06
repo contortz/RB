@@ -403,7 +403,7 @@ end
             end)
         end
 
--- Auto PickMoney (Matching AutoShoot style)
+-- Auto PickMoney (with BasePart name fallback)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
@@ -415,9 +415,14 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
 
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                local args = { money.Name } -- build args like AutoShoot
+                local targetName = money.Name -- default to folder name
+                local part = money:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    targetName = part.Name -- fallback if remote wants the part name
+                end
+
                 pcall(function()
-                    pickMoneyRemote:InvokeServer(unpack(args))
+                    pickMoneyRemote:InvokeServer(targetName)
                 end)
             end
         end
