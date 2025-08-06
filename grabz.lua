@@ -36,21 +36,22 @@ ClaimAllBtn.Text = "💰 Claim All (1–10)"
 ClaimAllBtn.TextColor3 = Color3.new(1, 1, 1)
 ClaimAllBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 
--- Collect hitboxes
+-- Collect all hitboxes from all podiums
 local function CollectClaimHitboxes()
     table.clear(claimHitboxes)
     for _, plot in ipairs(Workspace.Map.Plots:GetChildren()) do
         local podiums = plot:FindFirstChild("AnimalPodiums")
         if podiums then
-            for _, numFolder in ipairs(podiums:GetChildren()) do
-                local claim = numFolder:FindFirstChild("Claim")
-                if claim and claim:FindFirstChild("Hitbox") then
-                    local hitbox = claim.Hitbox
-                    if hitbox:IsA("BasePart") then
-                        hitbox.Anchored = false
-                        hitbox.CanCollide = false
-                        hitbox.Transparency = 1
-                        table.insert(claimHitboxes, hitbox)
+            for _, podium in ipairs(podiums:GetChildren()) do
+                local claimFolder = podium:FindFirstChild("Claim")
+                if claimFolder then
+                    for _, obj in ipairs(claimFolder:GetChildren()) do
+                        if obj:IsA("BasePart") and obj.Name == "Hitbox" then
+                            obj.Anchored = false
+                            obj.CanCollide = false
+                            obj.Transparency = 1
+                            table.insert(claimHitboxes, obj)
+                        end
                     end
                 end
             end
@@ -67,7 +68,7 @@ MagnetBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- Move hitboxes
+-- Move all hitboxes each frame
 RunService.Heartbeat:Connect(function()
     if magnetEnabled then
         for index, hitbox in ipairs(claimHitboxes) do
@@ -79,7 +80,7 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Claim all 1–10
+-- Claim all podiums 1–10
 ClaimAllBtn.MouseButton1Click:Connect(function()
     for i = 1, 10 do
         claimCoinsRemote:FireServer(i)
