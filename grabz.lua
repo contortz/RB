@@ -2,43 +2,63 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
+local hrp = player.Character and player.Character:WaitForChild("HumanoidRootPart")
 
---// GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Parent = CoreGui
+-- Remote
+local grabRemote = ReplicatedStorage.Packages.Net["RE/StealService/Grab"]
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 200, 0, 100)
-Frame.Position = UDim2.new(0.5, -100, 0.5, -50)
-Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Frame.Parent = ScreenGui
+-- Setup GUI
+local gui = Instance.new("ScreenGui", CoreGui)
+gui.Name = "GrabBlinkGui"
 
---// Create Buttons
-local ClaimCoinsBtn = Instance.new("TextButton")
-ClaimCoinsBtn.Size = UDim2.new(1, -10, 0, 40)
-ClaimCoinsBtn.Position = UDim2.new(0, 5, 0, 5)
-ClaimCoinsBtn.Text = "Claim Coins"
-ClaimCoinsBtn.TextColor3 = Color3.new(1, 1, 1)
-ClaimCoinsBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ClaimCoinsBtn.Parent = Frame
+local btn = Instance.new("TextButton", gui)
+btn.Size = UDim2.new(0, 150, 0, 40)
+btn.Position = UDim2.new(0.5, -75, 0.5, -20)
+btn.Text = "💸 Blink Grab"
+btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+btn.TextColor3 = Color3.new(1, 1, 1)
 
-local GrabBtn = Instance.new("TextButton")
-GrabBtn.Size = UDim2.new(1, -10, 0, 40)
-GrabBtn.Position = UDim2.new(0, 5, 0, 50)
-GrabBtn.Text = "Grab"
-GrabBtn.TextColor3 = Color3.new(1, 1, 1)
-GrabBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-GrabBtn.Parent = Frame
+-- Function: Blink and grab from closest steal hitbox
+local function BlinkGrab()
+    if not hrp then return end
 
---// Functions
-ClaimCoinsBtn.MouseButton1Click:Connect(function()
-    local args = { 2 }
-    ReplicatedStorage.Packages.Net["RE/PlotService/ClaimCoins"]:FireServer(unpack(args))
-end)
+    local oldCFrame = hrp.CFrame
+    local closest = nil
+    local closestDistance = math.huge
 
-GrabBtn.MouseButton1Click:Connect(function()
-    local args = { "Grab", 2 }
-    ReplicatedStorage.Packages.Net["RE/StealService/Grab"]:FireServer(unpack(args))
-end)
+    -- Check each floor
+    for _, floorName in ipairs({ "FirstFloor", "SecondFloor", "ThirdFloor" }) do
+        local floor = ReplicatedStorage:FindFirstChild("Bases"):FindFirstChild(floorName)
+        if floor and floor:FindFirstChild("StealHitbox") then
+            local hitbox = floor.StealHitbox
+
+            if hitbox:IsA("BasePart") then
+                local dist = (hrp.Position - hitbox.Position).Magnitude
+                if dist < closestDistance then
+                    closestDistance = dist
+                    closest = hitbox
+                end
+            end
+        end
+    end
+
+    if closest then
+        -- Blink to hitbox
+        hrp.CFrame = closest.CFrame + Vector3.new(0, 2, 0)
+
+        -- Fire Grab
+        grabRemote:FireServer("Grab", 2)
+
+        -- Return to original pos
+        task.wait()
+        hrp.CFrame = oldCFrame
+    else
+        warn("No StealHitbox found.")
+    end
+end
+
+-- Button action
+btn.MouseButton1Click:Connect(BlinkGrab)
