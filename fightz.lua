@@ -176,8 +176,31 @@ tpToolsButton.MouseButton1Click:Connect(function()
     end
 end)
 yPos += 0.08
-end -- ✅ CLOSES createGui()
 
+
+-- Buy Glock Button
+local buyGlockBtn = Instance.new("TextButton")
+buyGlockBtn.Size = UDim2.new(0.9, 0, 0, 30)
+buyGlockBtn.Position = UDim2.new(0.05, 0, yPos, 0)
+buyGlockBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+buyGlockBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+buyGlockBtn.Text = "Buy Glock"
+buyGlockBtn.Parent = MainFrame
+
+buyGlockBtn.MouseButton1Click:Connect(function()
+    local args = { "1" } -- Glock ID
+    game:GetService("ReplicatedStorage")
+        :WaitForChild("Roles")
+        :WaitForChild("Tools")
+        :WaitForChild("Default")
+        :WaitForChild("Remotes")
+        :WaitForChild("Weapons")
+        :WaitForChild("Weapons_Buy")
+        :InvokeServer(unpack(args))
+end)
+
+yPos += 0.08
+end -- ✅ CLOSES createGui()
 
 createGui()
 if not CoreGui:FindFirstChild("StreetFightGui") then
