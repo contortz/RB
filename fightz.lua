@@ -243,15 +243,15 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
-            -- ✅ PvP check from Workspace.Players[char.Name].PvP
+            -- ✅ PvP check from Workspace.Players[char.Name] Attribute
             local pvpStatus = "Idle"
             local playerData = Workspace:FindFirstChild("Players")
             local playerFolder = playerData and playerData:FindFirstChild(char.Name)
-            local pvpFlag = playerFolder and playerFolder:FindFirstChild("PvP")
-
-            if pvpFlag and pvpFlag:IsA("BoolValue") and pvpFlag.Value == true then
+            if playerFolder and playerFolder:GetAttribute("PvP") == true then
                 pvpStatus = "PvP"
             end
+
+            local textColor = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
 
             if Toggles.PlayerESP then
                 -- Create ESP if missing
@@ -266,7 +266,7 @@ local function updatePlayerESP()
                     local label = Instance.new("TextLabel")
                     label.Size = UDim2.new(1, 0, 1, 0)
                     label.BackgroundTransparency = 1
-                    label.TextColor3 = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(100, 100, 100)
+                    label.TextColor3 = textColor
                     label.TextStrokeTransparency = 0
                     label.TextScaled = true
                     label.Text = string.format("%s | HP: %s | %dm | %s", char.Name, healthText, distText, pvpStatus)
@@ -276,7 +276,7 @@ local function updatePlayerESP()
                     local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
                     if label then
                         label.Text = string.format("%s | HP: %s | %dm | %s", char.Name, healthText, distText, pvpStatus)
-                        label.TextColor3 = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(100, 100, 100)
+                        label.TextColor3 = textColor
                     end
                 end
             else
