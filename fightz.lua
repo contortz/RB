@@ -413,25 +413,21 @@ end
 
 
                 
-        -- Auto PickMoney
-        if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar:FindFirstChild("HumanoidRootPart") then
-            lastPick = now
-            pcall(function()
-                local myHRP = myChar.HumanoidRootPart
-                local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-                if moneyFolder then
-                    for _, obj in pairs(moneyFolder:GetChildren()) do
-                        local part = obj:FindFirstChildWhichIsA("BasePart")
-                        local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                        if part and prompt and prompt.Enabled then
-                            myHRP.CFrame = part.CFrame + Vector3.new(0, 2, 0)
-                            task.wait(0.05)
-                            fireproximityprompt(prompt)
-                            break
-                        end
-                    end
-                end
-            end)
+       -- Auto PickMoney (Direct Remote)
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
+    lastPick = now
+    pcall(function()
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
+            and ReplicatedStorage.Stats:FindFirstChild("Core") 
+            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
+            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
+
+        if moneyFolder and pickMoneyRemote then
+            for _, money in ipairs(moneyFolder:GetChildren()) do
+                -- Call remote using money Name as argument
+                pickMoneyRemote:InvokeServer(money.Name)
+            end
         end
     end)
-end)
+end
