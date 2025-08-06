@@ -218,9 +218,11 @@ local function updateATMESP()
                     label.Parent = billboard
                 end
             else
-                -- ✅ Remove ESP if toggle is off
-                if part:FindFirstChild("ATM_ESP") then
-                    part.ATM_ESP:Destroy()
+                -- Remove ESP if toggle is off
+                for _, obj in pairs(atmsFolder:GetDescendants()) do
+                    if obj.Name == "ATM_ESP" then
+                        obj:Destroy()
+                    end
                 end
             end
         end
@@ -269,14 +271,17 @@ local function updatePlayerESP()
                     end
                 end
             else
-                -- ✅ Remove ESP if toggle is off
-                if hrp:FindFirstChild("Player_ESP") then
-                    hrp.Player_ESP:Destroy()
+                -- Remove ESP if toggle is off
+                for _, obj in pairs(char:GetDescendants()) do
+                    if obj.Name == "Player_ESP" then
+                        obj:Destroy()
+                    end
                 end
             end
         end
     end
 end
+
 
 
 
