@@ -409,12 +409,15 @@ end
         end
 
      
--- Auto PickMoney (Direct Remote - Safe)
+-- Auto PickMoney (Safe Version)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
-        local moneyFolder = Workspace:FindFirstChild("Spawned") 
-            and Workspace.Spawned:FindFirstChild("Money")
+        -- Ensure all parents exist step-by-step
+        local moneyFolder = Workspace:FindFirstChild("Spawned")
+        if moneyFolder then
+            moneyFolder = moneyFolder:FindFirstChild("Money")
+        end
 
         local pickMoneyRemote
         local stats = ReplicatedStorage:FindFirstChild("Stats")
@@ -431,6 +434,7 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
             end
         end
 
+        -- If everything exists, collect money
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
                 pcall(function()
