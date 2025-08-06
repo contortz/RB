@@ -107,6 +107,36 @@ tpATMButton.MouseButton1Click:Connect(function()
     end
 end)
 yPos += 0.15
+
+
+-- Tools Cycle Teleport Button
+local toolIndex = 1
+local tpToolsButton = Instance.new("TextButton")
+tpToolsButton.Size = UDim2.new(0.9, 0, 0, 30)
+tpToolsButton.Position = UDim2.new(0.05, 0, yPos, 0)
+tpToolsButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+tpToolsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+tpToolsButton.Text = "Teleport Next Tool"
+tpToolsButton.Parent = MainFrame
+tpToolsButton.MouseButton1Click:Connect(function()
+    local myChar = player.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+    local myHRP = myChar.HumanoidRootPart
+    local toolsFolder = Workspace:FindFirstChild("Others") and Workspace.Others:FindFirstChild("Tools")
+    if toolsFolder then
+        local tools = toolsFolder:GetChildren()
+        if #tools > 0 then
+            if toolIndex > #tools then toolIndex = 1 end
+            local tool = tools[toolIndex]
+            local part = tool:IsA("BasePart") and tool or tool:FindFirstChildWhichIsA("BasePart")
+            if part then
+                myHRP.CFrame = part.CFrame + Vector3.new(0, 5, 0)
+            end
+            toolIndex += 1
+        end
+    end
+end)
+yPos += 0.15
 end -- ✅ CLOSES createGui()
 
 
