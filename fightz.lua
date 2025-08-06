@@ -244,11 +244,15 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
-            -- ✅ PvP check from Workspace.Players[Name]
+            -- ✅ PvP from Workspace.Players (ClassName Player)
             local pvpStatus = "Idle"
-            local playerObj = playersFolder:FindFirstChild(char.Name)
-            if playerObj and playerObj:GetAttribute("PvP") == true then
-                pvpStatus = "PvP"
+            for _, pObj in pairs(playersFolder:GetChildren()) do
+                if pObj.ClassName == "Player" and pObj.Name == char.Name then
+                    if pObj:GetAttribute("PvP") == true then
+                        pvpStatus = "PvP"
+                    end
+                    break
+                end
             end
 
             local textColor = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 255, 0)
