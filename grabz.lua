@@ -3,106 +3,124 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 
---// Net + Synchronizer
 local Net = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net"))
 local Synchronizer = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Synchronizer"))
 
--- Steal Remote (Proper Grab remote)
-local StealRemote = Net:RemoteEvent("StealService/Grab")
+-- Remotes
+local PrepRemote = Net:RemoteEvent("d8276bf9-acc4-4361-9149-ffd91b3fed52")
+local GrabRemote = Net:RemoteEvent("39c0ed9f-fd96-4f2c-89c8-b7a9b2d44d2e")
 
--- UUID storage
-local myUUID, plot2UUID = nil, nil
+-- UUIDs
+local myUUID = nil
+local plot2UUID = nil
 
 --// UI Setup
-local ScreenGui = Instance.new("ScreenGui")
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "Plot2StealUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 300, 0, 230)
-Frame.Position = UDim2.new(0.3, 0, 0.15, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.Size = UDim2.new(0, 240, 0, 160)
+Frame.Position = UDim2.new(0.5, -120, 0.25, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 25)
-Title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-Title.Text = "📦 Plot 2 Steal Control"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.TextScaled = true
-Title.Parent = Frame
+Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
-local Status = Instance.new("TextLabel")
+local Label = Instance.new("TextLabel", Frame)
+Label.Size = UDim2.new(1, 0, 0, 25)
+Label.BackgroundTransparency = 1
+Label.Text = "📦 Plot 2 Steal Control"
+Label.TextColor3 = Color3.new(1, 1, 1)
+Label.Font = Enum.Font.GothamBold
+Label.TextSize = 16
+
+local Status = Instance.new("TextLabel", Frame)
 Status.Size = UDim2.new(1, -10, 0, 20)
 Status.Position = UDim2.new(0, 5, 0, 30)
 Status.BackgroundTransparency = 1
 Status.TextColor3 = Color3.new(1, 1, 1)
-Status.Text = "🔍 Scan for Plot 2..."
+Status.Font = Enum.Font.Code
+Status.TextSize = 14
+Status.Text = "Scan to find Plot 2..."
 Status.Parent = Frame
 
--- Buttons
-local ScanBtn = Instance.new("TextButton")
-ScanBtn.Size = UDim2.new(1, -10, 0, 25)
-ScanBtn.Position = UDim2.new(0, 5, 0, 60)
-ScanBtn.Text = "🔍 Scan Plot 2"
-ScanBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ScanBtn.TextColor3 = Color3.new(1, 1, 1)
-ScanBtn.Parent = Frame
+Label.Parent = Frame
 
-local StealBtn = Instance.new("TextButton")
-StealBtn.Size = UDim2.new(1, -10, 0, 25)
-StealBtn.Position = UDim2.new(0, 5, 0, 90)
-StealBtn.Text = "💸 Steal Plot 2"
-StealBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
-StealBtn.TextColor3 = Color3.new(1, 1, 1)
-StealBtn.Parent = Frame
+local function createButton(text, position, color)
+    local btn = Instance.new("TextButton", Frame)
+    btn.Size = UDim2.new(1, -10, 0, 25)
+    btn.Position = position
+    btn.Text = text
+    btn.BackgroundColor3 = color
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 14
+    return btn
+end
 
-local ReverseBtn = Instance.new("TextButton")
-ReverseBtn.Size = UDim2.new(1, -10, 0, 25)
-ReverseBtn.Position = UDim2.new(0, 5, 0, 120)
-ReverseBtn.Text = "🔄 Reverse Plot 2"
-ReverseBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-ReverseBtn.TextColor3 = Color3.new(1, 1, 1)
-ReverseBtn.Parent = Frame
+local ScanBtn = createButton("🔍 Scan for Plot 2", UDim2.new(0, 5, 0, 55), Color3.fromRGB(60, 60, 60))
+local StealBtn = createButton("💸 Steal Plot 2", UDim2.new(0, 5, 0, 85), Color3.fromRGB(150, 50, 50))
+local ReverseBtn = createButton("🔄 Reverse Steal Plot 2", UDim2.new(0, 5, 0, 115), Color3.fromRGB(50, 150, 50))
 
---// Functions
+--// Scan Logic
 local function ScanPlot2()
-    myUUID, plot2UUID = nil, nil
+    plot2UUID = nil
+    myUUID = nil
+    
     for _, plot in ipairs(Workspace:WaitForChild("Plots"):GetChildren()) do
         local channel = Synchronizer:Wait(plot.Name)
         if channel and typeof(channel.Get) == "function" then
             local owner = channel:Get("Owner")
             if owner then
-                if plot.Name:find("2") then plot2UUID = plot.Name end
-                if owner == game.Players.LocalPlayer then myUUID = plot.Name end
+                if plot.Name:find("2") or plot:GetAttribute("Tier") == 2 then
+                    plot2UUID = plot.Name
+                end
+                if owner == game.Players.LocalPlayer then
+                    myUUID = plot.Name
+                end
             end
         end
     end
-    Status.Text = plot2UUID and ("✅ Plot 2: " .. plot2UUID) or "⚠️ Plot 2 not found"
-end
-
-local function StealPlot2()
-    if myUUID and plot2UUID then
-        StealRemote:FireServer(Workspace:GetServerTimeNow() + 71, myUUID, plot2UUID, 2)
-        Status.Text = "✅ Steal fired (Grab)"
+    
+    if plot2UUID then
+        Status.Text = "✅ Plot 2 UUID: " .. plot2UUID
     else
-        Status.Text = "⚠️ Scan first!"
+        Status.Text = "⚠️ Plot 2 not found!"
     end
 end
 
-local function ReversePlot2()
-    if myUUID and plot2UUID then
-        StealRemote:FireServer(Workspace:GetServerTimeNow() + 71, plot2UUID, myUUID, 2)
-        Status.Text = "✅ Reverse fired (Grab)"
-    else
-        Status.Text = "⚠️ Scan first!"
-    end
+--// Grab Helper
+local function DoGrab(fromUUID, toUUID)
+    local currentTime = Workspace:GetServerTimeNow()
+
+    -- Step 1: Fire two pre-handshake events
+    PrepRemote:FireServer(currentTime, fromUUID)
+    PrepRemote:FireServer(currentTime, toUUID)
+
+    -- Step 2: Wait ~71 seconds then fire actual steal
+    Status.Text = "⏳ Waiting 71s before steal..."
+    task.delay(71, function()
+        GrabRemote:FireServer(currentTime + 71, fromUUID, toUUID, 2)
+        Status.Text = "✅ Steal fired."
+    end)
 end
 
--- Button bindings
+--// Button Handlers
 ScanBtn.MouseButton1Click:Connect(ScanPlot2)
-StealBtn.MouseButton1Click:Connect(StealPlot2)
-ReverseBtn.MouseButton1Click:Connect(ReversePlot2)
+StealBtn.MouseButton1Click:Connect(function()
+    if myUUID and plot2UUID then
+        DoGrab(myUUID, plot2UUID)
+    else
+        Status.Text = "⚠️ Scan first!"
+    end
+end)
+ReverseBtn.MouseButton1Click:Connect(function()
+    if myUUID and plot2UUID then
+        DoGrab(plot2UUID, myUUID)
+    else
+        Status.Text = "⚠️ Scan first!"
+    end
+end)
