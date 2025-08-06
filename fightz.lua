@@ -189,10 +189,12 @@ local SwingRemote = ReplicatedStorage:FindFirstChild("Roles") and ReplicatedStor
 local function updateATMESP()
     local atmsFolder = Workspace:FindFirstChild("ATMs")
     if not atmsFolder then return end
+    
     for _, atm in pairs(atmsFolder:GetChildren()) do
         local part = atm:IsA("BasePart") and atm or atm:FindFirstChildWhichIsA("BasePart")
         if part then
             if Toggles.ATMESP then
+                -- Create ESP if missing
                 if not part:FindFirstChild("ATM_ESP") then
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "ATM_ESP"
@@ -211,6 +213,7 @@ local function updateATMESP()
                     label.Parent = billboard
                 end
             else
+                -- ✅ Remove ESP if toggle is off
                 if part:FindFirstChild("ATM_ESP") then
                     part.ATM_ESP:Destroy()
                 end
@@ -218,6 +221,7 @@ local function updateATMESP()
         end
     end
 end
+
 
 local function updatePlayerESP()
     local myChar = player.Character
@@ -235,7 +239,7 @@ local function updatePlayerESP()
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
             if Toggles.PlayerESP then
-                -- Create ESP if not exists
+                -- Create ESP if missing
                 if not hrp:FindFirstChild("Player_ESP") then
                     local billboard = Instance.new("BillboardGui")
                     billboard.Name = "Player_ESP"
@@ -253,14 +257,14 @@ local function updatePlayerESP()
                     label.Text = string.format("%s | HP: %s | %dm", char.Name, healthText, distText)
                     label.Parent = billboard
                 else
-                    -- Update ESP text
+                    -- Update text
                     local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
                     if label then
                         label.Text = string.format("%s | HP: %s | %dm", char.Name, healthText, distText)
                     end
                 end
             else
-                -- Remove ESP if toggle off
+                -- ✅ Remove ESP if toggle is off
                 if hrp:FindFirstChild("Player_ESP") then
                     hrp.Player_ESP:Destroy()
                 end
@@ -268,6 +272,7 @@ local function updatePlayerESP()
         end
     end
 end
+
 
 
 -- Cooldowns
