@@ -385,7 +385,7 @@ end
             end)
         end
 
-        -- Auto Follow
+-- Auto Follow
 if Toggles.AutoFollow and now - lastFollow >= followInterval 
    and myChar:FindFirstChild("HumanoidRootPart") then
 
@@ -413,4 +413,40 @@ if Toggles.AutoFollow and now - lastFollow >= followInterval
     end)
 end  -- ✅ closes Auto Follow
 
+
+-- Auto PickMoney (Safe Version)
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
+    lastPick = now
+    pcall(function()
+        -- Ensure all parents exist step-by-step
+        local moneyFolder = Workspace:FindFirstChild("Spawned")
+        if moneyFolder then
+            moneyFolder = moneyFolder:FindFirstChild("Money")
+        end
+
+        local pickMoneyRemote
+        local stats = ReplicatedStorage:FindFirstChild("Stats")
+        if stats then
+            local core = stats:FindFirstChild("Core")
+            if core then
+                local default = core:FindFirstChild("Default")
+                if default then
+                    local remotes = default:FindFirstChild("Remotes")
+                    if remotes then
+                        pickMoneyRemote = remotes:FindFirstChild("PickMoney")
+                    end
+                end
+            end
+        end
+
+        -- If everything exists, collect money
+        if moneyFolder and pickMoneyRemote then
+            for _, money in ipairs(moneyFolder:GetChildren()) do
+                pcall(function()
+                    pickMoneyRemote:InvokeServer({money.Name})
+                end)
+            end
+        end
+    end)
+end  -- ✅ closes Auto PickMoney
 
