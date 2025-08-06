@@ -386,67 +386,48 @@ end
         end
 
 -- Auto Follow
-if Toggles.AutoFollow and now - lastFollow >= followInterval 
-   and myChar:FindFirstChild("HumanoidRootPart") then
-
-    lastFollow = now
-    pcall(function()
-        local myHRP = myChar.HumanoidRootPart
-        local myHumanoid = myChar:FindFirstChild("Humanoid")
-        local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-        local closestHRP, closestDist = nil, math.huge
-
-        for _, obj in pairs(searchFolder:GetChildren()) do
-            if obj:IsA("Model") and obj.Name ~= player.Name 
-               and obj:FindFirstChild("HumanoidRootPart") then
-                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestHRP = obj.HumanoidRootPart
+        if Toggles.AutoFollow and now - lastFollow >= followInterval and myChar:FindFirstChild("HumanoidRootPart") then
+            lastFollow = now
+            pcall(function()
+                local myHRP = myChar.HumanoidRootPart
+                local myHumanoid = myChar:FindFirstChild("Humanoid")
+                local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
+                local closestHRP, closestDist = nil, math.huge
+                for _, obj in pairs(searchFolder:GetChildren()) do
+                    if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
+                        local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestHRP = obj.HumanoidRootPart
+                        end
+                    end
                 end
-            end
+                if closestHRP and myHumanoid then
+                    myHumanoid.WalkToPoint = closestHRP.Position
+                end
+            end)
         end
 
-        if closestHRP and myHumanoid then
-            myHumanoid.WalkToPoint = closestHRP.Position
-        end
-    end)
-end  -- ✅ closes Auto Follow
 
 
--- Auto PickMoney (Safe Version)
+
+
+                
+       -- Auto PickMoney (Direct Remote)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
-        -- Ensure all parents exist step-by-step
-        local moneyFolder = Workspace:FindFirstChild("Spawned")
-        if moneyFolder then
-            moneyFolder = moneyFolder:FindFirstChild("Money")
-        end
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
+            and ReplicatedStorage.Stats:FindFirstChild("Core") 
+            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
+            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
 
-        local pickMoneyRemote
-        local stats = ReplicatedStorage:FindFirstChild("Stats")
-        if stats then
-            local core = stats:FindFirstChild("Core")
-            if core then
-                local default = core:FindFirstChild("Default")
-                if default then
-                    local remotes = default:FindFirstChild("Remotes")
-                    if remotes then
-                        pickMoneyRemote = remotes:FindFirstChild("PickMoney")
-                    end
-                end
-            end
-        end
-
-        -- If everything exists, collect money
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                pcall(function()
-                    pickMoneyRemote:InvokeServer({money.Name})
-                end)
+                -- Call remote using money Name as argument
+                pickMoneyRemote:InvokeServer(money.Name)
             end
         end
     end)
-end  -- ✅ closes Auto PickMoney
-
+end
