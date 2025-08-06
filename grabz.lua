@@ -69,29 +69,35 @@ local function ScanPlots()
         local podium = plot:FindFirstChild("AnimalPodiums") and plot.AnimalPodiums:FindFirstChild("2")
         if podium and podium:FindFirstChild("Base") and podium.Base:FindFirstChild("Spawn") then
             local attach = podium.Base.Spawn:FindFirstChild("Attachment")
-            if attach and attach:FindFirstChild("AnimalOverhead") and attach.AnimalOverhead:FindFirstChild("DisplayName") then
-                local name = attach.AnimalOverhead.DisplayName.Text
-                local uuid = plot.Name
-                
-                local Label = Instance.new("TextLabel", Results)
-                Label.Size = UDim2.new(1, -5, 0, 20)
-                Label.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-                Label.Text = uuid .. " ➡️ " .. name
-                Label.TextColor3 = Color3.new(1, 1, 1)
-                Label.TextScaled = true
-                
-                Results.CanvasSize = UDim2.new(0, 0, 0, #Results:GetChildren() * 22)
-                
-                -- Identify your UUID & victim UUID automatically
-                if name == "Cocofanto Elefanto" then
-                    yourUUID = uuid
-                elseif name == "Fluriflura" then
-                    victimUUID = uuid
+            if attach and attach:FindFirstChild("AnimalOverhead") then
+                -- Search descendants for DisplayName
+                for _, desc in ipairs(attach.AnimalOverhead:GetDescendants()) do
+                    if desc:IsA("TextLabel") and desc.Name == "DisplayName" then
+                        local name = desc.Text
+                        local uuid = plot.Name
+                        
+                        local Label = Instance.new("TextLabel", Results)
+                        Label.Size = UDim2.new(1, -5, 0, 20)
+                        Label.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                        Label.Text = uuid .. " ➡️ " .. name
+                        Label.TextColor3 = Color3.new(1, 1, 1)
+                        Label.TextScaled = true
+                        
+                        Results.CanvasSize = UDim2.new(0, 0, 0, #Results:GetChildren() * 22)
+                        
+                        -- Identify your UUID & victim UUID automatically
+                        if name == "Cocofanto Elefanto" then
+                            yourUUID = uuid
+                        elseif name == "Fluriflura" then
+                            victimUUID = uuid
+                        end
+                    end
                 end
             end
         end
     end
 end
+
 
 -- Function: Steal
 local function Steal()
