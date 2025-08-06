@@ -386,29 +386,34 @@ end
         end
 
         -- Auto Follow
-        if Toggles.AutoFollow and now - lastFollow >= followInterval and myChar:FindFirstChild("HumanoidRootPart") then
-            lastFollow = now
-            pcall(function()
-                local myHRP = myChar.HumanoidRootPart
-                local myHumanoid = myChar:FindFirstChild("Humanoid")
-                local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-                local closestHRP, closestDist = nil, math.huge
-                for _, obj in pairs(searchFolder:GetChildren()) do
-                    if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                        local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestHRP = obj.HumanoidRootPart
-                        end
-                    end
+if Toggles.AutoFollow and now - lastFollow >= followInterval 
+   and myChar:FindFirstChild("HumanoidRootPart") then
+
+    lastFollow = now
+    pcall(function()
+        local myHRP = myChar.HumanoidRootPart
+        local myHumanoid = myChar:FindFirstChild("Humanoid")
+        local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
+        local closestHRP, closestDist = nil, math.huge
+
+        for _, obj in pairs(searchFolder:GetChildren()) do
+            if obj:IsA("Model") and obj.Name ~= player.Name 
+               and obj:FindFirstChild("HumanoidRootPart") then
+                local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestHRP = obj.HumanoidRootPart
                 end
-                if closestHRP and myHumanoid then
-                    myHumanoid.WalkToPoint = closestHRP.Position
-                end
-            end)
+            end
         end
 
-     
+        if closestHRP and myHumanoid then
+            myHumanoid.WalkToPoint = closestHRP.Position
+        end
+    end)
+end  -- ✅ closes Auto Follow
+
+
 -- Auto PickMoney (Safe Version)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
@@ -443,4 +448,4 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
             end
         end
     end)
-end
+end  -- ✅ closes Auto PickMoney
