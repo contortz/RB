@@ -141,7 +141,10 @@ end -- ✅ CLOSES createGui()
 
 
 createGui()
-player.CharacterAdded:Connect(function() task.delay(1, createGui) end)
+if not CoreGui:FindFirstChild("StreetFightGui") then
+    createGui()
+end
+
 
 -- Remotes
 local PunchRemote = ReplicatedStorage:FindFirstChild("Roles") and ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons:FindFirstChild("Punch")
