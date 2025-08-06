@@ -309,7 +309,7 @@ RunService.Heartbeat:Connect(function()
 
 
 
-         -- Auto Shoot
+-- Auto Shoot
 if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
     local myHRP = myChar.HumanoidRootPart
     local closestPlayer, closestPart
@@ -319,14 +319,19 @@ if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
     for _, otherPlayer in pairs(Players:GetPlayers()) do
         if otherPlayer ~= player and otherPlayer.Character then
             local char = otherPlayer.Character
-            -- Search for any BasePart to shoot at
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") then
-                    local dist = (myHRP.Position - part.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestPlayer = otherPlayer
-                        closestPart = part
+            local humanoid = char:FindFirstChildOfClass("Humanoid")
+            
+            -- ✅ Skip if dead or no humanoid
+            if humanoid and humanoid.Health > 0 then
+                -- Search for any BasePart to shoot at
+                for _, part in pairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        local dist = (myHRP.Position - part.Position).Magnitude
+                        if dist < closestDist then
+                            closestDist = dist
+                            closestPlayer = otherPlayer
+                            closestPart = part
+                        end
                     end
                 end
             end
@@ -348,6 +353,7 @@ if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
         end)
     end
 end
+
 
         
         
