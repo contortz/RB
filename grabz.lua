@@ -2,26 +2,25 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
-local UserInputService = game:GetService("UserInputService")
 
 -- Remotes
 local StealRemote = require(ReplicatedStorage.Packages.Net):RemoteEvent("39c0ed9f-fd96-4f2c-89c8-b7a9b2d44d2e")
 local serverTime = Workspace:GetServerTimeNow()
 
--- Your UUID (once identified from scan)
+-- UUIDs from scan
 local yourUUID = nil
 local victimUUID = nil
 
--- GUI Setup
+-- GUI
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
 ScreenGui.Name = "PlotScanStealGui"
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 300, 0, 200)
-Frame.Position = UDim2.new(0.3, 0, 0.15, 0) -- High up
+Frame.Size = UDim2.new(0, 300, 0, 230)
+Frame.Position = UDim2.new(0.3, 0, 0.15, 0)
 Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Frame.Active = true
-Frame.Draggable = true -- Draggable UI
+Frame.Draggable = true
 Frame.Parent = ScreenGui
 
 -- Title
@@ -32,7 +31,7 @@ Title.Text = "🔍 Plot Scanner & Steal"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
 
--- ScrollBox for Results
+-- ScrollBox
 local Results = Instance.new("ScrollingFrame", Frame)
 Results.Size = UDim2.new(1, -10, 0, 120)
 Results.Position = UDim2.new(0, 5, 0, 30)
@@ -43,7 +42,7 @@ Results.ScrollBarThickness = 6
 local UIList = Instance.new("UIListLayout", Results)
 UIList.Padding = UDim.new(0, 2)
 
--- Scan Button
+-- Buttons
 local ScanBtn = Instance.new("TextButton", Frame)
 ScanBtn.Size = UDim2.new(1, -10, 0, 25)
 ScanBtn.Position = UDim2.new(0, 5, 0, 155)
@@ -51,15 +50,21 @@ ScanBtn.Text = "🔍 Scan Plots"
 ScanBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 ScanBtn.TextColor3 = Color3.new(1, 1, 1)
 
--- Steal Button
 local StealBtn = Instance.new("TextButton", Frame)
 StealBtn.Size = UDim2.new(1, -10, 0, 25)
 StealBtn.Position = UDim2.new(0, 5, 0, 180)
-StealBtn.Text = "💸 Execute Steal (Podium 2)"
+StealBtn.Text = "💸 Steal from Victim"
 StealBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
 StealBtn.TextColor3 = Color3.new(1, 1, 1)
 
--- Function: Scan Plots
+local ReverseBtn = Instance.new("TextButton", Frame)
+ReverseBtn.Size = UDim2.new(1, -10, 0, 25)
+ReverseBtn.Position = UDim2.new(0, 5, 0, 205)
+ReverseBtn.Text = "🔄 Reverse Steal"
+ReverseBtn.BackgroundColor3 = Color3.fromRGB(20, 80, 20)
+ReverseBtn.TextColor3 = Color3.new(1, 1, 1)
+
+-- Scan Function
 local function ScanPlots()
     for _, child in ipairs(Results:GetChildren()) do
         if child:IsA("TextLabel") then child:Destroy() end
@@ -96,17 +101,29 @@ local function ScanPlots()
     end
 end
 
-
-
--- Function: Steal
+-- Steal Function
 local function Steal()
     if yourUUID and victimUUID then
-        StealRemote:FireServer(serverTime + 71, yourUUID, victimUUID, 2)
+        for i = 1, 10 do
+            StealRemote:FireServer(serverTime + 71, yourUUID, victimUUID, i)
+        end
     else
-        warn("❌ UUIDs not set. Scan plots first!")
+        warn("❌ Scan first to get UUIDs!")
     end
 end
 
--- Bind buttons
+-- Reverse Steal Function
+local function ReverseSteal()
+    if yourUUID and victimUUID then
+        for i = 1, 10 do
+            StealRemote:FireServer(serverTime + 71, victimUUID, yourUUID, i)
+        end
+    else
+        warn("❌ Scan first to get UUIDs!")
+    end
+end
+
+-- Button Actions
 ScanBtn.MouseButton1Click:Connect(ScanPlots)
 StealBtn.MouseButton1Click:Connect(Steal)
+ReverseBtn.MouseButton1Click:Connect(ReverseSteal)
