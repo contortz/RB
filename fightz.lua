@@ -312,13 +312,21 @@ RunService.Heartbeat:Connect(function()
             lastPick = now
             local moneyFolder = Workspace:FindFirstChild("Spawned")
             if moneyFolder then moneyFolder = moneyFolder:FindFirstChild("Money") end
-            local pickMoneyRemote = ReplicatedStorage.Stats?.Core?.Default?.Remotes?.PickMoney
-            if pickMoneyRemote and moneyFolder then
-                for _, money in ipairs(moneyFolder:GetChildren()) do
-                    pickMoneyRemote:InvokeServer(money.Name)
-                end
+local pickMoneyRemote
+local stats = ReplicatedStorage:FindFirstChild("Stats")
+if stats then
+    local core = stats:FindFirstChild("Core")
+    if core then
+        local default = core:FindFirstChild("Default")
+        if default then
+            local remotes = default:FindFirstChild("Remotes")
+            if remotes then
+                pickMoneyRemote = remotes:FindFirstChild("PickMoney")
             end
         end
+    end
+end
+
 
         -- Auto Shoot ✅ (inside Heartbeat now)
         if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
