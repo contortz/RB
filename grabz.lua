@@ -2,119 +2,125 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
 
---// Setup Remotes
-local Net = require(ReplicatedStorage.Packages.Net)
+--// Net + Synchronizer
+local Net = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net"))
+local Synchronizer = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Synchronizer"))
 local StealRemote = Net:RemoteEvent("39c0ed9f-fd96-4f2c-89c8-b7a9b2d44d2e")
 
+local localPlayer = Players.LocalPlayer
+local localUUID
+
 --// GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "StealAnywhereUI"
-ScreenGui.Parent = CoreGui
+local ScreenGui = Instance.new("ScreenGui", CoreGui)
+ScreenGui.Name = "PlotScanStealGui"
 ScreenGui.ResetOnSpawn = false
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 280, 0, 200)
-Frame.Position = UDim2.new(0.5, -140, 0.2, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Frame.BorderSizePixel = 0
+Frame.Size = UDim2.new(0, 300, 0, 260)
+Frame.Position = UDim2.new(0.3, 0, 0.15, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
-local UICorner = Instance.new("UICorner", Frame)
-UICorner.CornerRadius = UDim.new(0, 8)
+local Results = Instance.new("ScrollingFrame", Frame)
+Results.Size = UDim2.new(1, -10, 0, 180)
+Results.Position = UDim2.new(0, 5, 0, 5)
+Results.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Results.CanvasSize = UDim2.new(0, 0, 0, 0)
+Results.ScrollBarThickness = 6
 
-local Label = Instance.new("TextLabel")
-Label.Size = UDim2.new(1, 0, 0, 30)
-Label.BackgroundTransparency = 1
-Label.Text = "🐘 Cocofanto Steal Menu"
-Label.TextColor3 = Color3.new(1, 1, 1)
-Label.Font = Enum.Font.GothamBold
-Label.TextSize = 16
-Label.Parent = Frame
+local UIList = Instance.new("UIListLayout", Results)
+UIList.Padding = UDim.new(0, 2)
 
-local LogBox = Instance.new("TextLabel")
-LogBox.Size = UDim2.new(1, -10, 0, 100)
-LogBox.Position = UDim2.new(0, 5, 0, 35)
-LogBox.BackgroundTransparency = 1
-LogBox.TextColor3 = Color3.new(1, 1, 1)
-LogBox.TextXAlignment = Enum.TextXAlignment.Left
-LogBox.TextYAlignment = Enum.TextYAlignment.Top
-LogBox.Font = Enum.Font.Code
-LogBox.TextSize = 14
-LogBox.TextWrapped = true
-LogBox.Text = "Press Scan Plots..."
-LogBox.Parent = Frame
-
-local ScanBtn = Instance.new("TextButton")
-ScanBtn.Size = UDim2.new(0.5, -7, 0, 30)
-ScanBtn.Position = UDim2.new(0, 5, 0, 150)
+local ScanBtn = Instance.new("TextButton", Frame)
+ScanBtn.Size = UDim2.new(0.5, -7, 0, 25)
+ScanBtn.Position = UDim2.new(0, 5, 0, 210)
 ScanBtn.Text = "🔍 Scan Plots"
-ScanBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+ScanBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 ScanBtn.TextColor3 = Color3.new(1, 1, 1)
-ScanBtn.Font = Enum.Font.Gotham
-ScanBtn.TextSize = 14
-ScanBtn.Parent = Frame
 
-local StealBtn = Instance.new("TextButton")
-StealBtn.Size = UDim2.new(0.5, -7, 0, 30)
-StealBtn.Position = UDim2.new(0.5, 2, 0, 150)
-StealBtn.Text = "💸 Steal Anywhere"
-StealBtn.BackgroundColor3 = Color3.fromRGB(180, 60, 60)
-StealBtn.TextColor3 = Color3.new(1, 1, 1)
-StealBtn.Font = Enum.Font.Gotham
-StealBtn.TextSize = 14
-StealBtn.Parent = Frame
+local CopyBtn = Instance.new("TextButton", Frame)
+CopyBtn.Size = UDim2.new(0.5, -7, 0, 25)
+CopyBtn.Position = UDim2.new(0.5, 2, 0, 210)
+CopyBtn.Text = "📋 Copy All"
+CopyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+CopyBtn.TextColor3 = Color3.new(1, 1, 1)
 
---// Vars
-local yourUUID
-local victimList = {}
+-- Store scanned victims
+local scannedData = {}
+
+--// Auto-find your UUID
+local function FindLocalUUID()
+    for _, plot in ipairs(Workspace:WaitForChild("Plots"):GetChildren()) do
+        local channel = Synchronizer:Wait(plot.Name)
+        if channel and typeof(channel.Get) == "function" then
+            local owner = channel:Get("Owner")
+            if owner == localPlayer then
+                localUUID = plot.Name
+                break
+            end
+        end
+    end
+end
 
 --// Scan Function
 local function ScanPlots()
-    yourUUID = nil
-    table.clear(victimList)
-    
-    local channelFolder = ReplicatedStorage:WaitForChild("Synchronizer"):WaitForChild("Channel")
-    for _, ch in ipairs(channelFolder:GetChildren()) do
-        local channel = rawget(ch, "Channel") or ch
+    scannedData = {}
+    for _, child in ipairs(Results:GetChildren()) do
+        if child:IsA("TextButton") then child:Destroy() end
+    end
+
+    FindLocalUUID()
+    if not localUUID then
+        warn("⚠️ Local UUID not found! Is your plot loaded?")
+        return
+    end
+
+    for _, plot in ipairs(Workspace.Plots:GetChildren()) do
+        local channel = Synchronizer:Wait(plot.Name)
         if channel and typeof(channel.Get) == "function" then
             local animalList = channel:Get("AnimalList")
             if animalList then
                 for index, animalData in pairs(animalList) do
                     if animalData and animalData.Index then
-                        if animalData.DisplayName == "Cocofanto Elefanto" then
-                            yourUUID = ch.Name
-                        else
-                            table.insert(victimList, {uuid = ch.Name, index = index})
-                        end
+                        local victimUUID = plot.Name
+                        local displayName = animalData.DisplayName or ("Animal "..index)
+                        
+                        -- Save for Copy All
+                        table.insert(scannedData, victimUUID.." ➡️ "..displayName)
+
+                        -- Create Steal Button
+                        local Btn = Instance.new("TextButton", Results)
+                        Btn.Size = UDim2.new(1, -5, 0, 20)
+                        Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                        Btn.TextColor3 = Color3.new(1, 1, 1)
+                        Btn.TextScaled = true
+                        Btn.Text = victimUUID.." ➡️ "..displayName
+
+                        Btn.MouseButton1Click:Connect(function()
+                            local serverTime = Workspace:GetServerTimeNow()
+                            StealRemote:FireServer(serverTime + 60, localUUID, victimUUID, index)
+                        end)
                     end
                 end
             end
         end
     end
-    
-    if yourUUID then
-        LogBox.Text = "✅ Cocofanto UUID: " .. yourUUID .. "\nVictims: " .. tostring(#victimList)
+    Results.CanvasSize = UDim2.new(0, 0, 0, #Results:GetChildren() * 22)
+end
+
+--// Copy All to Clipboard
+local function CopyAll()
+    if #scannedData > 0 then
+        setclipboard(table.concat(scannedData, "\n"))
     else
-        LogBox.Text = "⚠️ Cocofanto not found!"
+        warn("⚠️ Nothing scanned to copy.")
     end
 end
 
---// Steal Function
-local function StealAnywhere()
-    if not yourUUID then
-        LogBox.Text = "⚠️ Scan first!"
-        return
-    end
-    local serverTime = Workspace:GetServerTimeNow()
-    for _, victim in ipairs(victimList) do
-        StealRemote:FireServer(serverTime + 60, yourUUID, victim.uuid, victim.index)
-    end
-    LogBox.Text = "💸 Steal attempts sent to " .. tostring(#victimList) .. " plots."
-end
-
---// Bind Buttons
+--// Connect Buttons
 ScanBtn.MouseButton1Click:Connect(ScanPlots)
-StealBtn.MouseButton1Click:Connect(StealAnywhere)
+CopyBtn.MouseButton1Click:Connect(CopyAll)
