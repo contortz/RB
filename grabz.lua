@@ -2,6 +2,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
 
 local Net = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Net"))
 local Synchronizer = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("Synchronizer"))
@@ -15,9 +16,10 @@ local myUUID = nil
 local plot2UUID = nil
 
 --// UI Setup
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
+local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "Plot2StealUI"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui") -- ✅ Works reliably
 
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 240, 0, 160)
@@ -26,7 +28,6 @@ Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
-
 Instance.new("UICorner", Frame).CornerRadius = UDim.new(0, 8)
 
 local Label = Instance.new("TextLabel", Frame)
@@ -36,6 +37,7 @@ Label.Text = "📦 Plot 2 Steal Control"
 Label.TextColor3 = Color3.new(1, 1, 1)
 Label.Font = Enum.Font.GothamBold
 Label.TextSize = 16
+Label.Parent = Frame
 
 local Status = Instance.new("TextLabel", Frame)
 Status.Size = UDim2.new(1, -10, 0, 20)
@@ -47,8 +49,7 @@ Status.TextSize = 14
 Status.Text = "Scan to find Plot 2..."
 Status.Parent = Frame
 
-Label.Parent = Frame
-
+-- Helper to create buttons
 local function createButton(text, position, color)
     local btn = Instance.new("TextButton", Frame)
     btn.Size = UDim2.new(1, -10, 0, 25)
@@ -78,7 +79,7 @@ local function ScanPlot2()
                 if plot.Name:find("2") or plot:GetAttribute("Tier") == 2 then
                     plot2UUID = plot.Name
                 end
-                if owner == game.Players.LocalPlayer then
+                if owner == Players.LocalPlayer then
                     myUUID = plot.Name
                 end
             end
@@ -92,27 +93,26 @@ local function ScanPlot2()
     end
 end
 
---// Grab Helper
+--// Grab Logic (Auto Delay)
 local function DoGrab(fromUUID, toUUID)
-    local baseTime = Workspace:GetServerTimeNow()
-
-    -- Step 1: Handshake start
-    PrepRemote:FireServer(baseTime, fromUUID)
-    PrepRemote:FireServer(baseTime, toUUID)
-    Status.Text = "⏳ Handshake sent at " .. baseTime
-
-    -- Step 2: Delay matches actual observed gap (example ~115 seconds)
-    local grabDelay = 115  -- Adjust this if we detect shorter/longer cooldown
-
-    task.delay(grabDelay, function()
-        local grabTime = baseTime + grabDelay
+    local prepTime = Workspace:GetServerTimeNow()
+    local holdTime = 2.5 -- Hold duration from proximity prompt
+    local extraDelay = 68.5 -- Remaining delay to match ~71 total
+    
+    -- Step 1: Prep both sides
+    PrepRemote:FireServer(prepTime, fromUUID)
+    PrepRemote:FireServer(prepTime, toUUID)
+    Status.Text = "⏳ Prep fired at " .. prepTime
+    
+    -- Step 2: Auto grab after full duration
+    task.delay(holdTime + extraDelay, function()
+        local grabTime = Workspace:GetServerTimeNow()
         GrabRemote:FireServer(grabTime, fromUUID, toUUID, 2)
         Status.Text = "✅ Grab fired at " .. grabTime
     end)
 end
 
-
---// Button Handlers
+-- Button Actions
 ScanBtn.MouseButton1Click:Connect(ScanPlot2)
 StealBtn.MouseButton1Click:Connect(function()
     if myUUID and plot2UUID then
