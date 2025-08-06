@@ -234,7 +234,8 @@ local function updatePlayerESP()
     local myHRP = myChar.HumanoidRootPart
 
     local charFolder = Workspace:FindFirstChild("Characters")
-    if not charFolder then return end
+    local playersFolder = Workspace:FindFirstChild("Players")
+    if not charFolder or not playersFolder then return end
 
     for _, char in pairs(charFolder:GetChildren()) do
         if char:IsA("Model") and char.Name ~= player.Name and char:FindFirstChild("HumanoidRootPart") then
@@ -243,11 +244,10 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
-            -- ✅ PvP check from Workspace.Players[char.Name] Attribute
+            -- ✅ PvP check from Workspace.Players[Name]
             local pvpStatus = "Idle"
-            local playerData = Workspace:FindFirstChild("Players")
-            local playerFolder = playerData and playerData:FindFirstChild(char.Name)
-            if playerFolder and playerFolder:GetAttribute("PvP") == true then
+            local playerObj = playersFolder:FindFirstChild(char.Name)
+            if playerObj and playerObj:GetAttribute("PvP") == true then
                 pvpStatus = "PvP"
             end
 
@@ -287,6 +287,7 @@ local function updatePlayerESP()
         end
     end
 end
+
 
 
 
