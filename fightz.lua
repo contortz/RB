@@ -403,25 +403,48 @@ end
             end)
         end
 
--- Auto PickMoney (Safe)
-if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
-    lastPick = now
+-- Safe AutoPickMoney with Debug
+RunService.Heartbeat:Connect(function()
     pcall(function()
-        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
-            and ReplicatedStorage.Stats:FindFirstChild("Core") 
-            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
-            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
+        if Toggles.AutoPickMoney and tick() - lastPick >= pickMoneyCooldown then
+            lastPick = tick()
+            
+            local moneyFolder = Workspace:FindFirstChild("Spawned")
+            if moneyFolder then
+                moneyFolder = moneyFolder:FindFirstChild("Money")
+            end
 
-        -- Only run if everything exists
-        if moneyFolder and pickMoneyRemote then
-            for _, money in ipairs(moneyFolder:GetChildren()) do
-                if money:IsA("BasePart") or money:IsA("Model") then
-                    pcall(function()
-                        pickMoneyRemote:InvokeServer(money.Name)
-                    end)
+            local pickMoneyRemote
+            local stats = ReplicatedStorage:FindFirstChild("Stats")
+            if stats then
+                local core = stats:FindFirstChild("Core")
+                if core then
+                    local default = core:FindFirstChild("Default")
+                    if default then
+                        local remotes = default:FindFirstChild("Remotes")
+                        if remotes then
+                            pickMoneyRemote = remotes:FindFirstChild("PickMoney")
+                        end
+                    end
+                end
+            end
+
+            -- Debugging: Check remote exists
+            if not pickMoneyRemote then
+                warn("PickMoney remote not found")
+                return
+            end
+
+            if moneyFolder then
+                for _, money in ipairs(moneyFolder:GetChildren()) do
+                    if money.Name then
+                        print("Trying PickMoney:", money.Name)
+                        pcall(function()
+                            pickMoneyRemote:InvokeServer(money.Name)
+                        end)
+                    end
                 end
             end
         end
     end)
-end
+end)
