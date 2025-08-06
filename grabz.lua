@@ -1,24 +1,39 @@
--- Require Conch UI
-local ConchUI = require(ReplicatedStorage.Packages.Conch.roblox_packages.ui)
+--// Services
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CoreGui = game:GetService("CoreGui")
 
--- Floating Toggle Button
+--// Conch UI
+local ConchUI = require(
+    ReplicatedStorage.Packages.Conch
+        .roblox_packages["alicesaidhi+conch_ui"]["0.2.5-rc.1"]
+        .conch_ui.src.lib
+)
+
+--// State
+local conchOpen = false
+
+--// Create Toggle Button
 local ToggleBtn = Instance.new("TextButton")
-ToggleBtn.Size = UDim2.new(0, 100, 0, 40)
-ToggleBtn.Position = UDim2.new(0.85, 0, 0.05, 0) -- top right corner
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+ToggleBtn.Size = UDim2.new(0, 150, 0, 30)
+ToggleBtn.Position = UDim2.new(0.4, 0, 0.05, 0)
+ToggleBtn.Text = "🖥 Toggle Conch"
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 100)
 ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
-ToggleBtn.Text = "Conch"
-ToggleBtn.TextScaled = true
 ToggleBtn.Parent = CoreGui
 
--- Button click toggles Conch UI
-local isMounted = false
+--// Toggle Function
 ToggleBtn.MouseButton1Click:Connect(function()
-    if not isMounted then
-        ConchUI.mount() -- open console
-        isMounted = true
+    conchOpen = not conchOpen
+    if conchOpen then
+        ConchUI.mount()
     else
-        -- There’s no official close, but we can toggle `opened` state
-        ConchUI.opened(not ConchUI.opened())
+        -- If Conch has a close/unmount, call it here
+        if ConchUI.close then
+            ConchUI.close()
+        elseif ConchUI.unmount then
+            ConchUI.unmount()
+        else
+            warn("⚠ No close function in ConchUI, might stay open")
+        end
     end
 end)
