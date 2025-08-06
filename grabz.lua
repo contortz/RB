@@ -9,16 +9,16 @@ local StealRemote = require(ReplicatedStorage.Packages.Net):RemoteEvent("39c0ed9
 local serverTime = Workspace:GetServerTimeNow()
 
 -- UUIDs
-local yourUUID = nil
-local victimUUID = nil
+local yourUUID, victimUUID = nil, nil
 
 -- GUI
-local ScreenGui = Instance.new("ScreenGui", CoreGui)
+local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PlotScanStealGui"
+ScreenGui.Parent = CoreGui -- ✅ Parent right away so it renders
 
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 300, 0, 230)
-Frame.Position = UDim2.new(0.3, 0, 0.15, 0)
+Frame.Position = UDim2.new(0.3, 0, 0.15, 0) -- same higher position as before
 Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Frame.Active = true
 Frame.Draggable = true
@@ -35,8 +35,8 @@ local Results = Instance.new("ScrollingFrame", Frame)
 Results.Size = UDim2.new(1, -10, 0, 120)
 Results.Position = UDim2.new(0, 5, 0, 30)
 Results.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-Results.CanvasSize = UDim2.new(0, 0, 0, 0)
 Results.ScrollBarThickness = 6
+Results.CanvasSize = UDim2.new(0, 0, 0, 0)
 local UIList = Instance.new("UIListLayout", Results)
 UIList.Padding = UDim.new(0, 2)
 
@@ -67,8 +67,7 @@ local function ScanPlots()
             if attach and attach:FindFirstChild("AnimalOverhead") then
                 for _, desc in ipairs(attach.AnimalOverhead:GetDescendants()) do
                     if desc:IsA("TextLabel") and desc.Name == "DisplayName" then
-                        local name = desc.Text
-                        local uuid = plot.Name
+                        local name, uuid = desc.Text, plot.Name
                         
                         local Label = Instance.new("TextLabel", Results)
                         Label.Size = UDim2.new(1, -5, 0, 20)
@@ -91,7 +90,7 @@ local function ScanPlots()
     end
 end
 
--- Full 4-Packet Steal
+-- Full Steal
 local function StealFromVictim()
     if yourUUID and victimUUID then
         for podiumIndex = 1, 10 do
