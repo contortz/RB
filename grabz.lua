@@ -11,6 +11,7 @@ local StealRemote = Net:RemoteEvent("39c0ed9f-fd96-4f2c-89c8-b7a9b2d44d2e")
 
 local localPlayer = Players.LocalPlayer
 local localUUID
+local scannedData = {} -- { {uuid="...", index=#}, ... }
 
 --// GUI Setup
 local ScreenGui = Instance.new("ScreenGui", CoreGui)
@@ -18,7 +19,7 @@ ScreenGui.Name = "PlotScanStealGui"
 ScreenGui.ResetOnSpawn = false
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 300, 0, 260)
+Frame.Size = UDim2.new(0, 300, 0, 290)
 Frame.Position = UDim2.new(0.3, 0, 0.15, 0)
 Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Frame.Active = true
@@ -49,8 +50,12 @@ CopyBtn.Text = "📋 Copy All"
 CopyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
 CopyBtn.TextColor3 = Color3.new(1, 1, 1)
 
--- Store scanned victims
-local scannedData = {}
+local StealAllBtn = Instance.new("TextButton", Frame)
+StealAllBtn.Size = UDim2.new(1, -10, 0, 25)
+StealAllBtn.Position = UDim2.new(0, 5, 0, 240)
+StealAllBtn.Text = "💸 Steal ALL"
+StealAllBtn.BackgroundColor3 = Color3.fromRGB(80, 20, 20)
+StealAllBtn.TextColor3 = Color3.new(1, 1, 1)
 
 --// Auto-find your UUID
 local function FindLocalUUID()
@@ -88,11 +93,9 @@ local function ScanPlots()
                     if animalData and animalData.Index then
                         local victimUUID = plot.Name
                         local displayName = animalData.DisplayName or ("Animal "..index)
-                        
-                        -- Save for Copy All
-                        table.insert(scannedData, victimUUID.." ➡️ "..displayName)
 
-                        -- Create Steal Button
+                        table.insert(scannedData, {uuid=victimUUID, index=index})
+
                         local Btn = Instance.new("TextButton", Results)
                         Btn.Size = UDim2.new(1, -5, 0, 20)
                         Btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
@@ -112,15 +115,35 @@ local function ScanPlots()
     Results.CanvasSize = UDim2.new(0, 0, 0, #Results:GetChildren() * 22)
 end
 
---// Copy All to Clipboard
+--// Copy All
 local function CopyAll()
     if #scannedData > 0 then
-        setclipboard(table.concat(scannedData, "\n"))
+        local output = {}
+        for _, v in ipairs(scannedData) do
+            table.insert(output, v.uuid.." ➡️ Animal "..v.index)
+        end
+        setclipboard(table.concat(output, "\n"))
     else
         warn("⚠️ Nothing scanned to copy.")
+    end
+end
+
+--// Steal All
+local function StealAll()
+    if not localUUID then
+        FindLocalUUID()
+    end
+    if not localUUID then
+        warn("⚠️ Local UUID not found!")
+        return
+    end
+    local serverTime = Workspace:GetServerTimeNow()
+    for _, v in ipairs(scannedData) do
+        StealRemote:FireServer(serverTime + 60, localUUID, v.uuid, v.index)
     end
 end
 
 --// Connect Buttons
 ScanBtn.MouseButton1Click:Connect(ScanPlots)
 CopyBtn.MouseButton1Click:Connect(CopyAll)
+StealAllBtn.MouseButton1Click:Connect(StealAll)
