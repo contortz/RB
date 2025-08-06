@@ -243,22 +243,14 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
-            -- ✅ Check PvP status specifically
+            -- ✅ PvP check from Workspace.Players[char.Name].PvP
             local pvpStatus = "Idle"
-            local pvpFlag = char:FindFirstChild("PvP")  -- Adjust if your game uses a different name
+            local playerData = Workspace:FindFirstChild("Players")
+            local playerFolder = playerData and playerData:FindFirstChild(char.Name)
+            local pvpFlag = playerFolder and playerFolder:FindFirstChild("PvP")
 
-            if pvpFlag and pvpFlag:IsA("BoolValue") then
-                if pvpFlag.Value == true then
-                    pvpStatus = "PvP"
-                else
-                    pvpStatus = "Idle"
-                end
-            elseif char:GetAttribute("PvP") ~= nil then
-                if char:GetAttribute("PvP") == true then
-                    pvpStatus = "PvP"
-                else
-                    pvpStatus = "Idle"
-                end
+            if pvpFlag and pvpFlag:IsA("BoolValue") and pvpFlag.Value == true then
+                pvpStatus = "PvP"
             end
 
             if Toggles.PlayerESP then
@@ -274,7 +266,7 @@ local function updatePlayerESP()
                     local label = Instance.new("TextLabel")
                     label.Size = UDim2.new(1, 0, 1, 0)
                     label.BackgroundTransparency = 1
-                    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    label.TextColor3 = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(100, 100, 100)
                     label.TextStrokeTransparency = 0
                     label.TextScaled = true
                     label.Text = string.format("%s | HP: %s | %dm | %s", char.Name, healthText, distText, pvpStatus)
@@ -284,10 +276,10 @@ local function updatePlayerESP()
                     local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
                     if label then
                         label.Text = string.format("%s | HP: %s | %dm | %s", char.Name, healthText, distText, pvpStatus)
+                        label.TextColor3 = pvpStatus == "PvP" and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(100, 100, 100)
                     end
                 end
             else
-                -- ✅ Remove ESP if toggle is off
                 if hrp:FindFirstChild("Player_ESP") then
                     hrp.Player_ESP:Destroy()
                 end
