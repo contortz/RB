@@ -94,19 +94,23 @@ end
 
 --// Grab Helper
 local function DoGrab(fromUUID, toUUID)
-    local currentTime = Workspace:GetServerTimeNow()
+    local baseTime = Workspace:GetServerTimeNow()
 
-    -- Step 1: Fire two pre-handshake events
-    PrepRemote:FireServer(currentTime, fromUUID)
-    PrepRemote:FireServer(currentTime, toUUID)
+    -- Step 1: Handshake start
+    PrepRemote:FireServer(baseTime, fromUUID)
+    PrepRemote:FireServer(baseTime, toUUID)
+    Status.Text = "⏳ Handshake sent at " .. baseTime
 
-    -- Step 2: Wait ~71 seconds then fire actual steal
-    Status.Text = "⏳ Waiting 71s before steal..."
-    task.delay(71, function()
-        GrabRemote:FireServer(currentTime + 71, fromUUID, toUUID, 2)
-        Status.Text = "✅ Steal fired."
+    -- Step 2: Delay matches actual observed gap (example ~115 seconds)
+    local grabDelay = 115  -- Adjust this if we detect shorter/longer cooldown
+
+    task.delay(grabDelay, function()
+        local grabTime = baseTime + grabDelay
+        GrabRemote:FireServer(grabTime, fromUUID, toUUID, 2)
+        Status.Text = "✅ Grab fired at " .. grabTime
     end)
 end
+
 
 --// Button Handlers
 ScanBtn.MouseButton1Click:Connect(ScanPlot2)
