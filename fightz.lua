@@ -408,24 +408,20 @@ end
             end)
         end
 
-
-
-
-
-                
--- Auto PickMoney (Direct Remote)
-if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
-    lastPick = now
-    pcall(function()
-        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
-            and ReplicatedStorage.Stats:FindFirstChild("Core") 
-            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
+     
+        -- Auto PickMoney (Direct Remote)
+        if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
+        lastPick = now
+        pcall(function()
+            local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+            local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats")
+            and ReplicatedStorage.Stats:FindFirstChild("Core")
+            and ReplicatedStorage.Stats.Core:FindFirstChild("Default")
             and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
 
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                -- Pass as table { moneyName }
+                -- Wrap money.Name in table just like SimpleSpy
                 pcall(function()
                     pickMoneyRemote:InvokeServer({money.Name})
                 end)
