@@ -41,7 +41,7 @@ local function createGui()
     TitleLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleLabel.Font = Enum.Font.SourceSansBold
-    TitleLabel.TextSize = 18
+    TitleLabel.TextSize = 16
     TitleLabel.Text = "Street Fight by Dreamz"
     TitleLabel.Parent = MainFrame
 
