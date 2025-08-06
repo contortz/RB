@@ -403,28 +403,39 @@ end
             end)
         end
 
-
-
-
-
-                
--- Auto PickMoney (Direct Remote - Correct Args)
+-- Auto PickMoney (Safe Remote Call)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
-        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
-            and ReplicatedStorage.Stats:FindFirstChild("Core") 
-            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
-            and ReplicatedStorage.Stats.Core.Default:FindFirstChild("Remotes") 
-            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
+        local moneyFolder = Workspace:FindFirstChild("Spawned")
+        if moneyFolder then moneyFolder = moneyFolder:FindFirstChild("Money") end
+
+        local pickMoneyRemote
+        local stats = ReplicatedStorage:FindFirstChild("Stats")
+        if stats then
+            local core = stats:FindFirstChild("Core")
+            if core then
+                local default = core:FindFirstChild("Default")
+                if default then
+                    local remotes = default:FindFirstChild("Remotes")
+                    if remotes then
+                        pickMoneyRemote = remotes:FindFirstChild("PickMoney")
+                    end
+                end
+            end
+        end
 
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                pcall(function()
-                    pickMoneyRemote:InvokeServer({money.Name})  -- ✅ argument wrapped in table
+                print("Attempting PickMoney for:", money.Name)
+                local ok, err = pcall(function()
+                    pickMoneyRemote:InvokeServer(money.Name) -- try raw Name
                 end)
+                if not ok then
+                    warn("PickMoney error:", err)
+                end
             end
         end
     end)
 end
+
