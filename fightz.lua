@@ -218,11 +218,9 @@ local function updateATMESP()
                     label.Parent = billboard
                 end
             else
-                -- Remove ESP if toggle is off
-                for _, obj in pairs(atmsFolder:GetDescendants()) do
-                    if obj.Name == "ATM_ESP" then
-                        obj:Destroy()
-                    end
+                -- ✅ Remove ESP if toggle is off
+                if part:FindFirstChild("ATM_ESP") then
+                    part.ATM_ESP:Destroy()
                 end
             end
         end
@@ -271,17 +269,14 @@ local function updatePlayerESP()
                     end
                 end
             else
-                -- Remove ESP if toggle is off
-                for _, obj in pairs(char:GetDescendants()) do
-                    if obj.Name == "Player_ESP" then
-                        obj:Destroy()
-                    end
+                -- ✅ Remove ESP if toggle is off
+                if hrp:FindFirstChild("Player_ESP") then
+                    hrp.Player_ESP:Destroy()
                 end
             end
         end
     end
 end
-
 
 
 
@@ -385,7 +380,7 @@ end
             end)
         end
 
--- Auto Follow
+        -- Auto Follow
         if Toggles.AutoFollow and now - lastFollow >= followInterval and myChar:FindFirstChild("HumanoidRootPart") then
             lastFollow = now
             pcall(function()
@@ -413,21 +408,25 @@ end
 
 
                 
-       -- Auto PickMoney (Direct Remote)
-if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
-    lastPick = now
-    pcall(function()
-        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
-            and ReplicatedStorage.Stats:FindFirstChild("Core") 
-            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
-            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
-
-        if moneyFolder and pickMoneyRemote then
-            for _, money in ipairs(moneyFolder:GetChildren()) do
-                -- Call remote using money Name as argument
-                pickMoneyRemote:InvokeServer(money.Name)
-            end
+        -- Auto PickMoney
+        if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar:FindFirstChild("HumanoidRootPart") then
+            lastPick = now
+            pcall(function()
+                local myHRP = myChar.HumanoidRootPart
+                local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+                if moneyFolder then
+                    for _, obj in pairs(moneyFolder:GetChildren()) do
+                        local part = obj:FindFirstChildWhichIsA("BasePart")
+                        local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
+                        if part and prompt and prompt.Enabled then
+                            myHRP.CFrame = part.CFrame + Vector3.new(0, 2, 0)
+                            task.wait(0.05)
+                            fireproximityprompt(prompt)
+                            break
+                        end
+                    end
+                end
+            end)
         end
     end)
-end
+end)
