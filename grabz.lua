@@ -11,15 +11,19 @@ local serverTime = Workspace:GetServerTimeNow()
 -- UUIDs
 local yourUUID, victimUUID = nil, nil
 
--- GUI
+-- GUI Setup
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "PlotScanStealGui"
-ScreenGui.Parent = CoreGui -- ✅ Parent right away so it renders
+ScreenGui.ResetOnSpawn = false -- ✅ Keep after respawn
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = CoreGui -- ✅ Attach first so it renders
 
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 300, 0, 230)
-Frame.Position = UDim2.new(0.3, 0, 0.15, 0) -- same higher position as before
+Frame.Position = UDim2.new(0.3, 0, 0.15, 0) -- Higher placement
 Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.BorderSizePixel = 1
+Frame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
@@ -27,9 +31,11 @@ Frame.Parent = ScreenGui
 local Title = Instance.new("TextLabel", Frame)
 Title.Size = UDim2.new(1, 0, 0, 25)
 Title.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+Title.BorderSizePixel = 0
 Title.Text = "🔍 Plot Scanner & Steal"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextScaled = true
+Title.ZIndex = 2
 
 local Results = Instance.new("ScrollingFrame", Frame)
 Results.Size = UDim2.new(1, -10, 0, 120)
@@ -37,6 +43,7 @@ Results.Position = UDim2.new(0, 5, 0, 30)
 Results.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 Results.ScrollBarThickness = 6
 Results.CanvasSize = UDim2.new(0, 0, 0, 0)
+Results.ZIndex = 1
 local UIList = Instance.new("UIListLayout", Results)
 UIList.Padding = UDim.new(0, 2)
 
@@ -108,5 +115,6 @@ local function StealFromVictim()
     end
 end
 
+-- Button Events
 ScanBtn.MouseButton1Click:Connect(ScanPlots)
 StealBtn.MouseButton1Click:Connect(StealFromVictim)
