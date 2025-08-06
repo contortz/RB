@@ -243,13 +243,22 @@ local function updatePlayerESP()
             local healthText = humanoid and math.floor(humanoid.Health) or "?"
             local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
 
-            -- ✅ Check PvP status
+            -- ✅ Check PvP status specifically
             local pvpStatus = "Idle"
-            local pvpFlag = char:FindFirstChild("PvP") or char:FindFirstChildWhichIsA("BoolValue")
-            if pvpFlag and pvpFlag.Value == true then
-                pvpStatus = "PvP"
-            elseif char:GetAttribute("PvP") == true then
-                pvpStatus = "PvP"
+            local pvpFlag = char:FindFirstChild("PvP")  -- Adjust if your game uses a different name
+
+            if pvpFlag and pvpFlag:IsA("BoolValue") then
+                if pvpFlag.Value == true then
+                    pvpStatus = "PvP"
+                else
+                    pvpStatus = "Idle"
+                end
+            elseif char:GetAttribute("PvP") ~= nil then
+                if char:GetAttribute("PvP") == true then
+                    pvpStatus = "PvP"
+                else
+                    pvpStatus = "Idle"
+                end
             end
 
             if Toggles.PlayerESP then
