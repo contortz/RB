@@ -403,48 +403,23 @@ end
             end)
         end
 
--- Auto PickMoney (Safe + Proper Args)
+-- Auto PickMoney (Matching AutoShoot style)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
-        -- ✅ Find Money folder safely
-        local moneyFolder = Workspace:FindFirstChild("Spawned")
-        if moneyFolder then
-            moneyFolder = moneyFolder:FindFirstChild("Money")
-        end
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
+            and ReplicatedStorage.Stats:FindFirstChild("Core") 
+            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
+            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
 
-        -- ✅ Find PickMoney Remote safely
-        local pickMoneyRemote
-        local stats = ReplicatedStorage:FindFirstChild("Stats")
-        if stats then
-            local core = stats:FindFirstChild("Core")
-            if core then
-                local default = core:FindFirstChild("Default")
-                if default then
-                    local remotes = default:FindFirstChild("Remotes")
-                    if remotes then
-                        pickMoneyRemote = remotes:FindFirstChild("PickMoney")
-                    end
-                end
-            end
-        end
-
-        -- ✅ Invoke server if everything exists
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
+                local args = { money.Name } -- build args like AutoShoot
                 pcall(function()
-                    -- 🔍 Try both formats (Name directly or inside a table)
-                    local success = pcall(function()
-                        return pickMoneyRemote:InvokeServer(money.Name)
-                    end)
-
-                    if not success then
-                        pickMoneyRemote:InvokeServer({money.Name})
-                    end
+                    pickMoneyRemote:InvokeServer(unpack(args))
                 end)
             end
         end
     end)
 end
-
-
