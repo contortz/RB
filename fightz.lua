@@ -200,6 +200,31 @@ buyGlockBtn.MouseButton1Click:Connect(function()
 end)
 
 yPos += 0.08
+
+
+
+-- Claim Quest Button
+local claimQuestBtn = Instance.new("TextButton")
+claimQuestBtn.Size = UDim2.new(0.9, 0, 0, 30)
+claimQuestBtn.Position = UDim2.new(0.05, 0, yPos, 0)
+claimQuestBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+claimQuestBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+claimQuestBtn.Text = "Claim Quest"
+claimQuestBtn.Parent = MainFrame
+
+claimQuestBtn.MouseButton1Click:Connect(function()
+    local args = { "smash_15_atms" } -- Quest ID
+    game:GetService("ReplicatedStorage")
+        :WaitForChild("Quests")
+        :WaitForChild("Core")
+        :WaitForChild("Default")
+        :WaitForChild("Remotes")
+        :WaitForChild("Claim")
+        :InvokeServer(unpack(args))
+end)
+
+yPos += 0.08
+
 end -- ✅ CLOSES createGui()
 
 createGui()
