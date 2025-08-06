@@ -1,11 +1,2 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local conch = require(
-    ReplicatedStorage
-        :WaitForChild("Packages")
-        :WaitForChild("Conch")
-        :WaitForChild("lib")
-        :WaitForChild("conch") -- must be a ModuleScript!
-)
-
+local conch = require(game.ReplicatedStorage.Packages.Conch.roblox_packages[".pesde"]["alicesaidhi+conch_ui"]["0.2.5-rc.1"].conch)
 conch.mount()
