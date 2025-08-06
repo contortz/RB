@@ -408,25 +408,43 @@ end
 
 
                 
-        -- Auto PickMoney
-        if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown and myChar:FindFirstChild("HumanoidRootPart") then
-            lastPick = now
-            pcall(function()
-                local myHRP = myChar.HumanoidRootPart
-                local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-                if moneyFolder then
-                    for _, obj in pairs(moneyFolder:GetChildren()) do
-                        local part = obj:FindFirstChildWhichIsA("BasePart")
-                        local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-                        if part and prompt and prompt.Enabled then
+        -- Auto PickMoney (Remote + Fallback to Prompt)
+if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
+    lastPick = now
+    pcall(function()
+        local myChar = player.Character
+        if not myChar then return end
+
+        local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
+        local pickMoneyRemote = ReplicatedStorage
+            :FindFirstChild("Stats")
+            and ReplicatedStorage.Stats:FindFirstChild("Core")
+            and ReplicatedStorage.Stats.Core:FindFirstChild("Default")
+            and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
+
+        if moneyFolder and pickMoneyRemote then
+            for _, money in ipairs(moneyFolder:GetChildren()) do
+                pcall(function()
+                    -- Try remote pickup
+                    local success = pcall(function()
+                        return pickMoneyRemote:InvokeServer(money.Name)
+                    end)
+
+                    -- If remote failed, fallback to ProximityPrompt
+                    if not success then
+                        local prompt = money:FindFirstChildOfClass("ProximityPrompt")
+                        local part = money:FindFirstChildWhichIsA("BasePart")
+                        if prompt and part then
                             myHRP.CFrame = part.CFrame + Vector3.new(0, 2, 0)
                             task.wait(0.05)
                             fireproximityprompt(prompt)
-                            break
                         end
                     end
-                end
-            end)
+                end)
+            end
         end
     end)
-end)
+end
