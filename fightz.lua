@@ -29,7 +29,7 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 350)
+    MainFrame.Size = UDim2.new(0, 200, 0, 300) -- ✅ Reduced from 350
     MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
@@ -59,7 +59,7 @@ local function createGui()
             button.Text = name .. ": " .. (Toggles[toggleKey] and "ON" or "OFF")
             button.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0,200,0) or Color3.fromRGB(50,50,50)
         end)
-        yPos += 0.15
+        yPos += 0.08
     end
 
     -- Create buttons
@@ -106,7 +106,7 @@ tpATMButton.MouseButton1Click:Connect(function()
         atmIndex += 1
     end
 end)
-yPos += 0.15
+yPos += 0.08
 
 
 -- Tools Cycle Teleport Button
@@ -136,7 +136,7 @@ tpToolsButton.MouseButton1Click:Connect(function()
         end
     end
 end)
-yPos += 0.15
+yPos += 0.08
 end -- ✅ CLOSES createGui()
 
 
