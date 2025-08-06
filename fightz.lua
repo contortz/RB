@@ -403,26 +403,24 @@ end
             end)
         end
 
--- Auto PickMoney (with BasePart name fallback)
+-- Auto PickMoney (Safe ID Fallback)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
         local moneyFolder = Workspace:FindFirstChild("Spawned") and Workspace.Spawned:FindFirstChild("Money")
-        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats") 
-            and ReplicatedStorage.Stats:FindFirstChild("Core") 
-            and ReplicatedStorage.Stats.Core:FindFirstChild("Default") 
+        local pickMoneyRemote = ReplicatedStorage:FindFirstChild("Stats")
+            and ReplicatedStorage.Stats:FindFirstChild("Core")
+            and ReplicatedStorage.Stats.Core:FindFirstChild("Default")
             and ReplicatedStorage.Stats.Core.Default.Remotes:FindFirstChild("PickMoney")
 
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                local targetName = money.Name -- default to folder name
+                local id = money.Name
                 local part = money:FindFirstChildWhichIsA("BasePart")
-                if part then
-                    targetName = part.Name -- fallback if remote wants the part name
-                end
+                if part then id = part.Name end
 
                 pcall(function()
-                    pickMoneyRemote:InvokeServer(targetName)
+                    pickMoneyRemote:InvokeServer(id)
                 end)
             end
         end
