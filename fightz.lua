@@ -413,7 +413,7 @@ end
 
 
                 
-       -- Auto PickMoney (Direct Remote)
+-- Auto PickMoney (Direct Remote)
 if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
     lastPick = now
     pcall(function()
@@ -425,8 +425,10 @@ if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
 
         if moneyFolder and pickMoneyRemote then
             for _, money in ipairs(moneyFolder:GetChildren()) do
-                -- Call remote using money Name as argument
-                pickMoneyRemote:InvokeServer(money.Name)
+                -- Pass as table { moneyName }
+                pcall(function()
+                    pickMoneyRemote:InvokeServer({money.Name})
+                end)
             end
         end
     end)
