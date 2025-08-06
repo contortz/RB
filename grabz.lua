@@ -1,10 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
+local PlayerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
 
--- ✅ Correct path to the conch_ui module
-local conch = require(
+-- ✅ Get conch_ui table (which has .mount and .bind_to methods)
+local conch_ui = require(
     ReplicatedStorage:WaitForChild("Packages")
         :WaitForChild("Conch")
         :WaitForChild("roblox_packages")
@@ -14,26 +13,13 @@ local conch = require(
         :WaitForChild("conch")
 )
 
--- Create a simple UI to launch Conch
-local screenGui = Instance.new("ScreenGui", playerGui)
-screenGui.Name = "LaunchConch"
-
-local button = Instance.new("TextButton")
-button.Size = UDim2.new(0, 160, 0, 40)
-button.Position = UDim2.new(0, 20, 0, 120)
-button.Text = "Launch Conch"
-button.TextColor3 = Color3.new(1, 1, 1)
-button.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-button.Parent = screenGui
-
-button.MouseButton1Click:Connect(function()
-    local success, result = pcall(function()
-        return conch.mount()
-    end)
-
-    if success then
-        print("✅ Conch UI launched")
-    else
-        warn("❌ Failed to mount Conch UI:", result)
-    end
+-- ✅ Mount it
+local success, err = pcall(function()
+    conch_ui.mount()
 end)
+
+if success then
+    print("✅ Conch UI mounted successfully!")
+else
+    warn("❌ Failed to mount Conch UI:", err)
+end
