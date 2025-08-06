@@ -310,36 +310,45 @@ RunService.Heartbeat:Connect(function()
 
 
          -- Auto Shoot
-        if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
-            local myHRP = myChar.HumanoidRootPart
-            local closestHRP
-            local closestDist = math.huge
+if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
+    local myHRP = myChar.HumanoidRootPart
+    local closestPlayer, closestPart
+    local closestDist = math.huge
 
-            for _, otherPlayer in pairs(Players:GetPlayers()) do
-                if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local otherHRP = otherPlayer.Character.HumanoidRootPart
-                    local dist = (myHRP.Position - otherHRP.Position).Magnitude
+    -- Loop through all players
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local char = otherPlayer.Character
+            -- Search for any BasePart to shoot at
+            for _, part in pairs(char:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    local dist = (myHRP.Position - part.Position).Magnitude
                     if dist < closestDist then
                         closestDist = dist
-                        closestHRP = otherHRP
+                        closestPlayer = otherPlayer
+                        closestPart = part
                     end
                 end
             end
-
-            if closestHRP then
-                local shootPos = closestHRP.Position
-                local targetPart = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Part") or closestHRP
-                local args = {{
-                    Instance = targetPart,
-                    Distance = (shootPos - targetPart.Position).Magnitude,
-                    Normal = Vector3.new(-1, 0, 0),
-                    Position = shootPos
-                }}
-                pcall(function()
-                    ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Shoot:InvokeServer(unpack(args))
-                end)
-            end
         end
+    end
+
+    -- Shoot at closest part
+    if closestPart then
+        local direction = (closestPart.Position - myHRP.Position).Unit
+        local args = {{
+            Instance = closestPart,
+            Distance = closestDist,
+            Normal = direction,
+            Position = closestPart.Position
+        }}
+
+        pcall(function()
+            ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Shoot:InvokeServer(unpack(args))
+        end)
+    end
+end
+
         
         
         -- Auto Throw
