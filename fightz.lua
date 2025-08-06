@@ -37,7 +37,7 @@ local function createGui()
     MainFrame.Parent = ScreenGui
 
     local TitleLabel = Instance.new("TextLabel")
-    TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+   TitleLabel.Size = UDim2.new(0.85, 0, 0, 30) -- 85% width of frame
     TitleLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     TitleLabel.Font = Enum.Font.SourceSansBold
