@@ -71,12 +71,15 @@ local function findLocalPlayerBase()
                     local filled = 0
                     local total = 0
 
-                    for _, podium in ipairs(animalPodiums:GetChildren()) do
-                        local spawn = podium:FindFirstChild("Spawn")
-                        if spawn and spawn:IsA("BasePart") then
-                            total += 1
-                            if spawn:FindFirstChild("Attachment") then
-                                filled += 1
+                    for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
+                        if podiumModule:IsA("Model") then
+                            local base = podiumModule:FindFirstChild("Base")
+                            local spawn = base and base:FindFirstChild("Spawn")
+                            if spawn and spawn:IsA("BasePart") then
+                                total += 1
+                                if spawn:FindFirstChild("Attachment") then
+                                    filled += 1
+                                end
                             end
                         end
                     end
