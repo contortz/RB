@@ -87,15 +87,19 @@ local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
--- Slot Info Display
-local slotInfoLabel = Instance.new("TextLabel", frame)
+-- Slot Info Display (top-left of screen)
+local slotInfoLabel = Instance.new("TextLabel", screenGui)
 slotInfoLabel.Size = UDim2.new(1, -10, 0, 25)
-slotInfoLabel.Position = UDim2.new(0, 5, 0, 70)
+slotInfoLabel.Position = UDim2.new(0, 10, 0, 10)
+slotInfoLabel.Size = UDim2.new(0, 200, 0, 30)
 slotInfoLabel.BackgroundTransparency = 1
 slotInfoLabel.TextColor3 = Color3.new(1, 1, 1)
+slotInfoLabel.TextStrokeTransparency = 0.4
 slotInfoLabel.TextScaled = true
 slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
+slotInfoLabel.ZIndex = 10
+
 
 
 -- Frame
