@@ -244,7 +244,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                 if genValue >= PurchaseThreshold then
                     task.wait(0.10)
                     prompt:InputHoldBegin()
-                    task.wait(prompt.HoldDuration or 0.35)
+                    task.wait(prompt.HoldDuration or 0.60)
                     prompt:InputHoldEnd()
                 end
                 return
@@ -257,7 +257,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                     if price >= PurchaseThreshold then
                         task.wait(0.10)
                         prompt:InputHoldBegin()
-                        task.wait(prompt.HoldDuration or 0.35)
+                        task.wait(prompt.HoldDuration or 0.60)
                         prompt:InputHoldEnd()
                     end
                     return
