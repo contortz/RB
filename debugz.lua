@@ -37,6 +37,16 @@ baseInfoLabel.TextScaled = true
 baseInfoLabel.Font = Enum.Font.GothamBold
 baseInfoLabel.Text = "🏠 Base: Unknown | Tier: ?"
 
+-- Slot Info Display
+local slotInfoLabel = Instance.new("TextLabel", frame)
+slotInfoLabel.Size = UDim2.new(1, -10, 0, 25)
+slotInfoLabel.Position = UDim2.new(0, 5, 0, 70)
+slotInfoLabel.BackgroundTransparency = 1
+slotInfoLabel.TextColor3 = Color3.new(1, 1, 1)
+slotInfoLabel.TextScaled = true
+slotInfoLabel.Font = Enum.Font.GothamBold
+slotInfoLabel.Text = "Slots: ? / ?"
+
 -- Logic to find local player's base and tier
 local function findLocalPlayerBase()
     local playerName = player.Name
@@ -54,6 +64,26 @@ local function findLocalPlayerBase()
             if owner == playerName then
                 local tier = model:GetAttribute("Tier")
                 baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
+
+                -- Count filled and total slots
+                local animalPodiums = model:FindFirstChild("AnimalPodiums")
+                if animalPodiums then
+                    local filled = 0
+                    local total = 0
+
+                    for _, podium in ipairs(animalPodiums:GetChildren()) do
+                        local spawn = podium:FindFirstChild("Spawn")
+                        if spawn and spawn:IsA("BasePart") then
+                            total += 1
+                            if spawn:FindFirstChild("Attachment") then
+                                filled += 1
+                            end
+                        end
+                    end
+
+                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
+                end
+
                 break
             end
         end
