@@ -87,6 +87,17 @@ local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
+-- Floating slot label (top-left)
+local topLeftSlotLabel = Instance.new("TextLabel")
+topLeftSlotLabel.Parent = screenGui
+topLeftSlotLabel.Size = UDim2.new(0, 200, 0, 25)
+topLeftSlotLabel.Position = UDim2.new(0, 10, 0, 10)
+topLeftSlotLabel.BackgroundTransparency = 1
+topLeftSlotLabel.TextColor3 = Color3.new(1, 1, 1)
+topLeftSlotLabel.TextScaled = true
+topLeftSlotLabel.Font = Enum.Font.GothamBold
+topLeftSlotLabel.Text = "Slots: ? / ?"
+
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
@@ -231,6 +242,58 @@ thresholdDropdown.MouseButton1Click:Connect(function()
     thresholdDropdown.Text = "Threshold: ≥ "..selected
 end)
 
+
+-- Only show filled / total slots
+local function updateSlotCountOnly()
+    local playerName = player.Name
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return end
+
+    for _, model in ipairs(plots:GetChildren()) do
+        local sign = model:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local frame = gui and gui:FindFirstChild("Frame")
+        local label = frame and frame:FindFirstChild("TextLabel")
+
+        if label and label.Text then
+            local owner = label.Text:match("^(.-)'s Base")
+            if owner == playerName then
+                local animalPodiums = model:FindFirstChild("AnimalPodiums")
+                if animalPodiums then
+                    local filled = 0
+                    local total = 0
+
+                    for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
+                        if podiumModule:IsA("Model") then
+                            local base = podiumModule:FindFirstChild("Base")
+                            local spawn = base and base:FindFirstChild("Spawn")
+                            if spawn and spawn:IsA("BasePart") then
+                                total += 1
+                                if spawn:FindFirstChild("Attachment") then
+                                    filled += 1
+                                end
+                            end
+                        end
+                    end
+
+                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
+                end
+
+                break
+            end
+        end
+    end
+end
+-- Call it once after delay (to catch initial load)
+task.delay(1, updateSlotCountOnly)
+
+-- Auto-refresh slot count every 5 seconds
+task.spawn(function()
+    while true do
+        updateSlotCountOnly()
+        task.wait(5)
+    end
+end)
 
 
 
@@ -439,29 +502,6 @@ end)
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 -- Rarity Toggles
 local y = 330
 for rarity in pairs(RarityColors) do
@@ -575,11 +615,7 @@ end)
 
 
 
-
-
-
-
--- Check if "IN MACHINE"
+-- Check if "IN MACHINE" changed to FUSING
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
     return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "FUSING"
