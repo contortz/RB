@@ -66,7 +66,6 @@ local function createGui()
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
 
-    -- Teleport Next ATM
     local atmIndex = 1
     local tpATMButton = Instance.new("TextButton")
     tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
@@ -105,7 +104,19 @@ end
 
 createGui()
 
---// Support Functions
+--// Helpers
+local function simulateKeyPress(key)
+    local vim = game:GetService("VirtualInputManager")
+    vim:SendKeyEvent(true, key, false, game)
+    task.wait(0.1)
+    vim:SendKeyEvent(false, key, false, game)
+end
+
+local function purchasePromptActive()
+    local promptGui = player:FindFirstChild("PlayerGui"):FindFirstChild("ProximityPrompts")
+    return promptGui and #promptGui:GetChildren() > 0
+end
+
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
@@ -186,39 +197,46 @@ local function updateATMESP()
     end
 end
 
--- Auto Pick Cash
-if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
-    local cashFolder = Workspace:FindFirstChild("Cash")
-    if cashFolder then
-        local allCash = {}
-        for _, obj in pairs(cashFolder:GetChildren()) do
-            if obj:IsA("BasePart") and obj.Name == "Cash" then
-                table.insert(allCash, obj)
-            end
-        end
+--// Runtime
+local lastTeleport = 0
+local teleportCooldown = 1.5
+local currentCashIndex = 1
 
-        if #allCash > 0 then
-            if currentCashIndex > #allCash then currentCashIndex = 1 end
-            local targetCash = allCash[currentCashIndex]
-            if targetCash then
-                myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
+RunService.Heartbeat:Connect(function()
+    pcall(function()
+        local now = tick()
+        local myChar = player.Character
+        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+        local myHRP = myChar.HumanoidRootPart
 
-                -- ✅ Wait for UI ProximityPrompt to appear
-                task.wait(0.2)
-                if purchasePromptActive() then
-                    simulateKeyPress("E")
+        -- Auto Pick Cash
+        if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
+            local cashFolder = Workspace:FindFirstChild("Cash")
+            if cashFolder then
+                local allCash = {}
+                for _, obj in pairs(cashFolder:GetChildren()) do
+                    if obj:IsA("BasePart") and obj.Name == "Cash" then
+                        table.insert(allCash, obj)
+                    end
+                end
+
+                if #allCash > 0 then
+                    if currentCashIndex > #allCash then currentCashIndex = 1 end
+                    local targetCash = allCash[currentCashIndex]
+                    if targetCash then
+                        myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
+                        task.wait(0.2)
+                        if purchasePromptActive() then
+                            simulateKeyPress("E")
+                        end
+                    end
+                    currentCashIndex += 1
+                    lastTeleport = now
                 end
             end
-            currentCashIndex += 1
-            lastTeleport = now
         end
-    end
-end
 
-
-
-
-        -- 🔁 Auto Punch
+        -- Auto Punch
         if Toggles.AutoPunch then
             local args = { 1 }
             local punchRemote = ReplicatedStorage:FindFirstChild("PUNCHEVENT")
@@ -227,7 +245,7 @@ end
             end
         end
 
-        -- 🔁 Auto Swing (Pipe + Stop Sign)
+        -- Auto Swing
         if Toggles.AutoSwing then
             local args = { 1 }
             local modules = ReplicatedStorage:FindFirstChild("Modules")
@@ -242,14 +260,7 @@ end
             end
         end
 
-        -- 🔁 Player ESP
-        if Toggles.PlayerESP then
-            updatePlayerESP()
-        end
-
-        -- 🔁 ATM ESP
-        if Toggles.ATMESP then
-            updateATMESP()
-        end
+        if Toggles.PlayerESP then updatePlayerESP() end
+        if Toggles.ATMESP then updateATMESP() end
     end)
 end)
