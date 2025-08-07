@@ -67,6 +67,8 @@ local function createGui()
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
         createButton("Salon Punch Test", "SalonPunchTest", 250)
+    createButton("Give Dinero Test", "GiveDinero", 285)
+
 
     -- Teleport to next ATM
     local atmIndex = 1
@@ -261,28 +263,45 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
+                -- Test giveDinero
+if Toggles.GiveDinero then
+    local events = ReplicatedStorage:FindFirstChild("events")
+    if events then
+        local commandEvents = events:FindFirstChild("customer_command_events")
+        if commandEvents then
+            local giveDinero = commandEvents:FindFirstChild("giveDinero")
+            if giveDinero and giveDinero:IsA("RemoteEvent") then
+                giveDinero:FireServer(999999) -- try sending an amount
+            end
+        end
+    end
+end
+
+
                         -- Salon Punch Test
-        if Toggles.SalonPunchTest then
-            local remote = ReplicatedStorage:FindFirstChild("Roles")
-            if remote then
-                local tools = remote:FindFirstChild("Tools")
-                if tools then
-                    local default = tools:FindFirstChild("Default")
-                    if default then
-                        local remotes = default:FindFirstChild("Remotes")
-                        if remotes then
-                            local weapons = remotes:FindFirstChild("Weapons")
-                            if weapons then
-                                local salonPunch = weapons:FindFirstChild("SalonPunches")
-                                if salonPunch then
-                                    salonPunch:FireServer(1)
-                                end
-                            end
+if Toggles.SalonPunchTest then
+    local remote = ReplicatedStorage:FindFirstChild("Roles")
+    if remote then
+        local tools = remote:FindFirstChild("Tools")
+        if tools then
+            local default = tools:FindFirstChild("Default")
+            if default then
+                local remotes = default:FindFirstChild("Remotes")
+                if remotes then
+                    local weapons = remotes:FindFirstChild("Weapons")
+                    if weapons then
+                        local salonPunch = weapons:FindFirstChild("SalonPunches")
+                        if salonPunch and salonPunch:IsA("RemoteFunction") then
+                            local result = salonPunch:InvokeServer(1)
+                            print("🧪 SalonPunch result:", result)
                         end
                     end
                 end
             end
         end
+    end
+end
+
 
 
         -- ESP
