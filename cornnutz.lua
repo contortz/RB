@@ -231,6 +231,27 @@ thresholdDropdown.MouseButton1Click:Connect(function()
     thresholdDropdown.Text = "Threshold: ≥ "..selected
 end)
 
+
+
+
+-- Attempt to hold the prompt, retry if still present
+local function tryHoldPrompt(prompt, holdTime, maxRetries)
+    maxRetries = maxRetries or 2
+    for attempt = 1, maxRetries do
+        prompt:InputHoldBegin()
+        task.wait(holdTime)
+        prompt:InputHoldEnd()
+
+        -- Short wait to allow UI to update
+        task.wait(0.25)
+
+        -- If prompt disappeared, success
+        if not prompt:IsDescendantOf(game) or not prompt.Enabled then
+            break
+        end
+    end
+end
+
 -- Proximity Prompt Auto Purchase Logic
 local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt)
@@ -243,9 +264,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                 local genValue = parseGenerationText(overhead.Generation.Text)
                 if genValue >= PurchaseThreshold then
                     task.wait(0.10)
-                    prompt:InputHoldBegin()
-                    task.wait(prompt.HoldDuration or 0.60)
-                    prompt:InputHoldEnd()
+                    tryHoldPrompt(prompt, 3, 2) -- Hold for 3 seconds, retry once if needed
                 end
                 return
             end
@@ -256,9 +275,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                     local price = data and data.Price or 0
                     if price >= PurchaseThreshold then
                         task.wait(0.10)
-                        prompt:InputHoldBegin()
-                        task.wait(prompt.HoldDuration or 0.60)
-                        prompt:InputHoldEnd()
+                        tryHoldPrompt(prompt, 3, 2) -- Hold for 3 seconds, retry once if needed
                     end
                     return
                 end
@@ -266,6 +283,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
         end
     end
 end)
+
 
 
 -- Speed Boost Toggle
