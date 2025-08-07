@@ -186,20 +186,7 @@ local function updateATMESP()
     end
 end
 
---// Cash Teleport Variables
-local lastTeleport = 0
-local teleportCooldown = 1.5
-local currentCashIndex = 1
-
---// Main Heartbeat
-RunService.Heartbeat:Connect(function()
-    pcall(function()
-        local myChar = player.Character
-        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
-        local myHRP = myChar.HumanoidRootPart
-        local now = tick()
-
-        -- 🔁 Auto Pick Cash (only parts named "Cash" + prompt from parent)
+-- 🔁 Auto Pick Cash (teleport + prompt from ancestor)
 if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
     local cashFolder = Workspace:FindFirstChild("Cash")
     if cashFolder then
@@ -216,8 +203,7 @@ if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
             if targetCash then
                 myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
 
-                -- ✅ Correctly get ProximityPrompt from parent Cash folder
-                local prompt = targetCash.Parent:FindFirstChildOfClass("ProximityPrompt")
+                local prompt = findProximityPrompt(targetCash)
                 if prompt then
                     prompt:InputHoldBegin()
                     task.wait(prompt.HoldDuration or 0.1)
@@ -229,6 +215,7 @@ if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
         end
     end
 end
+
 
 
         -- 🔁 Auto Punch
