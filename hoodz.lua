@@ -127,7 +127,7 @@ end
 
 local function simulateKeyPress(key)
     VirtualInputManager:SendKeyEvent(true, key, false, game)
-    task.wait(0.05)
+    task.wait(0.9)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
