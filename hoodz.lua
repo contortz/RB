@@ -172,6 +172,7 @@ RunService.Heartbeat:Connect(function()
         end
 
        -- Auto Money (teleport to any Part inside MoneyModel model)
+-- Auto Money (handle two proximity prompts per MoneyModel interaction)
 if Toggles.AutoMoney then
     local registers = Workspace:FindFirstChild("Registers")
     if registers then
@@ -184,11 +185,26 @@ if Toggles.AutoMoney then
                         for _, part in pairs(moneyModel:GetChildren()) do
                             if part:IsA("BasePart") then
                                 myHRP.CFrame = part.CFrame + Vector3.new(0, 3, 0)
-                                task.wait(0.05)
+                                task.wait(0.1)
+
+                                -- First prompt
                                 if purchasePromptActive() then
-                                    simulateKeyPress("E")
+                                    VirtualInputManager:SendKeyEvent(true, "E", false, game)
+                                    task.wait(1.2)
+                                    VirtualInputManager:SendKeyEvent(false, "E", false, game)
+
+                                    -- Wait for second prompt
+                                    task.wait(0.5)
+                                    if purchasePromptActive() then
+                                        VirtualInputManager:SendKeyEvent(true, "E", false, game)
+                                        task.wait(1.2)
+                                        VirtualInputManager:SendKeyEvent(false, "E", false, game)
+                                    end
+
+                                    return -- done after both prompts
+                                else
+                                    break -- no prompt, move to next register
                                 end
-                                break
                             end
                         end
                     end
@@ -197,6 +213,7 @@ if Toggles.AutoMoney then
         end
     end
 end
+
 
 
         -- Auto Punch
