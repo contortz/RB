@@ -186,7 +186,7 @@ local function updateATMESP()
     end
 end
 
--- 🔁 Auto Pick Cash (teleport + prompt from ancestor)
+-- Auto Pick Cash
 if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
     local cashFolder = Workspace:FindFirstChild("Cash")
     if cashFolder then
@@ -203,11 +203,10 @@ if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
             if targetCash then
                 myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
 
-                local prompt = findProximityPrompt(targetCash)
-                if prompt then
-                    prompt:InputHoldBegin()
-                    task.wait(prompt.HoldDuration or 0.1)
-                    prompt:InputHoldEnd()
+                -- ✅ Wait for UI ProximityPrompt to appear
+                task.wait(0.2)
+                if purchasePromptActive() then
+                    simulateKeyPress("E")
                 end
             end
             currentCashIndex += 1
@@ -215,6 +214,7 @@ if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
         end
     end
 end
+
 
 
 
