@@ -125,9 +125,9 @@ local function purchasePromptActive()
     return promptGui and #promptGui:GetChildren() > 0
 end
 
-local function simulateKeyPress(key)
+local function simulateKeyPress(key, duration)
     VirtualInputManager:SendKeyEvent(true, key, false, game)
-    task.wait(0.9)
+    task.wait(duration)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
@@ -135,6 +135,8 @@ end
 local lastTeleport = 0
 local teleportCooldown = 0.25
 local currentCashIndex = 1
+local lastAutoMoney = 0
+local autoMoneyCooldown = 1.5
 
 --// Main Loop
 RunService.Heartbeat:Connect(function()
@@ -162,7 +164,7 @@ RunService.Heartbeat:Connect(function()
                         myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
                         task.wait(0.05)
                         if purchasePromptActive() then
-                            simulateKeyPress("E")
+                            simulateKeyPress("E", 0.9)
                         end
                     end
                     currentCashIndex += 1
@@ -171,39 +173,32 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-       -- Auto Money (teleport to any Part inside MoneyModel model)
--- Auto Money (handle two proximity prompts per MoneyModel interaction)
-if Toggles.AutoMoney then
-    local registers = Workspace:FindFirstChild("Registers")
-    if registers then
-        for _, reg in pairs(registers:GetChildren()) do
-            if reg:IsA("Model") and reg.Name:match("^CRS_%d+") then
-                local stock = reg:FindFirstChild("Stock")
-                if stock then
-                    local moneyModel = stock:FindFirstChild("MoneyModel")
-                    if moneyModel and moneyModel:IsA("Model") then
-                        for _, part in pairs(moneyModel:GetChildren()) do
-                            if part:IsA("BasePart") then
-                                myHRP.CFrame = part.CFrame + Vector3.new(0, 3, 0)
-                                task.wait(0.1)
+        -- Auto Money (2-prompt interaction)
+        if Toggles.AutoMoney and now - lastAutoMoney >= autoMoneyCooldown then
+            local registers = Workspace:FindFirstChild("Registers")
+            if registers then
+                for _, reg in pairs(registers:GetChildren()) do
+                    if reg:IsA("Model") and reg.Name:match("^CRS_%d+") then
+                        local stock = reg:FindFirstChild("Stock")
+                        if stock then
+                            local moneyModel = stock:FindFirstChild("MoneyModel")
+                            if moneyModel and moneyModel:IsA("Model") then
+                                for _, part in pairs(moneyModel:GetChildren()) do
+                                    if part:IsA("BasePart") then
+                                        myHRP.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+                                        task.wait(0.25)
 
-                                -- First prompt
-                                if purchasePromptActive() then
-                                    VirtualInputManager:SendKeyEvent(true, "E", false, game)
-                                    task.wait(1.2)
-                                    VirtualInputManager:SendKeyEvent(false, "E", false, game)
-
-                                    -- Wait for second prompt
-                                    task.wait(0.5)
-                                    if purchasePromptActive() then
-                                        VirtualInputManager:SendKeyEvent(true, "E", false, game)
-                                        task.wait(1.2)
-                                        VirtualInputManager:SendKeyEvent(false, "E", false, game)
+                                        if purchasePromptActive() then
+                                            simulateKeyPress("E", 1.2)
+                                            task.wait(0.5)
+                                            if purchasePromptActive() then
+                                                simulateKeyPress("E", 1.2)
+                                            end
+                                            lastAutoMoney = now
+                                            return
+                                        end
+                                        task.wait(0.25)
                                     end
-
-                                    return -- done after both prompts
-                                else
-                                    break -- no prompt, move to next register
                                 end
                             end
                         end
@@ -211,17 +206,11 @@ if Toggles.AutoMoney then
                 end
             end
         end
-    end
-end
-
-
 
         -- Auto Punch
         if Toggles.AutoPunch then
             local punchRemote = ReplicatedStorage:FindFirstChild("PUNCHEVENT")
-            if punchRemote then
-                punchRemote:FireServer(1)
-            end
+            if punchRemote then punchRemote:FireServer(1) end
         end
 
         -- Auto Swing
@@ -267,7 +256,7 @@ end
                                 local salonPunch = weapons:FindFirstChild("SalonPunches")
                                 if salonPunch and salonPunch:IsA("RemoteFunction") then
                                     local result = salonPunch:InvokeServer(1)
-                                    print("🧪 SalonPunch result:", result)
+                                    print("ð\xf0\xf0\x9f§\xf0\x9f\xa7ª\xf0\x9f\xa7\xaa SalonPunch result:", result)
                                 end
                             end
                         end
