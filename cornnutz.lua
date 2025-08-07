@@ -242,9 +242,9 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
             if overhead and overhead:FindFirstChild("Generation") then
                 local genValue = parseGenerationText(overhead.Generation.Text)
                 if genValue >= PurchaseThreshold then
-                    task.wait(0.05)
+                    task.wait(0.10)
                     prompt:InputHoldBegin()
-                    task.wait(prompt.HoldDuration or 0.25)
+                    task.wait(prompt.HoldDuration or 0.35)
                     prompt:InputHoldEnd()
                 end
                 return
@@ -255,9 +255,9 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                     local data = AnimalsData[model.Name]
                     local price = data and data.Price or 0
                     if price >= PurchaseThreshold then
-                        task.wait(0.05)
+                        task.wait(0.10)
                         prompt:InputHoldBegin()
-                        task.wait(prompt.HoldDuration or 0.25)
+                        task.wait(prompt.HoldDuration or 0.35)
                         prompt:InputHoldEnd()
                     end
                     return
