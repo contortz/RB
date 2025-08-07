@@ -28,8 +28,8 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 250)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -125)
+    MainFrame.Size = UDim2.new(0, 200, 0, 280)
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -140)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -199,16 +199,28 @@ RunService.Heartbeat:Connect(function()
         local myHRP = myChar.HumanoidRootPart
         local now = tick()
 
-        -- 🔁 Auto Pick Cash
+        -- 🔁 Auto Pick Cash (only parts named "Cash")
         if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
             local cashFolder = Workspace:FindFirstChild("Cash")
             if cashFolder then
-                local cashObjects = cashFolder:GetChildren()
-                if #cashObjects > 0 then
-                    if currentCashIndex > #cashObjects then currentCashIndex = 1 end
-                    local targetCash = cashObjects[currentCashIndex]
-                    if targetCash:IsA("BasePart") then
+                local allCash = {}
+                for _, obj in pairs(cashFolder:GetChildren()) do
+                    if obj:IsA("BasePart") and obj.Name == "Cash" then
+                        table.insert(allCash, obj)
+                    end
+                end
+
+                if #allCash > 0 then
+                    if currentCashIndex > #allCash then currentCashIndex = 1 end
+                    local targetCash = allCash[currentCashIndex]
+                    if targetCash then
                         myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
+                        local prompt = targetCash:FindFirstChildOfClass("ProximityPrompt")
+                        if prompt then
+                            prompt:InputHoldBegin()
+                            task.wait(prompt.HoldDuration or 0.1)
+                            prompt:InputHoldEnd()
+                        end
                     end
                     currentCashIndex += 1
                     lastTeleport = now
