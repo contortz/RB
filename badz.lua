@@ -4,6 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 
@@ -16,7 +17,7 @@ local Toggles = {
     ATMESP = false
 }
 
---// GUI
+--// GUI Setup
 local function createGui()
     if CoreGui:FindFirstChild("StreetFightGui") then
         CoreGui.StreetFightGui:Destroy()
@@ -66,6 +67,7 @@ local function createGui()
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
 
+    -- Teleport to next ATM
     local atmIndex = 1
     local tpATMButton = Instance.new("TextButton")
     tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
@@ -104,19 +106,7 @@ end
 
 createGui()
 
---// Helpers
-local function simulateKeyPress(key)
-    local vim = game:GetService("VirtualInputManager")
-    vim:SendKeyEvent(true, key, false, game)
-    task.wait(0.1)
-    vim:SendKeyEvent(false, key, false, game)
-end
-
-local function purchasePromptActive()
-    local promptGui = player:FindFirstChild("PlayerGui"):FindFirstChild("ProximityPrompts")
-    return promptGui and #promptGui:GetChildren() > 0
-end
-
+--// ESP Functions
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
@@ -197,11 +187,23 @@ local function updateATMESP()
     end
 end
 
---// Runtime
+--// Cash Teleport + Prompt
 local lastTeleport = 0
 local teleportCooldown = 1.5
 local currentCashIndex = 1
 
+local function purchasePromptActive()
+    local promptGui = player:FindFirstChild("PlayerGui"):FindFirstChild("ProximityPrompts")
+    return promptGui and #promptGui:GetChildren() > 0
+end
+
+local function simulateKeyPress(key)
+    VirtualInputManager:SendKeyEvent(true, key, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
+--// Main loop
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local now = tick()
@@ -238,28 +240,27 @@ RunService.Heartbeat:Connect(function()
 
         -- Auto Punch
         if Toggles.AutoPunch then
-            local args = { 1 }
             local punchRemote = ReplicatedStorage:FindFirstChild("PUNCHEVENT")
             if punchRemote then
-                punchRemote:FireServer(unpack(args))
+                punchRemote:FireServer(1)
             end
         end
 
         -- Auto Swing
         if Toggles.AutoSwing then
-            local args = { 1 }
             local modules = ReplicatedStorage:FindFirstChild("Modules")
             if modules then
                 local net = modules:FindFirstChild("Net")
                 if net then
                     local pipe = net:FindFirstChild("RE/PipeActivated")
-                    if pipe then pipe:FireServer(unpack(args)) end
+                    if pipe then pipe:FireServer(1) end
                     local stopSign = net:FindFirstChild("RE/stopsignalHit")
-                    if stopSign then stopSign:FireServer(unpack(args)) end
+                    if stopSign then stopSign:FireServer(1) end
                 end
             end
         end
 
+        -- ESP
         if Toggles.PlayerESP then updatePlayerESP() end
         if Toggles.ATMESP then updateATMESP() end
     end)
