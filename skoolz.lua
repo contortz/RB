@@ -58,33 +58,20 @@ end
 
 createGui()
 
--- Attack Methods
-local function autoAttackMethod1()
+-- 🖱️ Mouse Click-Based Auto Attack Method
+local function autoAttackMouseClick()
     local button = player:FindFirstChild("PlayerGui")
         and player.PlayerGui:FindFirstChild("Main")
         and player.PlayerGui.Main:FindFirstChild("Mobile")
         and player.PlayerGui.Main.Mobile:FindFirstChild("Attack")
         and player.PlayerGui.Main.Mobile.Attack:FindFirstChild("TextButton")
-    if button then
-        button:Activate()
-    end
-end
 
-local function autoAttackMethod2()
-    local button = player.PlayerGui.Main.Mobile.Attack.TextButton
     if button then
-        local pos = button.AbsolutePosition
+        local absPos = button.AbsolutePosition
         local size = button.AbsoluteSize
-        local x, y = pos.X + size.X/2, pos.Y + size.Y/2
-        VirtualInput:SendMouseButtonEvent(x, y, 0, true, game, 0)
-        VirtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
-    end
-end
+        local x, y = absPos.X + size.X / 2, absPos.Y + size.Y / 2
 
-local function autoAttackMethod3()
-    local button = player.PlayerGui.Main.Mobile.Attack.TextButton
-    if button and button.Activated and typeof(button.Activated.Fire) == "function" then
-        button.Activated:Fire()
+        VirtualInput:SendMouseButtonClick(x, y, 0, game)
     end
 end
 
@@ -174,12 +161,10 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- Auto Attack
+        -- 🗡️ Auto Attack Mouse Click
         if Toggles.AutoAttack and now - lastAttack >= attackCooldown then
             lastAttack = now
-            autoAttackMethod1()
-            autoAttackMethod2()
-            autoAttackMethod3()
+            autoAttackMouseClick()
         end
     end)
 end)
