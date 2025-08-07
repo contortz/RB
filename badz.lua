@@ -189,7 +189,7 @@ end
 
 --// Cash Teleport + Prompt
 local lastTeleport = 0
-local teleportCooldown = 1.5
+local teleportCooldown = 0.25
 local currentCashIndex = 1
 
 local function purchasePromptActive()
@@ -227,7 +227,7 @@ RunService.Heartbeat:Connect(function()
                     local targetCash = allCash[currentCashIndex]
                     if targetCash then
                         myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.2)
+                        task.wait(0.05)
                         if purchasePromptActive() then
                             simulateKeyPress("E")
                         end
