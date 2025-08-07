@@ -189,10 +189,10 @@ RunService.Heartbeat:Connect(function()
                                         task.wait(0.25)
 
                                         if purchasePromptActive() then
-                                            simulateKeyPress("E", 1.2)
-                                            task.wait(0.5)
+                                            simulateKeyPress("E", 7)
+                                            task.wait(1.2)
                                             if purchasePromptActive() then
-                                                simulateKeyPress("E", 1.2)
+                                                simulateKeyPress("E", 7)
                                             end
                                             lastAutoMoney = now
                                             return
