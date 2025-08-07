@@ -264,7 +264,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                 local genValue = parseGenerationText(overhead.Generation.Text)
                 if genValue >= PurchaseThreshold then
                     task.wait(0.10)
-                    tryHoldPrompt(prompt, 3, 2) -- Hold for 3 seconds, retry once if needed
+                    tryHoldPrompt(prompt, 3, 8) -- Hold for 3 seconds, retry once if needed
                 end
                 return
             end
