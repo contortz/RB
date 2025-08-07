@@ -164,7 +164,7 @@ RunService.Heartbeat:Connect(function()
                         myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
                         task.wait(0.05)
                         if purchasePromptActive() then
-                            simulateKeyPress("E", 0.9)
+                            simulateKeyPress("E", 7)
                         end
                     end
                     currentCashIndex += 1
