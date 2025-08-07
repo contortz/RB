@@ -11,7 +11,9 @@ local player = Players.LocalPlayer
 local Toggles = {
     AutoPickCash = false,
     AutoPunch = false,
-    AutoSwing = false
+    AutoSwing = false,
+    PlayerESP = false,
+    ATMESP = false
 }
 
 --// GUI
@@ -26,8 +28,8 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 160)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -80)
+    MainFrame.Size = UDim2.new(0, 200, 0, 250)
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -125)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -61,16 +63,135 @@ local function createGui()
     createButton("Auto Pick Cash", "AutoPickCash", 40)
     createButton("Auto Punch", "AutoPunch", 75)
     createButton("Auto Swing", "AutoSwing", 110)
+    createButton("Player ESP", "PlayerESP", 145)
+    createButton("ATM ESP", "ATMESP", 180)
+
+    -- Teleport Next ATM
+    local atmIndex = 1
+    local tpATMButton = Instance.new("TextButton")
+    tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
+    tpATMButton.Position = UDim2.new(0.05, 0, 0, 215)
+    tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
+    tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    tpATMButton.Text = "Teleport Next ATM"
+    tpATMButton.Parent = MainFrame
+
+    tpATMButton.MouseButton1Click:Connect(function()
+        local myChar = player.Character
+        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+        local myHRP = myChar.HumanoidRootPart
+
+        local dmgFolder = Workspace:FindFirstChild("Damageables")
+        if dmgFolder then
+            local atms = {}
+            for _, obj in pairs(dmgFolder:GetChildren()) do
+                if obj:IsA("Model") and obj.Name == "ATM" then
+                    table.insert(atms, obj)
+                end
+            end
+
+            if #atms > 0 then
+                if atmIndex > #atms then atmIndex = 1 end
+                local target = atms[atmIndex]
+                local part = target:FindFirstChildWhichIsA("BasePart")
+                if part then
+                    myHRP.CFrame = part.CFrame + Vector3.new(0, 4, 0)
+                end
+                atmIndex += 1
+            end
+        end
+    end)
 end
 
 createGui()
 
---// Teleport variables
+--// Support Functions
+local function updatePlayerESP()
+    local myChar = player.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
+    local myHRP = myChar.HumanoidRootPart
+
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = otherPlayer.Character.HumanoidRootPart
+            local humanoid = otherPlayer.Character:FindFirstChild("Humanoid")
+            local health = humanoid and math.floor(humanoid.Health) or "?"
+            local dist = math.floor((myHRP.Position - hrp.Position).Magnitude)
+
+            if Toggles.PlayerESP then
+                if not hrp:FindFirstChild("Player_ESP") then
+                    local billboard = Instance.new("BillboardGui")
+                    billboard.Name = "Player_ESP"
+                    billboard.Adornee = hrp
+                    billboard.Size = UDim2.new(0, 150, 0, 40)
+                    billboard.AlwaysOnTop = true
+                    billboard.Parent = hrp
+
+                    local label = Instance.new("TextLabel")
+                    label.Size = UDim2.new(1, 0, 1, 0)
+                    label.BackgroundTransparency = 1
+                    label.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    label.TextStrokeTransparency = 0
+                    label.TextScaled = true
+                    label.Text = string.format("%s | HP: %s | %dm", otherPlayer.Name, health, dist)
+                    label.Parent = billboard
+                else
+                    local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
+                    if label then
+                        label.Text = string.format("%s | HP: %s | %dm", otherPlayer.Name, health, dist)
+                    end
+                end
+            else
+                if hrp:FindFirstChild("Player_ESP") then
+                    hrp.Player_ESP:Destroy()
+                end
+            end
+        end
+    end
+end
+
+local function updateATMESP()
+    local dmgFolder = Workspace:FindFirstChild("Damageables")
+    if not dmgFolder then return end
+
+    for _, atm in pairs(dmgFolder:GetChildren()) do
+        if atm:IsA("Model") and atm.Name == "ATM" then
+            local part = atm:FindFirstChildWhichIsA("BasePart")
+            if part then
+                if Toggles.ATMESP then
+                    if not part:FindFirstChild("ATM_ESP") then
+                        local billboard = Instance.new("BillboardGui")
+                        billboard.Name = "ATM_ESP"
+                        billboard.Adornee = part
+                        billboard.Size = UDim2.new(0, 100, 0, 30)
+                        billboard.AlwaysOnTop = true
+                        billboard.Parent = part
+
+                        local label = Instance.new("TextLabel")
+                        label.Size = UDim2.new(1, 0, 1, 0)
+                        label.BackgroundTransparency = 1
+                        label.Text = "💰 ATM"
+                        label.TextColor3 = Color3.fromRGB(0, 255, 0)
+                        label.TextStrokeTransparency = 0
+                        label.TextScaled = true
+                        label.Parent = billboard
+                    end
+                else
+                    if part:FindFirstChild("ATM_ESP") then
+                        part.ATM_ESP:Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+--// Cash Teleport Variables
 local lastTeleport = 0
 local teleportCooldown = 1.5
 local currentCashIndex = 1
 
---// Main loop
+--// Main Heartbeat
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local myChar = player.Character
@@ -80,8 +201,7 @@ RunService.Heartbeat:Connect(function()
 
         -- 🔁 Auto Pick Cash
         if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
-            local worldspace = Workspace:FindFirstChild("Worldspace")
-            local cashFolder = worldspace and worldspace:FindFirstChild("Cash")
+            local cashFolder = Workspace:FindFirstChild("Cash")
             if cashFolder then
                 local cashObjects = cashFolder:GetChildren()
                 if #cashObjects > 0 then
@@ -105,17 +225,29 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- 🔁 Auto Swing (Pipe)
+        -- 🔁 Auto Swing (Pipe + Stop Sign)
         if Toggles.AutoSwing then
             local args = { 1 }
-            local pipeRemote = ReplicatedStorage:FindFirstChild("Modules")
-            if pipeRemote then
-                local net = pipeRemote:FindFirstChild("Net")
-                local swing = net and net:FindFirstChild("RE/PipeActivated")
-                if swing then
-                    swing:FireServer(unpack(args))
+            local modules = ReplicatedStorage:FindFirstChild("Modules")
+            if modules then
+                local net = modules:FindFirstChild("Net")
+                if net then
+                    local pipe = net:FindFirstChild("RE/PipeActivated")
+                    if pipe then pipe:FireServer(unpack(args)) end
+                    local stopSign = net:FindFirstChild("RE/stopsignalHit")
+                    if stopSign then stopSign:FireServer(unpack(args)) end
                 end
             end
+        end
+
+        -- 🔁 Player ESP
+        if Toggles.PlayerESP then
+            updatePlayerESP()
+        end
+
+        -- 🔁 ATM ESP
+        if Toggles.ATMESP then
+            updateATMESP()
         end
     end)
 end)
