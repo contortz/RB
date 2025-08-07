@@ -74,7 +74,7 @@ end
 
 createGui()
 
---// ESP: Player ESP
+--// ESP Function
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
@@ -119,7 +119,7 @@ local function updatePlayerESP()
     end
 end
 
---// Utility
+--// Prompt & Input Helper
 local function purchasePromptActive()
     local promptGui = player:FindFirstChild("PlayerGui"):FindFirstChild("ProximityPrompts")
     return promptGui and #promptGui:GetChildren() > 0
@@ -131,15 +131,16 @@ local function simulateKeyPress(key)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
---// Variables
+--// Cooldowns
 local lastTeleport = 0
 local teleportCooldown = 0.25
 local currentCashIndex = 1
 
---// Main loop
+--// Main Loop
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local now = tick()
+
         local myChar = player.Character
         if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
         local myHRP = myChar.HumanoidRootPart
@@ -171,21 +172,14 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- Auto Money (CRS_2 MoneyModel)
+        -- ✅ Auto Money (MoneyModel directly in Workspace)
         if Toggles.AutoMoney then
-            local reg = Workspace:FindFirstChild("Registers")
-            if reg then
-                local crs = reg:FindFirstChild("CRS_2")
-                if crs and crs:FindFirstChild("Stok") then
-                    local stok = crs:FindFirstChild("Stok")
-                    local moneyModel = stok:FindFirstChild("MoneyModel")
-                    if moneyModel and moneyModel:IsA("BasePart") then
-                        myHRP.CFrame = moneyModel.CFrame + Vector3.new(0, 3, 0)
-                        task.wait(0.05)
-                        if purchasePromptActive() then
-                            simulateKeyPress("E")
-                        end
-                    end
+            local moneyModel = Workspace:FindFirstChild("MoneyModel")
+            if moneyModel and moneyModel:IsA("BasePart") then
+                myHRP.CFrame = moneyModel.CFrame + Vector3.new(0, 3, 0)
+                task.wait(0.05)
+                if purchasePromptActive() then
+                    simulateKeyPress("E")
                 end
             end
         end
