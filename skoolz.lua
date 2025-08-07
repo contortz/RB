@@ -4,13 +4,15 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
+local VirtualInput = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 
 -- Toggles
 local Toggles = {
     AutoFollow = false,
-    PlayerESP = false
+    PlayerESP = false,
+    AutoAttack = false -- 🔥 NEW
 }
 
 -- GUI Setup
@@ -25,8 +27,8 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 150)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.4, -75)
+    MainFrame.Size = UDim2.new(0, 200, 0, 180) -- Adjusted for new button
+    MainFrame.Position = UDim2.new(0.5, -100, 0.4, -90)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -51,9 +53,40 @@ local function createGui()
 
     createButton("Auto Follow", "AutoFollow")
     createButton("Player ESP", "PlayerESP")
+    createButton("Auto Attack", "AutoAttack") -- 🔥 NEW
 end
 
 createGui()
+
+-- Attack Methods
+local function autoAttackMethod1()
+    local button = player:FindFirstChild("PlayerGui")
+        and player.PlayerGui:FindFirstChild("Main")
+        and player.PlayerGui.Main:FindFirstChild("Mobile")
+        and player.PlayerGui.Main.Mobile:FindFirstChild("Attack")
+        and player.PlayerGui.Main.Mobile.Attack:FindFirstChild("TextButton")
+    if button then
+        button:Activate()
+    end
+end
+
+local function autoAttackMethod2()
+    local button = player.PlayerGui.Main.Mobile.Attack.TextButton
+    if button then
+        local pos = button.AbsolutePosition
+        local size = button.AbsoluteSize
+        local x, y = pos.X + size.X/2, pos.Y + size.Y/2
+        VirtualInput:SendMouseButtonEvent(x, y, 0, true, game, 0)
+        VirtualInput:SendMouseButtonEvent(x, y, 0, false, game, 0)
+    end
+end
+
+local function autoAttackMethod3()
+    local button = player.PlayerGui.Main.Mobile.Attack.TextButton
+    if button and button.Activated and typeof(button.Activated.Fire) == "function" then
+        button.Activated:Fire()
+    end
+end
 
 -- ESP Logic for Workspace.Live
 local function updatePlayerESP()
@@ -106,6 +139,8 @@ end
 -- Follow Logic for Workspace.Live
 local followInterval = 0.1
 local lastFollow = 0
+local lastAttack = 0
+local attackCooldown = 0.5
 
 RunService.Heartbeat:Connect(function()
     pcall(function()
@@ -137,6 +172,14 @@ RunService.Heartbeat:Connect(function()
                     myHumanoid.WalkToPoint = closestHRP.Position
                 end
             end
+        end
+
+        -- Auto Attack
+        if Toggles.AutoAttack and now - lastAttack >= attackCooldown then
+            lastAttack = now
+            autoAttackMethod1()
+            autoAttackMethod2()
+            autoAttackMethod3()
         end
     end)
 end)
