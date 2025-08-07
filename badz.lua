@@ -199,34 +199,37 @@ RunService.Heartbeat:Connect(function()
         local myHRP = myChar.HumanoidRootPart
         local now = tick()
 
-        -- 🔁 Auto Pick Cash (only parts named "Cash")
-        if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
-            local cashFolder = Workspace:FindFirstChild("Cash")
-            if cashFolder then
-                local allCash = {}
-                for _, obj in pairs(cashFolder:GetChildren()) do
-                    if obj:IsA("BasePart") and obj.Name == "Cash" then
-                        table.insert(allCash, obj)
-                    end
-                end
-
-                if #allCash > 0 then
-                    if currentCashIndex > #allCash then currentCashIndex = 1 end
-                    local targetCash = allCash[currentCashIndex]
-                    if targetCash then
-                        myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
-                        local prompt = targetCash:FindFirstChildOfClass("ProximityPrompt")
-                        if prompt then
-                            prompt:InputHoldBegin()
-                            task.wait(prompt.HoldDuration or 0.1)
-                            prompt:InputHoldEnd()
-                        end
-                    end
-                    currentCashIndex += 1
-                    lastTeleport = now
-                end
+        -- 🔁 Auto Pick Cash (only parts named "Cash" + prompt from parent)
+if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
+    local cashFolder = Workspace:FindFirstChild("Cash")
+    if cashFolder then
+        local allCash = {}
+        for _, obj in pairs(cashFolder:GetChildren()) do
+            if obj:IsA("BasePart") and obj.Name == "Cash" then
+                table.insert(allCash, obj)
             end
         end
+
+        if #allCash > 0 then
+            if currentCashIndex > #allCash then currentCashIndex = 1 end
+            local targetCash = allCash[currentCashIndex]
+            if targetCash then
+                myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
+
+                -- ✅ Correctly get ProximityPrompt from parent Cash folder
+                local prompt = targetCash.Parent:FindFirstChildOfClass("ProximityPrompt")
+                if prompt then
+                    prompt:InputHoldBegin()
+                    task.wait(prompt.HoldDuration or 0.1)
+                    prompt:InputHoldEnd()
+                end
+            end
+            currentCashIndex += 1
+            lastTeleport = now
+        end
+    end
+end
+
 
         -- 🔁 Auto Punch
         if Toggles.AutoPunch then
