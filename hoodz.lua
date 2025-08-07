@@ -171,17 +171,19 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- ✅ Auto Money (scan Workspace.Registers CRS_# for Stock.MoneyModel)
-        if Toggles.AutoMoney then
-            local registers = Workspace:FindFirstChild("Registers")
-            if registers then
-                for _, reg in pairs(registers:GetChildren()) do
-                    if reg:IsA("Model") and reg.Name:match("^CRS_%d+") then
-                        local stock = reg:FindFirstChild("Stock")
-                        if stock then
-                            local moneyModel = stock:FindFirstChild("MoneyModel")
-                            if moneyModel and moneyModel:IsA("BasePart") then
-                                myHRP.CFrame = moneyModel.CFrame + Vector3.new(0, 3, 0)
+       -- Auto Money (teleport to any Part inside MoneyModel model)
+if Toggles.AutoMoney then
+    local registers = Workspace:FindFirstChild("Registers")
+    if registers then
+        for _, reg in pairs(registers:GetChildren()) do
+            if reg:IsA("Model") and reg.Name:match("^CRS_%d+") then
+                local stock = reg:FindFirstChild("Stock")
+                if stock then
+                    local moneyModel = stock:FindFirstChild("MoneyModel")
+                    if moneyModel and moneyModel:IsA("Model") then
+                        for _, part in pairs(moneyModel:GetChildren()) do
+                            if part:IsA("BasePart") then
+                                myHRP.CFrame = part.CFrame + Vector3.new(0, 3, 0)
                                 task.wait(0.05)
                                 if purchasePromptActive() then
                                     simulateKeyPress("E")
@@ -193,6 +195,9 @@ RunService.Heartbeat:Connect(function()
                 end
             end
         end
+    end
+end
+
 
         -- Auto Punch
         if Toggles.AutoPunch then
