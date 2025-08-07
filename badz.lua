@@ -66,6 +66,7 @@ local function createGui()
     createButton("Auto Swing", "AutoSwing", 110)
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
+        createButton("Salon Punch Test", "SalonPunchTest", 250)
 
     -- Teleport to next ATM
     local atmIndex = 1
@@ -259,6 +260,30 @@ RunService.Heartbeat:Connect(function()
                 end
             end
         end
+
+                        -- Salon Punch Test
+        if Toggles.SalonPunchTest then
+            local remote = ReplicatedStorage:FindFirstChild("Roles")
+            if remote then
+                local tools = remote:FindFirstChild("Tools")
+                if tools then
+                    local default = tools:FindFirstChild("Default")
+                    if default then
+                        local remotes = default:FindFirstChild("Remotes")
+                        if remotes then
+                            local weapons = remotes:FindFirstChild("Weapons")
+                            if weapons then
+                                local salonPunch = weapons:FindFirstChild("SalonPunches")
+                                if salonPunch then
+                                    salonPunch:FireServer(1)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
 
         -- ESP
         if Toggles.PlayerESP then updatePlayerESP() end
