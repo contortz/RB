@@ -9,13 +9,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- UI Setup
 local screenGui = Instance.new("ScreenGui", playerGui)
-screenGui.Name = "BatControlUI"
+screenGui.Name = "TungBatUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 220, 0, 140)
-frame.Position = UDim2.new(0, 250, 0.5, -70) -- moved over to avoid overlap
+frame.Position = UDim2.new(0, 250, 0.5, -70)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -24,7 +24,7 @@ local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
-title.Text = "🦇 Bat Control"
+title.Text = "🦇 Tung Bat Control"
 title.TextScaled = true
 title.Font = Enum.Font.GothamBold
 
@@ -43,31 +43,31 @@ local function makeButton(yOffset, text, callback)
 end
 
 -- Toggles
-local loopEquipBat = false
-local loopActivateBat = false
+local loopEquip = false
+local loopActivate = false
 
 -- Buttons
-local equipBtn = makeButton(40, "🔁 Loop Equip Bat", function()
-    loopEquipBat = not loopEquipBat
-    equipBtn.BackgroundColor3 = loopEquipBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+local equipBtn = makeButton(40, "🔁 Loop Equip Tung Bat", function()
+    loopEquip = not loopEquip
+    equipBtn.BackgroundColor3 = loopEquip and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
 end)
 
-local activateBtn = makeButton(80, "🔁 Loop Activate Bat", function()
-    loopActivateBat = not loopActivateBat
-    activateBtn.BackgroundColor3 = loopActivateBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+local activateBtn = makeButton(80, "🔁 Loop Activate (Click)", function()
+    loopActivate = not loopActivate
+    activateBtn.BackgroundColor3 = loopActivate and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
 end)
 
--- Loop logic
+-- Frame-based logic
 RunService.RenderStepped:Connect(function()
-    if loopEquipBat then
+    if loopEquip then
         local tool = player.Backpack:FindFirstChild("Tung Bat")
         if tool then
             tool.Parent = player.Character
         end
     end
 
-    if loopActivateBat then
-        local tool = player.Character and player.Character:FindFirstChild("Bat")
+    if loopActivate then
+        local tool = player.Character and player.Character:FindFirstChild("Tung Bat")
         if tool then
             tool:Activate()
         end
