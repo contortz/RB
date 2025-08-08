@@ -14,8 +14,8 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 250)
-frame.Position = UDim2.new(0, 20, 0.5, -125)
+frame.Size = UDim2.new(0, 250, 0, 320)
+frame.Position = UDim2.new(0, 20, 0.5, -160)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -93,5 +93,46 @@ local function findLocalPlayerBase()
     end
 end
 
--- Wait to ensure Workspace.Plots is available
 task.delay(1, findLocalPlayerBase)
+
+-- Utilities
+local function makeButton(yOffset, text, callback)
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, yOffset)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = text
+    button.Font = Enum.Font.Gotham
+    button.TextScaled = true
+    button.MouseButton1Click:Connect(callback)
+end
+
+-- Buttons
+makeButton(110, "Equip Quantum Cloner", function()
+    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
+    if tool then
+        tool.Parent = player.Character
+        player:SetAttribute("BlockTools", false)
+        player:SetAttribute("Stealing", false)
+        print("Quantum Cloner equipped manually.")
+    else
+        warn("Quantum Cloner not found in backpack.")
+    end
+end)
+
+makeButton(140, "Activate Quantum Cloner", function()
+    local tool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
+    if tool then
+        tool:Activate()
+        print("Quantum Cloner activated.")
+    else
+        warn("Quantum Cloner not found on character.")
+    end
+end)
+
+makeButton(170, "Teleport to Clone", function()
+    local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+    Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    print("Teleport attempt sent.")
+end)
