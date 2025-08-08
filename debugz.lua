@@ -14,8 +14,8 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 360)
-frame.Position = UDim2.new(0, 20, 0.5, -180)
+frame.Size = UDim2.new(0, 250, 0, 370)
+frame.Position = UDim2.new(0, 20, 0.5, -160)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -47,7 +47,7 @@ slotInfoLabel.TextScaled = true
 slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 
--- Find player base
+-- Logic to find local player's base and tier
 local function findLocalPlayerBase()
     local playerName = player.Name
     local plots = Workspace:FindFirstChild("Plots")
@@ -65,6 +65,7 @@ local function findLocalPlayerBase()
                 local tier = model:GetAttribute("Tier")
                 baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
 
+                -- Count filled and total slots
                 local animalPodiums = model:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
                     local filled = 0
@@ -104,16 +105,21 @@ local function makeButton(yOffset, text, callback)
     button.Text = text
     button.Font = Enum.Font.Gotham
     button.TextScaled = true
-    button.TextWrapped = true
-    button.AutoButtonColor = true
-    button.BorderSizePixel = 0
-    button.ZIndex = 2
-    button.Name = text:gsub("%s+", "")
     button.MouseButton1Click:Connect(callback)
     return button
 end
 
--- Button: Equip
+-- 1. Equip Quantum Cloner (every frame)
+RunService.RenderStepped:Connect(function()
+    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
+    if tool then
+        tool.Parent = player.Character
+        player:SetAttribute("BlockTools", false)
+        player:SetAttribute("Stealing", false)
+    end
+end)
+
+-- 2. Manual Buttons
 makeButton(110, "Equip Quantum Cloner", function()
     local tool = player.Backpack:FindFirstChild("Quantum Cloner")
     if tool then
@@ -126,7 +132,6 @@ makeButton(110, "Equip Quantum Cloner", function()
     end
 end)
 
--- Button: Activate
 makeButton(140, "Activate Quantum Cloner", function()
     local tool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
     if tool then
@@ -137,35 +142,45 @@ makeButton(140, "Activate Quantum Cloner", function()
     end
 end)
 
--- Button: Manual Teleport
 makeButton(170, "Teleport to Clone", function()
     local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
     Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     print("Teleport attempt sent.")
 end)
 
--- Loop Teleport Toggle
-local teleportLoopEnabled = false
-local loopTeleportBtn = makeButton(230, "🔁 Toggle Loop Teleport", function()
-    teleportLoopEnabled = not teleportLoopEnabled
-    loopTeleportBtn.BackgroundColor3 = teleportLoopEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
-    loopTeleportBtn.Text = teleportLoopEnabled and "✅ Looping Teleport" or "🔁 Toggle Loop Teleport"
+-- 3. Loop Teleport Toggle
+local teleportLoop = false
+local loopButton = makeButton(200, "🔁 Toggle Loop Teleport", function()
+    teleportLoop = not teleportLoop
+    loopButton.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
 end)
 
--- Teleport Loop
-RunService.Heartbeat:Connect(function()
-    if teleportLoopEnabled then
+RunService.RenderStepped:Connect(function()
+    if teleportLoop then
         local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
         Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     end
 end)
 
--- Auto Equip Loop
-RunService.Heartbeat:Connect(function()
-    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
-    if tool then
-        tool.Parent = player.Character
-        player:SetAttribute("BlockTools", false)
-        player:SetAttribute("Stealing", false)
+-- 4. Bee Launcher Button
+makeButton(230, "🐝 Use Bee Launcher", function()
+    local beeLauncher = player.Backpack:FindFirstChild("Bee Launcher") or (player.Character and player.Character:FindFirstChild("Bee Launcher"))
+
+    if beeLauncher then
+        if beeLauncher.Parent == player.Backpack then
+            beeLauncher.Parent = player.Character
+        end
+
+        beeLauncher:Activate()
+
+        local camera = Workspace.CurrentCamera
+        if camera and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+            local hrp = player.Character.HumanoidRootPart
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
+        end
+
+        print("Bee Launcher equipped and fired.")
+    else
+        warn("Bee Launcher not found.")
     end
 end)
