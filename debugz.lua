@@ -14,8 +14,8 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 350)
-frame.Position = UDim2.new(0, 20, 0.5, -160)
+frame.Size = UDim2.new(0, 250, 0, 360)
+frame.Position = UDim2.new(0, 20, 0.5, -180)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -47,7 +47,7 @@ slotInfoLabel.TextScaled = true
 slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 
--- Logic to find local player's base and tier
+-- Find player base
 local function findLocalPlayerBase()
     local playerName = player.Name
     local plots = Workspace:FindFirstChild("Plots")
@@ -94,10 +94,6 @@ end
 
 task.delay(1, findLocalPlayerBase)
 
--- Toggle Variables
-local keepEquipped = false
-local loopTeleport = false
-
 -- Utilities
 local function makeButton(yOffset, text, callback)
     local button = Instance.new("TextButton", frame)
@@ -108,10 +104,16 @@ local function makeButton(yOffset, text, callback)
     button.Text = text
     button.Font = Enum.Font.Gotham
     button.TextScaled = true
+    button.TextWrapped = true
+    button.AutoButtonColor = true
+    button.BorderSizePixel = 0
+    button.ZIndex = 2
+    button.Name = text:gsub("%s+", "")
     button.MouseButton1Click:Connect(callback)
+    return button
 end
 
--- Buttons
+-- Button: Equip
 makeButton(110, "Equip Quantum Cloner", function()
     local tool = player.Backpack:FindFirstChild("Quantum Cloner")
     if tool then
@@ -124,6 +126,7 @@ makeButton(110, "Equip Quantum Cloner", function()
     end
 end)
 
+-- Button: Activate
 makeButton(140, "Activate Quantum Cloner", function()
     local tool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
     if tool then
@@ -134,46 +137,35 @@ makeButton(140, "Activate Quantum Cloner", function()
     end
 end)
 
+-- Button: Manual Teleport
 makeButton(170, "Teleport to Clone", function()
     local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
     Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     print("Teleport attempt sent.")
 end)
 
-makeButton(200, "🔁 Toggle Auto-Equip", function()
-    keepEquipped = not keepEquipped
-    print("Auto-Equip is now", keepEquipped and "ENABLED" or "DISABLED")
+-- Loop Teleport Toggle
+local teleportLoopEnabled = false
+local loopTeleportBtn = makeButton(230, "🔁 Toggle Loop Teleport", function()
+    teleportLoopEnabled = not teleportLoopEnabled
+    loopTeleportBtn.BackgroundColor3 = teleportLoopEnabled and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    loopTeleportBtn.Text = teleportLoopEnabled and "✅ Looping Teleport" or "🔁 Toggle Loop Teleport"
 end)
 
-makeButton(230, "🔁 Toggle Loop Teleport", function()
-    loopTeleport = not loopTeleport
-    print("Loop Teleport is now", loopTeleport and "ENABLED" or "DISABLED")
-end)
-
--- Loop logic
+-- Teleport Loop
 RunService.Heartbeat:Connect(function()
-    if keepEquipped then
-        local backpackTool = player.Backpack:FindFirstChild("Quantum Cloner")
-        local charTool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
-
-        if backpackTool then
-            backpackTool.Parent = player.Character
-        end
-
-        if not backpackTool and not charTool then
-            local stored = ReplicatedStorage:FindFirstChild("Tools") and ReplicatedStorage.Tools:FindFirstChild("Quantum Cloner")
-            if stored then
-                stored:Clone().Parent = player.Backpack
-            end
-        end
-
-        if charTool then
-            charTool:Activate()
-        end
-    end
-
-    if loopTeleport then
+    if teleportLoopEnabled then
         local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
         Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    end
+end)
+
+-- Auto Equip Loop
+RunService.Heartbeat:Connect(function()
+    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
+    if tool then
+        tool.Parent = player.Character
+        player:SetAttribute("BlockTools", false)
+        player:SetAttribute("Stealing", false)
     end
 end)
