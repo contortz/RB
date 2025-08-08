@@ -108,7 +108,7 @@ local function makeButton(yOffset, text, callback)
     button.MouseButton1Click:Connect(callback)
 end
 
--- Buttons
+-- Button: Manual Equip
 makeButton(110, "Equip Quantum Cloner", function()
     local tool = player.Backpack:FindFirstChild("Quantum Cloner")
     if tool then
@@ -121,6 +121,7 @@ makeButton(110, "Equip Quantum Cloner", function()
     end
 end)
 
+-- Button: Manual Activate
 makeButton(140, "Activate Quantum Cloner", function()
     local tool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
     if tool then
@@ -131,54 +132,44 @@ makeButton(140, "Activate Quantum Cloner", function()
     end
 end)
 
+-- Button: Manual Teleport
 makeButton(170, "Teleport to Clone", function()
     local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
     Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     print("Teleport attempt sent.")
 end)
 
-makeButton(200, "All-in-One: Equip + Activate + Teleport", function()
-    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
-    if tool then
-        tool.Parent = player.Character
-    end
-
-    local equipped = player.Character and player.Character:FindFirstChild("Quantum Cloner")
-    if equipped then
-        equipped:Activate()
-    end
-
-    local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
-    Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
-    print("All-in-one executed.")
-end)
-
--- Toggle Auto-Equip Every Frame
+-- Toggle for Auto Equip/Activate/Teleport
 local keepEquipped = false
-
-makeButton(230, "🔁 Toggle Auto-Equip", function()
+makeButton(200, "🔁 Toggle Auto Cloner Loop", function()
     keepEquipped = not keepEquipped
-    print("Auto-Equip is now", keepEquipped and "ENABLED" or "DISABLED")
+    print("Auto Cloner is now", keepEquipped and "ENABLED" or "DISABLED")
 end)
 
--- Equip logic every frame
+-- Heartbeat loop: Equip, Activate, Teleport
 RunService.Heartbeat:Connect(function()
     if keepEquipped then
         local backpackTool = player.Backpack:FindFirstChild("Quantum Cloner")
         local charTool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
 
+        -- Re-equip if found in backpack
         if backpackTool then
             backpackTool.Parent = player.Character
-        elseif not charTool then
-            -- Optional: attempt to clone from ReplicatedStorage if tool is removed
+        end
+
+        -- If missing entirely, try to clone from storage
+        if not backpackTool and not charTool then
             local stored = ReplicatedStorage:FindFirstChild("Tools") and ReplicatedStorage.Tools:FindFirstChild("Quantum Cloner")
             if stored then
-                local clone = stored:Clone()
-                clone.Parent = player.Backpack
-                print("Recloned Quantum Cloner into Backpack.")
-            else
-                warn("Quantum Cloner missing from both character and backpack.")
+                stored:Clone().Parent = player.Backpack
             end
+        end
+
+        -- Activate + Teleport if equipped
+        if charTool then
+            charTool:Activate()
+            local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+            Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
         end
     end
 end)
