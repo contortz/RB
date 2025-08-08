@@ -14,8 +14,8 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 360)
-frame.Position = UDim2.new(0, 20, 0.5, -180)
+frame.Size = UDim2.new(0, 250, 0, 350)
+frame.Position = UDim2.new(0, 20, 0.5, -160)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -65,7 +65,6 @@ local function findLocalPlayerBase()
                 local tier = model:GetAttribute("Tier")
                 baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
 
-                -- Count filled and total slots
                 local animalPodiums = model:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
                     local filled = 0
@@ -95,6 +94,10 @@ end
 
 task.delay(1, findLocalPlayerBase)
 
+-- Toggle Variables
+local keepEquipped = false
+local loopTeleport = false
+
 -- Utilities
 local function makeButton(yOffset, text, callback)
     local button = Instance.new("TextButton", frame)
@@ -108,7 +111,7 @@ local function makeButton(yOffset, text, callback)
     button.MouseButton1Click:Connect(callback)
 end
 
--- Button: Manual Equip
+-- Buttons
 makeButton(110, "Equip Quantum Cloner", function()
     local tool = player.Backpack:FindFirstChild("Quantum Cloner")
     if tool then
@@ -121,7 +124,6 @@ makeButton(110, "Equip Quantum Cloner", function()
     end
 end)
 
--- Button: Manual Activate
 makeButton(140, "Activate Quantum Cloner", function()
     local tool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
     if tool then
@@ -132,32 +134,32 @@ makeButton(140, "Activate Quantum Cloner", function()
     end
 end)
 
--- Button: Manual Teleport
 makeButton(170, "Teleport to Clone", function()
     local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
     Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     print("Teleport attempt sent.")
 end)
 
--- Toggle for Auto Equip/Activate/Teleport
-local keepEquipped = false
-makeButton(200, "🔁 Toggle Auto Cloner Loop", function()
+makeButton(200, "🔁 Toggle Auto-Equip", function()
     keepEquipped = not keepEquipped
-    print("Auto Cloner is now", keepEquipped and "ENABLED" or "DISABLED")
+    print("Auto-Equip is now", keepEquipped and "ENABLED" or "DISABLED")
 end)
 
--- Heartbeat loop: Equip, Activate, Teleport
+makeButton(230, "🔁 Toggle Loop Teleport", function()
+    loopTeleport = not loopTeleport
+    print("Loop Teleport is now", loopTeleport and "ENABLED" or "DISABLED")
+end)
+
+-- Loop logic
 RunService.Heartbeat:Connect(function()
     if keepEquipped then
         local backpackTool = player.Backpack:FindFirstChild("Quantum Cloner")
         local charTool = player.Character and player.Character:FindFirstChild("Quantum Cloner")
 
-        -- Re-equip if found in backpack
         if backpackTool then
             backpackTool.Parent = player.Character
         end
 
-        -- If missing entirely, try to clone from storage
         if not backpackTool and not charTool then
             local stored = ReplicatedStorage:FindFirstChild("Tools") and ReplicatedStorage.Tools:FindFirstChild("Quantum Cloner")
             if stored then
@@ -165,11 +167,13 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- Activate + Teleport if equipped
         if charTool then
             charTool:Activate()
-            local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
-            Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
         end
+    end
+
+    if loopTeleport then
+        local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     end
 end)
