@@ -15,7 +15,7 @@ screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 250, 0, 350)
-frame.Position = UDim2.new(0, 20, 0.5, -175)
+frame.Position = UDim2.new(0, 20, 0.5, -160)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -65,7 +65,6 @@ local function findLocalPlayerBase()
                 local tier = model:GetAttribute("Tier")
                 baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
 
-                -- Count filled and total slots
                 local animalPodiums = model:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
                     local filled = 0
@@ -138,23 +137,33 @@ makeButton(170, "Teleport to Clone", function()
 end)
 
 makeButton(200, "All-in-One: Equip + Activate + Teleport", function()
-    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
-    if tool then
+    local tool = player.Backpack:FindFirstChild("Quantum Cloner") or (player.Character and player.Character:FindFirstChild("Quantum Cloner"))
+    if tool and tool.Parent == player.Backpack then
         tool.Parent = player.Character
-        print("✅ Equipped Quantum Cloner.")
-    else
-        warn("❌ Quantum Cloner not found in backpack.")
+        print("Equipped.")
     end
-
-    local equipped = player.Character and player.Character:FindFirstChild("Quantum Cloner")
-    if equipped then
-        equipped:Activate()
-        print("✅ Activated Quantum Cloner.")
-    else
-        warn("❌ Quantum Cloner not found on character.")
+    if tool and tool.Parent == player.Character then
+        tool:Activate()
+        print("Activated.")
     end
-
     local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
     Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
-    print("✅ Teleport RemoteEvent fired.")
+    print("Teleport fired.")
+end)
+
+-- Auto-equip toggle
+local keepEquipped = false
+
+makeButton(230, "🔁 Toggle Auto-Equip", function()
+    keepEquipped = not keepEquipped
+    print("Auto-Equip is now", keepEquipped and "ENABLED" or "DISABLED")
+end)
+
+RunService.Heartbeat:Connect(function()
+    if keepEquipped then
+        local tool = player.Backpack:FindFirstChild("Quantum Cloner")
+        if tool then
+            tool.Parent = player.Character
+        end
+    end
 end)
