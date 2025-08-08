@@ -14,7 +14,7 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 370)
+frame.Size = UDim2.new(0, 250, 0, 350)
 frame.Position = UDim2.new(0, 20, 0.5, -160)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
@@ -109,17 +109,7 @@ local function makeButton(yOffset, text, callback)
     return button
 end
 
--- 1. Equip Quantum Cloner (every frame)
-RunService.RenderStepped:Connect(function()
-    local tool = player.Backpack:FindFirstChild("Quantum Cloner")
-    if tool then
-        tool.Parent = player.Character
-        player:SetAttribute("BlockTools", false)
-        player:SetAttribute("Stealing", false)
-    end
-end)
-
--- 2. Manual Buttons
+-- Buttons
 makeButton(110, "Equip Quantum Cloner", function()
     local tool = player.Backpack:FindFirstChild("Quantum Cloner")
     if tool then
@@ -148,39 +138,60 @@ makeButton(170, "Teleport to Clone", function()
     print("Teleport attempt sent.")
 end)
 
--- 3. Loop Teleport Toggle
-local teleportLoop = false
-local loopButton = makeButton(200, "🔁 Toggle Loop Teleport", function()
-    teleportLoop = not teleportLoop
-    loopButton.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+-- Loop Equip Quantum Cloner
+local loopCloner = false
+local loopClonerBtn = makeButton(200, "🔁 Loop Equip Cloner", function()
+    loopCloner = not loopCloner
+    loopClonerBtn.BackgroundColor3 = loopCloner and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
 end)
 
-RunService.RenderStepped:Connect(function()
-    if teleportLoop then
-        local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
-        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+-- Loop Teleport to Clone
+local loopTeleport = false
+local loopTeleportBtn = makeButton(230, "🔁 Toggle Loop Teleport", function()
+    loopTeleport = not loopTeleport
+    loopTeleportBtn.BackgroundColor3 = loopTeleport and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+end)
+
+-- Equip and Activate Bee Launcher
+makeButton(260, "Equip + Activate Bee Launcher", function()
+    local beeTool = player.Backpack:FindFirstChild("Bee Launcher")
+    if beeTool then
+        beeTool.Parent = player.Character
+        task.wait(0.1)
+        beeTool:Activate()
+        print("Bee Launcher equipped and activated.")
+    else
+        warn("Bee Launcher not found in backpack.")
     end
 end)
 
--- 4. Bee Launcher Button
-makeButton(230, "🐝 Use Bee Launcher", function()
-    local beeLauncher = player.Backpack:FindFirstChild("Bee Launcher") or (player.Character and player.Character:FindFirstChild("Bee Launcher"))
+-- Loop Equip Bee Launcher
+local loopBeeLauncher = false
+local loopBeeBtn = makeButton(290, "🔁 Loop Equip Bee Launcher", function()
+    loopBeeLauncher = not loopBeeLauncher
+    loopBeeBtn.BackgroundColor3 = loopBeeLauncher and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+end)
 
-    if beeLauncher then
-        if beeLauncher.Parent == player.Backpack then
-            beeLauncher.Parent = player.Character
+-- RunService Loop
+RunService.RenderStepped:Connect(function()
+    if loopCloner then
+        local tool = player.Backpack:FindFirstChild("Quantum Cloner")
+        if tool then
+            tool.Parent = player.Character
+            player:SetAttribute("BlockTools", false)
+            player:SetAttribute("Stealing", false)
         end
+    end
 
-        beeLauncher:Activate()
+    if loopTeleport then
+        local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    end
 
-        local camera = Workspace.CurrentCamera
-        if camera and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-            local hrp = player.Character.HumanoidRootPart
-            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + camera.CFrame.LookVector)
+    if loopBeeLauncher then
+        local beeTool = player.Backpack:FindFirstChild("Bee Launcher")
+        if beeTool then
+            beeTool.Parent = player.Character
         end
-
-        print("Bee Launcher equipped and fired.")
-    else
-        warn("Bee Launcher not found.")
     end
 end)
