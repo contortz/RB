@@ -2,6 +2,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local CoreGui = game:GetService("CoreGui")
 
 --// Variables
 local player = Players.LocalPlayer
@@ -9,12 +10,12 @@ local autoSwingEnabled = false
 local toolName = "Tung Bat"
 
 --// GUI Setup
-local screenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-screenGui.Name = "TungBatClicker"
+local screenGui = Instance.new("ScreenGui", CoreGui)
+screenGui.Name = "BatTouchUI"
 
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 200, 0, 100)
-frame.Position = UDim2.new(0, 50, 0, 200)
+frame.Position = UDim2.new(0, 60, 0, 220)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -28,7 +29,7 @@ button.Text = "Auto Swing: OFF"
 button.Font = Enum.Font.GothamBold
 button.TextScaled = true
 
---// Equip tool if not equipped
+--// Equip the tool if unequipped
 local function forceEquipTool()
     local backpack = player:FindFirstChild("Backpack")
     local character = player.Character
@@ -40,23 +41,27 @@ local function forceEquipTool()
     end
 end
 
---// Simulate Mouse Click
-local function simulateClick()
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-    task.wait(0.05)
-    VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+--// Simulate a short mobile touch input
+local function simulateTouch()
+    local screenSize = workspace.CurrentCamera.ViewportSize
+    local touchX = screenSize.X / 2
+    local touchY = screenSize.Y / 2
+
+    VirtualInputManager:SendTouchEvent(touchX, touchY, 0, true, game, 0)
+    task.wait(0.1)
+    VirtualInputManager:SendTouchEvent(touchX, touchY, 0, false, game, 0)
 end
 
---// Main Loop
+--// Main loop
 RunService.Heartbeat:Connect(function()
     if autoSwingEnabled then
         forceEquipTool()
-        simulateClick()
-        task.wait(0.5)
+        simulateTouch()
+        task.wait(0.4)
     end
 end)
 
---// Toggle Button Logic
+--// Button click logic
 button.MouseButton1Click:Connect(function()
     autoSwingEnabled = not autoSwingEnabled
     button.Text = "Auto Swing: " .. (autoSwingEnabled and "ON" or "OFF")
