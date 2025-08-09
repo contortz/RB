@@ -12,26 +12,20 @@ local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
-screenGui.Parent = player:WaitForChild("PlayerGui")  -- Ensures it's correctly parented
 
--- Frame setup
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 250, 0, 500)
-frame.Position = UDim2.new(0, 20, 0, 20)  -- Top-left corner for easy visibility
-frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Position = UDim2.new(0, 20, 0.5, -250)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
-frame.ZIndex = 10  -- Ensures it appears above other elements
 
--- Title Label setup
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
-title.BackgroundColor3 = Color3.fromRGB(50,50,50)
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.GothamBold
-title.TextScaled = true
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "BrainRotz by Dreamz"
-title.ZIndex = 11  -- Ensures title is above frame
+title.TextSize = 10
 
 -- Info Labels
 local baseInfoLabel = Instance.new("TextLabel", frame)
@@ -116,8 +110,6 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
-local loopFireCapeClosest = false        -- Laser Cape closest player logic
-local loopFireCape = false               -- Laser Cape fire forward
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -156,59 +148,6 @@ RunService.Heartbeat:Connect(function()
     if autoSwingBat and character then
         local tool = character:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
-    end
-
-    -- Laser Cape (Fire at closest player every 3.5s) — NEVER self
-    if loopFireCapeClosest and (tick() - lastCapeClosest > 3.5) then
-        local char = player.Character
-        local myHRP = char and char:FindFirstChild("HumanoidRootPart")
-        
-        -- Ensure we have a valid character and HumanoidRootPart
-        if myHRP then
-            local closestPart, closestDist = nil, math.huge
-            
-            -- Loop through other players to find the closest target
-            for _, otherPlayer in pairs(Players:GetPlayers()) do
-                if otherPlayer ~= player and otherPlayer.Character then
-                    local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        -- Check all parts of the other player's character
-                        for _, part in pairs(otherPlayer.Character:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                local dist = (myHRP.Position - part.Position).Magnitude
-                                if dist < closestDist then
-                                    closestDist = dist
-                                    closestPart = part
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            -- Fire the Laser Cape if we found the closest part
-            if closestPart then
-                local direction = (closestPart.Position - myHRP.Position).Unit
-                local useItem = getUseItemRemote()
-                local handle = getCapeHandle()
-                if useItem and handle then
-                    useItem:FireServer(closestPart.Position, handle) -- (Vector3, Handle)
-                end
-            end
-        end
-    end
-
-    -- Laser Cape (Fire forward every 3.5s)
-    if loopFireCape then
-        if tick() - lastCape > 3.5 then
-            lastCape = tick()
-            local handle = getCapeHandle()
-            local useItem = getUseItemRemote()
-            if handle and useItem then
-                local target = getAimPoint(600)
-                useItem:FireServer(target, handle) -- (Vector3, Handle)
-            end
-        end
     end
 end)
 
