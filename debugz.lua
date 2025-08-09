@@ -13,14 +13,16 @@ screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = player:WaitForChild("PlayerGui")  -- Ensures it's correctly parented
 
+-- Frame setup
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 280, 0, 680)
-frame.Position = UDim2.new(0, 20, 0, 20)  -- Ensures it's placed at the top-left corner
+frame.Position = UDim2.new(0, 20, 0, 20)  -- Top-left corner for easy visibility
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Active = true
 frame.Draggable = true
 frame.ZIndex = 10  -- Ensures it appears above other elements
 
+-- Title Label setup
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
 title.BackgroundColor3 = Color3.fromRGB(50,50,50)
@@ -30,7 +32,7 @@ title.TextScaled = true
 title.Text = "BrainRotz by Dreamz"
 title.ZIndex = 11  -- Ensures title is above frame
 
--- helper to make buttons (returns button so we can recolor)
+-- Helper to create buttons
 local function makeButton(y, label, onClick)
     local b = Instance.new("TextButton", frame)
     b.Position = UDim2.new(0, 8, 0, y)
@@ -86,7 +88,7 @@ local loopEquipCoil, loopActCoil = false, false
 local loopEquipCape, loopFireCape = false, false        -- (fire uses camera point)
 local loopFireCapeClosest = false                       -- fire at closest player's position every 3.5s
 
--- small helper
+-- Small helper to equip tools if in the backpack
 local function equipIfInBackpack(toolName)
     local char = player.Character
     local bag = player:FindFirstChild("Backpack")
@@ -96,11 +98,11 @@ local function equipIfInBackpack(toolName)
     if t then t.Parent = char end
 end
 
--- find Laser Cape Handle in character (tries common names)
+-- Find Laser Cape Handle in character (tries common names)
 local function getCapeHandle()
     local char = player.Character
     if not char then return nil end
-    -- 1) accessories with "cape" in name or the specific toon shaded name
+    -- 1) Accessories with "cape" in name or the specific toon shaded name
     for _, inst in ipairs(char:GetChildren()) do
         if inst:IsA("Accessory") then
             local n = inst.Name:lower()
@@ -110,7 +112,7 @@ local function getCapeHandle()
             end
         end
     end
-    -- 2) if Laser Cape is a tool inside character, try any Handle under it
+    -- 2) If Laser Cape is a tool inside character, try any Handle under it
     local tool = char:FindFirstChild("Laser Cape")
     if tool then
         local h = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart", true)
@@ -119,7 +121,7 @@ local function getCapeHandle()
     return nil
 end
 
--- point straight ahead of camera (raycast if possible)
+-- Point straight ahead of camera (raycast if possible)
 local function getAimPoint(maxDist)
     maxDist = maxDist or 500
     local cam = Workspace.CurrentCamera
@@ -133,7 +135,7 @@ local function getAimPoint(maxDist)
     return result and result.Position or (origin + dir)
 end
 
--- closest other player's HRP position
+-- Closest other player's HRP position
 local function getClosestPlayerPos(maxRange)
     maxRange = maxRange or math.huge
     local myChar = player.Character
@@ -157,11 +159,11 @@ local function getClosestPlayerPos(maxRange)
     return closestPos
 end
 
--- timers to avoid spamming Activate every frame (helps movement)
+-- Timers to avoid spamming Activate every frame (helps movement)
 local lastBat, lastQC, lastBee, lastCoil, lastCape = 0, 0, 0, 0, 0
 local lastCapeClosest = 0
 
---// Main loop
+-- Main loop
 RunService.Heartbeat:Connect(function()
     local char = player.Character
 
