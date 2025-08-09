@@ -5,7 +5,7 @@ local RunService = game:GetService("RunService")
 
 -- Function to teleport player to clone (once when clicked)
 local function teleportToCloneOnce()
-    local net = getNet()  -- Ensure you have the function to get the Net module
+    local net = require(ReplicatedStorage:WaitForChild("Packages").Net)  -- Use the Net module directly
     if net then
         -- Fire the teleportation event once
         net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
@@ -14,7 +14,7 @@ local function teleportToCloneOnce()
     end
 end
 
--- Create the TP to Clone button on the right side with specific style
+-- Function to create TP to Clone button on the right side with specific style
 local function createTPButton()
     local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
     screenGui.Name = "TPToCloneButton"
@@ -41,5 +41,5 @@ local function createTPButton()
     end)
 end
 
--- Create the button
+-- Create the TP to Clone button
 createTPButton()
