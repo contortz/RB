@@ -116,6 +116,8 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
+local loopFireCapeClosest = false        -- Laser Cape closest player logic
+local loopFireCape = false               -- Laser Cape fire forward
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -154,6 +156,59 @@ RunService.Heartbeat:Connect(function()
     if autoSwingBat and character then
         local tool = character:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
+    end
+
+    -- Laser Cape (Fire at closest player every 3.5s) — NEVER self
+    if loopFireCapeClosest and (tick() - lastCapeClosest > 3.5) then
+        local char = player.Character
+        local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+        
+        -- Ensure we have a valid character and HumanoidRootPart
+        if myHRP then
+            local closestPart, closestDist = nil, math.huge
+            
+            -- Loop through other players to find the closest target
+            for _, otherPlayer in pairs(Players:GetPlayers()) do
+                if otherPlayer ~= player and otherPlayer.Character then
+                    local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        -- Check all parts of the other player's character
+                        for _, part in pairs(otherPlayer.Character:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                local dist = (myHRP.Position - part.Position).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestPart = part
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            
+            -- Fire the Laser Cape if we found the closest part
+            if closestPart then
+                local direction = (closestPart.Position - myHRP.Position).Unit
+                local useItem = getUseItemRemote()
+                local handle = getCapeHandle()
+                if useItem and handle then
+                    useItem:FireServer(closestPart.Position, handle) -- (Vector3, Handle)
+                end
+            end
+        end
+    end
+
+    -- Laser Cape (Fire forward every 3.5s)
+    if loopFireCape then
+        if tick() - lastCape > 3.5 then
+            lastCape = tick()
+            local handle = getCapeHandle()
+            local useItem = getUseItemRemote()
+            if handle and useItem then
+                local target = getAimPoint(600)
+                useItem:FireServer(target, handle) -- (Vector3, Handle)
+            end
+        end
     end
 end)
 
