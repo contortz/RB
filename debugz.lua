@@ -130,29 +130,33 @@ local function getAimPoint(maxDist)
     return result and result.Position or (origin + dir)
 end
 
--- closest other player's HRP position
-local function getClosestPlayerPos(maxRange)
+-- closest other player's HRP and player (never returns local player)
+local function getClosestTarget(maxRange, minRange)
     maxRange = maxRange or math.huge
+    minRange = minRange or 5 -- ignore ultra-close (self/overlap) targets
+
     local myChar = player.Character
     local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-    if not myHRP then return nil end
+    if not myHRP then return nil, nil end
 
-    local closestPos, closestDist = nil, maxRange
+    local bestPlr, bestHRP, bestDist = nil, nil, maxRange
     for _, plr in ipairs(Players:GetPlayers()) do
         if plr ~= player then
             local c = plr.Character
             local hrp = c and c:FindFirstChild("HumanoidRootPart")
-            if hrp then
+            local hum = c and c:FindFirstChildOfClass("Humanoid")
+            if hrp and hum and hum.Health > 0 then
                 local d = (hrp.Position - myHRP.Position).Magnitude
-                if d < closestDist then
-                    closestDist = d
-                    closestPos = hrp.Position
+                if d >= minRange and d < bestDist then
+                    bestDist = d
+                    bestPlr, bestHRP = plr, hrp
                 end
             end
         end
     end
-    return closestPos
+    return bestPlr, bestHRP
 end
+
 
 -- timers to avoid spamming Activate every frame (helps movement)
 local lastBat, lastQC, lastBee, lastCoil, lastCape = 0, 0, 0, 0, 0
@@ -222,19 +226,20 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Laser Cape (fire at closest player every 3.5s)
-    if loopFireCapeClosest then
-        if tick() - lastCapeClosest > 3.5 then
+-- Laser Cape 1 (fire at closest player every 3.5s) — NEVER self
+if loopFireCapeClosest then
+    if tick() - lastCapeClosest > 3.5 then
+        local handle = getCapeHandle()
+        local useItem = getUseItemRemote()
+        local targetPlr, targetHRP = getClosestTarget(1000, 5)
+        if handle and useItem and targetPlr and targetHRP and targetPlr ~= player then
             lastCapeClosest = tick()
-            local handle = getCapeHandle()
-            local useItem = getUseItemRemote()
-            local targetPos = getClosestPlayerPos(1000) -- limit range if you want
-            if handle and useItem and targetPos then
-                useItem:FireServer(targetPos, handle) -- (Vector3, Handle)
-            end
+            useItem:FireServer(targetHRP.Position, handle) -- (Vector3, Handle)
         end
     end
-end)
+end
+
+
 
 --// Buttons
 local y = 40
