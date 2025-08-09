@@ -101,6 +101,30 @@ local function makeButton(yOffset, text, callback)
     callback(button)
 end
 
+-- Function to teleport player to clone (once when clicked)
+local function teleportToCloneOnce()
+    local net = getNet()
+    if net then
+        -- Fire the teleportation event once
+        net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    else
+        warn("Net module or RemoteEvent not found.")
+    end
+end
+
+-- Function to create a TP to Clone button on the right side
+local function makeTPButton(yOffset, text, callback)
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(0, 150, 0, 30)
+    button.Position = UDim2.new(1, -160, 0, yOffset)  -- Position button to the right side
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = text
+    button.Font = Enum.Font.Gotham
+    button.TextScaled = true
+    callback(button)
+end
+
 -- Remotes + State
 local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
 local teleportLoop = false
@@ -173,28 +197,36 @@ makeButton(170, "Loop Teleport to Clone", function(btn)
     end)
 end)
 
-makeButton(200, "Loop Equip Bee Launcher", function(btn)
+-- Add TP Button for "TP to Clone"
+makeTPButton(200, "TP to Clone", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        teleportToCloneOnce()  -- Teleports the player to the clone once
+        btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)  -- Optionally change color after click
+    end)
+end)
+
+makeButton(230, "Loop Equip Bee Launcher", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoEquipBee = not autoEquipBee
         btn.BackgroundColor3 = autoEquipBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
 
-makeButton(230, "Loop Activate Bee Launcher", function(btn)
+makeButton(260, "Loop Activate Bee Launcher", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoActivateBee = not autoActivateBee
         btn.BackgroundColor3 = autoActivateBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
 
-makeButton(260, "Loop Equip Tung Bat", function(btn)
+makeButton(290, "Loop Equip Tung Bat", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoEquipBat = not autoEquipBat
         btn.BackgroundColor3 = autoEquipBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
 
-makeButton(290, "Auto Swing Bat", function(btn)
+makeButton(320, "Auto Swing Bat", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoSwingBat = not autoSwingBat
         btn.BackgroundColor3 = autoSwingBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
