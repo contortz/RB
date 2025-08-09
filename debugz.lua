@@ -1,5 +1,5 @@
 --// Setup
-local player = Players.LocalPlayer  -- Direct reference to LocalPlayer
+local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
@@ -12,26 +12,20 @@ local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
-screenGui.Parent = player:WaitForChild("PlayerGui")  -- Ensures it's correctly parented
 
--- Frame setup
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 250, 0, 500)
-frame.Position = UDim2.new(0, 20, 0, 20)  -- Top-left corner for easy visibility
-frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Position = UDim2.new(0, 20, 0.5, -250)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
-frame.ZIndex = 10  -- Ensures it appears above other elements
 
--- Title Label setup
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
-title.BackgroundColor3 = Color3.fromRGB(50,50,50)
-title.TextColor3 = Color3.new(1,1,1)
-title.Font = Enum.Font.GothamBold
-title.TextScaled = true
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "BrainRotz by Dreamz"
-title.ZIndex = 11  -- Ensures title is above frame
+title.TextSize = 10
 
 -- Info Labels
 local baseInfoLabel = Instance.new("TextLabel", frame)
@@ -116,151 +110,44 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
-local loopFireCapeClosest = false        -- Laser Cape closest player logic
-local loopFireCape = false               -- Laser Cape fire forward
-local loopEquipCape = false              -- Laser Cape auto-equip logic
-
--- Function to get Laser Cape handle in character (Accessory or Tool)
-local function getCapeHandle()
-    local char = player.Character
-    if not char then return nil end
-    -- Look for accessories with "cape" in the name or specific toon shaded cape name
-    for _, inst in ipairs(char:GetChildren()) do
-        if inst:IsA("Accessory") then
-            local n = inst.Name:lower()
-            if n:find("cape") or inst.Name == "Accessory (Toon_Shaded_Black_on_White)" then
-                local h = inst:FindFirstChild("Handle")
-                if h then return h end
-            end
-        end
-    end
-    -- If Laser Cape is a tool, try to find any "Handle" or "BasePart"
-    local tool = char:FindFirstChild("Laser Cape")
-    if tool then
-        local h = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart", true)
-        if h then return h end
-    end
-    return nil
-end
-
--- Function to get the target position (closest player or camera direction)
-local function getAimPoint(maxDist)
-    maxDist = maxDist or 500
-    local cam = Workspace.CurrentCamera
-    if not cam then return Vector3.new() end
-    local origin = cam.CFrame.Position
-    local dir = cam.CFrame.LookVector * maxDist
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Blacklist
-    params.FilterDescendantsInstances = {player.Character}
-    local result = Workspace:Raycast(origin, dir, params)
-    return result and result.Position or (origin + dir)
-end
-
--- Function to fire Laser Cape at a specific target
-local function fireLaserCape(targetPos)
-    local handle = getCapeHandle()
-    local useItem = getUseItemRemote()  -- Assuming this remote exists
-
-    if handle and useItem then
-        local args = {
-            [1] = targetPos,  -- Target position (Vector3)
-            [2] = handle      -- Handle of Laser Cape
-        }
-        useItem:FireServer(unpack(args))
-    else
-        warn("Laser Cape handle or RemoteEvent not found.")
-    end
-end
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
-    -- Using the Workspace model, not `Player.Character`
-    local char = Workspace:FindFirstChild(player.Name)  -- Find the player's character model in Workspace
+    local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
 
-    -- Quantum Cloner Logic
-    if autoEquipQuantum and backpack and char and not char:FindFirstChild("Quantum Cloner") then
+    if autoEquipQuantum and backpack and character and not character:FindFirstChild("Quantum Cloner") then
         local tool = backpack:FindFirstChild("Quantum Cloner")
-        if tool then tool.Parent = char end
+        if tool then tool.Parent = character end
     end
 
-    if autoActivateQuantum and char then
-        local tool = char:FindFirstChild("Quantum Cloner")
+    if autoActivateQuantum and character then
+        local tool = character:FindFirstChild("Quantum Cloner")
         if tool then tool:Activate() end
     end
 
-    -- Bee Launcher Logic
-    if autoEquipBee and backpack and char and not char:FindFirstChild("Bee Launcher") then
+    if teleportLoop then
+        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    end
+
+    if autoEquipBee and backpack and character and not character:FindFirstChild("Bee Launcher") then
         local tool = backpack:FindFirstChild("Bee Launcher")
-        if tool then tool.Parent = char end
+        if tool then tool.Parent = character end
     end
 
-    if autoActivateBee and char then
-        local tool = char:FindFirstChild("Bee Launcher")
+    if autoActivateBee and character then
+        local tool = character:FindFirstChild("Bee Launcher")
         if tool then tool:Activate() end
     end
 
-    -- Tung Bat Logic
-    if autoEquipBat and backpack and char and not char:FindFirstChild("Tung Bat") then
+    if autoEquipBat and backpack and character and not character:FindFirstChild("Tung Bat") then
         local tool = backpack:FindFirstChild("Tung Bat")
-        if tool then tool.Parent = char end
+        if tool then tool.Parent = character end
     end
 
-    if autoSwingBat and char then
-        local tool = char:FindFirstChild("Tung Bat")
+    if autoSwingBat and character then
+        local tool = character:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
-    end
-
-    -- Laser Cape (Auto-Equip Logic)
-    if loopEquipCape and backpack and char and not char:FindFirstChild("Laser Cape") then
-        local tool = backpack:FindFirstChild("Laser Cape")
-        if tool then tool.Parent = char end
-    end
-
-    -- Laser Cape (Fire at closest player every 3.5s) — NEVER self
-    if loopFireCapeClosest and (tick() - lastCapeClosest > 3.5) then
-        local myHRP = char and char:FindFirstChild("HumanoidRootPart")
-        
-        -- Ensure we have a valid character and HumanoidRootPart
-        if myHRP then
-            local closestPart, closestDist = nil, math.huge
-            
-            -- Loop through other players to find the closest target
-            for _, otherPlayer in pairs(Players:GetPlayers()) do
-                if otherPlayer ~= player and otherPlayer.Character then
-                    local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid and humanoid.Health > 0 then
-                        -- Check all parts of the other player's character
-                        for _, part in pairs(otherPlayer.Character:GetDescendants()) do
-                            if part:IsA("BasePart") then
-                                local dist = (myHRP.Position - part.Position).Magnitude
-                                if dist < closestDist then
-                                    closestDist = dist
-                                    closestPart = part
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-            
-            -- Fire the Laser Cape if we found the closest part
-            if closestPart then
-                local direction = (closestPart.Position - myHRP.Position).Unit
-                fireLaserCape(closestPart.Position)
-                lastCapeClosest = tick()  -- Update the timer to 3.5s
-            end
-        end
-    end
-
-    -- Laser Cape (Fire forward every 3.5s)
-    if loopFireCape then
-        if tick() - lastCape > 3.5 then
-            lastCape = tick()
-            local targetPos = getAimPoint(600)  -- Get the aim point based on the camera direction
-            fireLaserCape(targetPos)  -- Fire the Laser Cape at the target position
-        end
     end
 end)
 
