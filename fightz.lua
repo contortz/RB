@@ -1,411 +1,177 @@
---// Services
+--// Setup
+local player = Players.LocalPlayer  -- Direct reference to LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local CoreGui = game:GetService("CoreGui")
 
-local player = Players.LocalPlayer
+-- UI Setup
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "ESPMenuUI"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = player:WaitForChild("PlayerGui")  -- Ensures it's correctly parented
 
--- Toggles
-local Toggles = {
-    AutoFollow = false,
-    AutoPunch = false,
-    AutoThrow = false,
-    AutoSwing = false,
-    AutoShoot = false,
-    AutoPickMoney = false,
-    ATMESP = false,
-    PlayerESP = false
-}
+-- Frame setup
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 500)
+frame.Position = UDim2.new(0, 20, 0, 20)  -- Top-left corner for easy visibility
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
+frame.Active = true
+frame.Draggable = true
+frame.ZIndex = 10  -- Ensures it appears above other elements
 
--- GUI
-local function createGui()
-    if CoreGui:FindFirstChild("StreetFightGui") then
-        CoreGui.StreetFightGui:Destroy()
-    end
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "StreetFightGui"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
+-- Title Label setup
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundColor3 = Color3.fromRGB(50,50,50)
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
+title.Text = "BrainRotz by Dreamz"
+title.ZIndex = 11  -- Ensures title is above frame
 
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 300) -- ✅ Reduced from 350
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -150)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    MainFrame.Parent = ScreenGui
+-- Info Labels
+local baseInfoLabel = Instance.new("TextLabel", frame)
+baseInfoLabel.Size = UDim2.new(1, -10, 0, 25)
+baseInfoLabel.Position = UDim2.new(0, 5, 0, 40)
+baseInfoLabel.BackgroundTransparency = 1
+baseInfoLabel.TextColor3 = Color3.new(1, 1, 1)
+baseInfoLabel.TextScaled = true
+baseInfoLabel.Font = Enum.Font.GothamBold
+baseInfoLabel.Text = "🏠 Base: Unknown | Tier: ?"
 
-    local TitleLabel = Instance.new("TextLabel")
-   TitleLabel.Size = UDim2.new(1, 0, 0, 30)
-    TitleLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    TitleLabel.Font = Enum.Font.SourceSansBold
-   TitleLabel.TextSize = 16
-    TitleLabel.Text = "Street Fight by Dreamz"
-    TitleLabel.Parent = MainFrame
+local slotInfoLabel = Instance.new("TextLabel", frame)
+slotInfoLabel.Size = UDim2.new(1, -10, 0, 25)
+slotInfoLabel.Position = UDim2.new(0, 5, 0, 70)
+slotInfoLabel.BackgroundTransparency = 1
+slotInfoLabel.TextColor3 = Color3.new(1, 1, 1)
+slotInfoLabel.TextScaled = true
+slotInfoLabel.Font = Enum.Font.GothamBold
+slotInfoLabel.Text = "Slots: ? / ?"
 
+-- Base + Slot Logic
+local function findLocalPlayerBase()
+    local playerName = player.Name
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return end
 
--- Minimize Button
-    local minimizeBtn = Instance.new("TextButton")
-    minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
-    minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
-    minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
-    minimizeBtn.Text = "-"
-    minimizeBtn.ZIndex = 999
-    minimizeBtn.Parent = MainFrame
+    for _, model in ipairs(plots:GetChildren()) do
+        local sign = model:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local frame = gui and gui:FindFirstChild("Frame")
+        local label = frame and frame:FindFirstChild("TextLabel")
 
-
-
-    -- Icon when minimized
-    local miniIcon = Instance.new("ImageButton")
-miniIcon.Size = UDim2.new(0, 60, 0, 60) -- ⬆️ increased size
-miniIcon.Position = UDim2.new(0, 15, 0.27, -50) -- ⬆️ moved up 10 pixels
-    miniIcon.BackgroundTransparency = 1
-    miniIcon.Image = "rbxassetid://76154122039576" -- Replace with your icon asset
-    miniIcon.ZIndex = 999
-    miniIcon.Visible = false
-    miniIcon.Parent = ScreenGui
-
-    -- Toggle Minimize
-    minimizeBtn.MouseButton1Click:Connect(function()
-        MainFrame.Visible = false
-        miniIcon.Visible = true
-    end)
-
-    miniIcon.MouseButton1Click:Connect(function()
-        MainFrame.Visible = true
-        miniIcon.Visible = false
-    end)
-
-    local yPos = 0.15
-    local function createButton(name, toggleKey)
-        local button = Instance.new("TextButton")
-        button.Size = UDim2.new(0.9, 0, 0, 30)
-        button.Position = UDim2.new(0.05, 0, yPos, 0)
-        button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        button.Text = name .. ": OFF"
-        button.Parent = MainFrame
-        button.MouseButton1Click:Connect(function()
-            Toggles[toggleKey] = not Toggles[toggleKey]
-            button.Text = name .. ": " .. (Toggles[toggleKey] and "ON" or "OFF")
-            button.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0,200,0) or Color3.fromRGB(50,50,50)
-        end)
-        yPos += 0.08
-    end
-
-    -- Create buttons
-    createButton("Auto Follow", "AutoFollow")
-    createButton("Auto Punch", "AutoPunch")
-    createButton("Auto Throw", "AutoThrow")
-    createButton("Auto Swing", "AutoSwing")
-    createButton("Auto Shoot", "AutoShoot")
-    createButton("Auto PickMoney", "AutoPickMoney")
-    createButton("ATM ESP", "ATMESP")
-    createButton("Player ESP", "PlayerESP")
-
-
-
-
-    -- ATM Teleport (Cycle Mode)
-local atmIndex = 1 -- Tracks which ATM we are on
-
-local tpATMButton = Instance.new("TextButton")
-tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
-tpATMButton.Position = UDim2.new(0.05, 0, yPos, 0)
-tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
-tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-tpATMButton.Text = "Teleport Next ATM"
-tpATMButton.Parent = MainFrame
-tpATMButton.MouseButton1Click:Connect(function()
-    local myChar = player.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
-    local myHRP = myChar.HumanoidRootPart
-
-    local atmsFolder = Workspace:FindFirstChild("ATMs")
-    if atmsFolder and #atmsFolder:GetChildren() > 0 then
-        -- Wrap around if index goes past total ATMs
-        if atmIndex > #atmsFolder:GetChildren() then
-            atmIndex = 1
-        end
-
-        -- Get ATM at current index
-        local atm = atmsFolder:GetChildren()[atmIndex]
-        local part = atm:IsA("BasePart") and atm or atm:FindFirstChildWhichIsA("BasePart")
-
-        -- Teleport to it
-        if part then
-            myHRP.CFrame = part.CFrame + Vector3.new(0, 5, 0)
-        end
-
-        -- Move to next index
-        atmIndex += 1
-    end
-end)
-yPos += 0.08
-
-
--- Tools Cycle Teleport Button
-local toolIndex = 1
-local tpToolsButton = Instance.new("TextButton")
-tpToolsButton.Size = UDim2.new(0.9, 0, 0, 30)
-tpToolsButton.Position = UDim2.new(0.05, 0, yPos, 0)
-tpToolsButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-tpToolsButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-tpToolsButton.Text = "Teleport Next Tool"
-tpToolsButton.Parent = MainFrame
-tpToolsButton.MouseButton1Click:Connect(function()
-    local myChar = player.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
-    local myHRP = myChar.HumanoidRootPart
-    local toolsFolder = Workspace:FindFirstChild("Others") and Workspace.Others:FindFirstChild("Tools")
-    if toolsFolder then
-        local tools = toolsFolder:GetChildren()
-        if #tools > 0 then
-            if toolIndex > #tools then toolIndex = 1 end
-            local tool = tools[toolIndex]
-            local part = tool:IsA("BasePart") and tool or tool:FindFirstChildWhichIsA("BasePart")
-            if part then
-                myHRP.CFrame = part.CFrame + Vector3.new(0, 5, 0)
-            end
-            toolIndex += 1
-        end
-    end
-end)
-yPos += 0.08
-
-
--- Buy Glock Button
-local buyGlockBtn = Instance.new("TextButton")
-buyGlockBtn.Size = UDim2.new(0.9, 0, 0, 30)
-buyGlockBtn.Position = UDim2.new(0.05, 0, yPos, 0)
-buyGlockBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
-buyGlockBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-buyGlockBtn.Text = "Buy Glock"
-buyGlockBtn.Parent = MainFrame
-
-buyGlockBtn.MouseButton1Click:Connect(function()
-    local args = { "1" } -- Glock ID
-    game:GetService("ReplicatedStorage")
-        :WaitForChild("Roles")
-        :WaitForChild("Tools")
-        :WaitForChild("Default")
-        :WaitForChild("Remotes")
-        :WaitForChild("Weapons")
-        :WaitForChild("Weapons_Buy")
-        :InvokeServer(unpack(args))
-end)
-
-yPos += 0.08
-
-
-
--- Claim Quest Button
-local claimQuestBtn = Instance.new("TextButton")
-claimQuestBtn.Size = UDim2.new(0.9, 0, 0, 30)
-claimQuestBtn.Position = UDim2.new(0.05, 0, yPos, 0)
-claimQuestBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
-claimQuestBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-claimQuestBtn.Text = "Claim Quest"
-claimQuestBtn.Parent = MainFrame
-
-claimQuestBtn.MouseButton1Click:Connect(function()
-    local args = { "smash_15_atms" } -- Quest ID
-    game:GetService("ReplicatedStorage")
-        :WaitForChild("Quests")
-        :WaitForChild("Core")
-        :WaitForChild("Default")
-        :WaitForChild("Remotes")
-        :WaitForChild("Claim")
-        :InvokeServer(unpack(args))
-end)
-
-yPos += 0.08
-
-end -- ✅ CLOSES createGui()
-
-createGui()
-if not CoreGui:FindFirstChild("StreetFightGui") then
-    createGui()
-end
-
-
--- Remotes
-local PunchRemote = ReplicatedStorage:FindFirstChild("Roles") and ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons:FindFirstChild("Punch")
-local ThrowRemote = ReplicatedStorage:FindFirstChild("Utils") and ReplicatedStorage.Utils.Throwables.Default.Remotes:FindFirstChild("Throw")
-local SwingRemote = ReplicatedStorage:FindFirstChild("Roles") and ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons:FindFirstChild("Swing")
-
--- ESP Functions
-local function updateATMESP()
-    local atmsFolder = Workspace:FindFirstChild("ATMs")
-    if not atmsFolder then return end
-    
-    for _, atm in pairs(atmsFolder:GetChildren()) do
-        local part = atm:IsA("BasePart") and atm or atm:FindFirstChildWhichIsA("BasePart")
-        if part then
-            if Toggles.ATMESP then
-                -- Create ESP if missing
-                if not part:FindFirstChild("ATM_ESP") then
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Name = "ATM_ESP"
-                    billboard.Adornee = part
-                    billboard.Size = UDim2.new(0, 100, 0, 30)
-                    billboard.AlwaysOnTop = true
-                    billboard.Parent = part
-
-                    local label = Instance.new("TextLabel")
-                    label.Size = UDim2.new(1, 0, 1, 0)
-                    label.BackgroundTransparency = 1
-                    label.Text = "💰 ATM"
-                    label.TextColor3 = Color3.fromRGB(0, 255, 0)
-                    label.TextStrokeTransparency = 0
-                    label.TextScaled = true
-                    label.Parent = billboard
-                end
-            else
-                -- ✅ Remove ESP if toggle is off
-                if part:FindFirstChild("ATM_ESP") then
-                    part.ATM_ESP:Destroy()
-                end
-            end
-        end
-    end
-end
-
-
-local function updatePlayerESP()
-    local myChar = player.Character
-    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
-    local myHRP = myChar.HumanoidRootPart
-
-    local charFolder = Workspace:FindFirstChild("Characters")
-    local playersFolder = Workspace:FindFirstChild("Players") -- ✅ PvP source
-    if not charFolder then return end
-
-    for _, char in pairs(charFolder:GetChildren()) do
-        if char:IsA("Model") and char.Name ~= player.Name and char:FindFirstChild("HumanoidRootPart") then
-            local hrp = char.HumanoidRootPart
-            local humanoid = char:FindFirstChild("Humanoid")
-            local healthText = humanoid and math.floor(humanoid.Health) or "?"
-            local distText = math.floor((myHRP.Position - hrp.Position).Magnitude)
-
-            -- ✅ PvP status (default Idle)
-            local pvpStatus = ""
-            if playersFolder then
-                local playerObj = playersFolder:FindFirstChild(char.Name)
-                if playerObj and playerObj:GetAttribute("PvP") then
-                    pvpStatus = " | PvP"
-                else
-                    pvpStatus = " | Idle"
-                end
-            end
-
-            if Toggles.PlayerESP then
-                -- Create ESP if missing
-                if not hrp:FindFirstChild("Player_ESP") then
-                    local billboard = Instance.new("BillboardGui")
-                    billboard.Name = "Player_ESP"
-                    billboard.Adornee = hrp
-                    billboard.Size = UDim2.new(0, 150, 0, 40)
-                    billboard.AlwaysOnTop = true
-                    billboard.Parent = hrp
-
-                    local label = Instance.new("TextLabel")
-                    label.Size = UDim2.new(1, 0, 1, 0)
-                    label.BackgroundTransparency = 1
-                    label.TextColor3 = Color3.fromRGB(255, 0, 0)
-                    label.TextStrokeTransparency = 0
-                    label.TextScaled = true
-                    label.Text = string.format("%s | HP: %s | %dm%s", char.Name, healthText, distText, pvpStatus)
-                    label.Parent = billboard
-                else
-                    -- Update text
-                    local label = hrp.Player_ESP:FindFirstChildOfClass("TextLabel")
-                    if label then
-                        label.Text = string.format("%s | HP: %s | %dm%s", char.Name, healthText, distText, pvpStatus)
-                    end
-                end
-            else
-                -- ✅ Remove ESP if toggle is off
-                if hrp:FindFirstChild("Player_ESP") then
-                    hrp.Player_ESP:Destroy()
-                end
-            end
-        end
-    end
-end
-
-
-
-
-
-
-
-
--- Cooldowns
-local punchCooldown, swingCooldown, throwCooldown, pickMoneyCooldown, followInterval = 0.2, 0.2, 0.3, 0.5, 0.1
-local lastPunch, lastSwing, lastThrow, lastPick, lastFollow = 0, 0, 0, 0, 0
-
--- Main Heartbeat (single connection)
-RunService.Heartbeat:Connect(function()
-    pcall(function()
-        local now = tick()
-        local myChar = player.Character or Workspace:FindFirstChild(player.Name)
-        if not myChar then return end
-
-        -- ESP
-        if Toggles.ATMESP then updateATMESP() end
-        if Toggles.PlayerESP then updatePlayerESP() end
-
-        -- Auto Punch
-        if Toggles.AutoPunch and now - lastPunch >= punchCooldown then
-            lastPunch = now
-            PunchRemote:InvokeServer()
-        end
-
-        -- Auto Swing
-        if Toggles.AutoSwing and now - lastSwing >= swingCooldown then
-            lastSwing = now
-            SwingRemote:InvokeServer()
-        end
-
-        -- Auto Pick Money
-        if Toggles.AutoPickMoney and now - lastPick >= pickMoneyCooldown then
-            lastPick = now
-            local moneyFolder = Workspace:FindFirstChild("Spawned")
-            if moneyFolder then moneyFolder = moneyFolder:FindFirstChild("Money") end
-            local pickMoneyRemote
-            local stats = ReplicatedStorage:FindFirstChild("Stats")
-            if stats then
-                local core = stats:FindFirstChild("Core")
-                if core then
-                    local default = core:FindFirstChild("Default")
-                    if default then
-                        local remotes = default:FindFirstChild("Remotes")
-                        if remotes then
-                            pickMoneyRemote = remotes:FindFirstChild("PickMoney")
+        if label and label.Text then
+            local owner = label.Text:match("^(.-)'s Base")
+            if owner == playerName then
+                local tier = model:GetAttribute("Tier")
+                baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
+                local animalPodiums = model:FindFirstChild("AnimalPodiums")
+                if animalPodiums then
+                    local filled, total = 0, 0
+                    for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
+                        if podiumModule:IsA("Model") then
+                            local base = podiumModule:FindFirstChild("Base")
+                            local spawn = base and base:FindFirstChild("Spawn")
+                            if spawn and spawn:IsA("BasePart") then
+                                total += 1
+                                if spawn:FindFirstChild("Attachment") then
+                                    filled += 1
+                                end
+                            end
                         end
                     end
+                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
                 end
-            end
-            if pickMoneyRemote and moneyFolder then
-                for _, money in ipairs(moneyFolder:GetChildren()) do
-                    pickMoneyRemote:InvokeServer(money.Name)
-                end
+                break
             end
         end
+    end
+end
 
-        -- Auto Shoot ✅ (moved inside so myChar works)
-        if Toggles.AutoShoot and myChar:FindFirstChild("HumanoidRootPart") then
-            local myHRP = myChar.HumanoidRootPart
+task.delay(1, findLocalPlayerBase)
+
+-- Button Helper
+local function makeButton(yOffset, text, callback)
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, yOffset)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = text
+    button.Font = Enum.Font.Gotham
+    button.TextScaled = true
+    callback(button)
+end
+
+-- Remotes + State
+local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+local teleportLoop = false
+local autoEquipQuantum = false
+local autoActivateQuantum = false
+local autoEquipBee = false
+local autoActivateBee = false
+local autoEquipBat = false
+local autoSwingBat = false
+local loopFireCapeClosest = false        -- Laser Cape closest player logic
+local loopFireCape = false               -- Laser Cape fire forward
+
+-- Runtime Loops
+RunService.Heartbeat:Connect(function()
+    -- Using the Workspace model, not `Player.Character`
+    local char = Workspace:FindFirstChild(player.Name)  -- Find the player's character model in Workspace
+    local backpack = player:FindFirstChild("Backpack")
+
+    -- Quantum Cloner Logic
+    if autoEquipQuantum and backpack and char and not char:FindFirstChild("Quantum Cloner") then
+        local tool = backpack:FindFirstChild("Quantum Cloner")
+        if tool then tool.Parent = char end
+    end
+
+    if autoActivateQuantum and char then
+        local tool = char:FindFirstChild("Quantum Cloner")
+        if tool then tool:Activate() end
+    end
+
+    -- Bee Launcher Logic
+    if autoEquipBee and backpack and char and not char:FindFirstChild("Bee Launcher") then
+        local tool = backpack:FindFirstChild("Bee Launcher")
+        if tool then tool.Parent = char end
+    end
+
+    if autoActivateBee and char then
+        local tool = char:FindFirstChild("Bee Launcher")
+        if tool then tool:Activate() end
+    end
+
+    -- Tung Bat Logic
+    if autoEquipBat and backpack and char and not char:FindFirstChild("Tung Bat") then
+        local tool = backpack:FindFirstChild("Tung Bat")
+        if tool then tool.Parent = char end
+    end
+
+    if autoSwingBat and char then
+        local tool = char:FindFirstChild("Tung Bat")
+        if tool then tool:Activate() end
+    end
+
+    -- Laser Cape (Fire at closest player every 3.5s) — NEVER self
+    if loopFireCapeClosest and (tick() - lastCapeClosest > 3.5) then
+        local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+        
+        -- Ensure we have a valid character and HumanoidRootPart
+        if myHRP then
             local closestPart, closestDist = nil, math.huge
+            
+            -- Loop through other players to find the closest target
             for _, otherPlayer in pairs(Players:GetPlayers()) do
                 if otherPlayer ~= player and otherPlayer.Character then
                     local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
                     if humanoid and humanoid.Health > 0 then
+                        -- Check all parts of the other player's character
                         for _, part in pairs(otherPlayer.Character:GetDescendants()) do
                             if part:IsA("BasePart") then
                                 local dist = (myHRP.Position - part.Position).Magnitude
@@ -418,59 +184,79 @@ RunService.Heartbeat:Connect(function()
                     end
                 end
             end
+            
+            -- Fire the Laser Cape if we found the closest part
             if closestPart then
                 local direction = (closestPart.Position - myHRP.Position).Unit
-                local args = {{
-                    Instance = closestPart,
-                    Distance = closestDist,
-                    Normal = direction,
-                    Position = closestPart.Position
-                }}
-                ReplicatedStorage.Roles.Tools.Default.Remotes.Weapons.Shoot:InvokeServer(unpack(args))
-            end
-        end
-
-        -- Auto Throw
-        if Toggles.AutoThrow and now - lastThrow >= throwCooldown and myChar:FindFirstChild("HumanoidRootPart") then
-            lastThrow = now
-            local myHRP = myChar.HumanoidRootPart
-            local closestHRP, closestDist = nil, math.huge
-            local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-            for _, obj in pairs(searchFolder:GetChildren()) do
-                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestHRP = obj.HumanoidRootPart
-                    end
+                local useItem = getUseItemRemote()
+                local handle = getCapeHandle()
+                if useItem and handle then
+                    useItem:FireServer(closestPart.Position, handle) -- (Vector3, Handle)
                 end
             end
-            if closestHRP then
-                local direction = (closestHRP.Position - myHRP.Position).Unit
-                ThrowRemote:InvokeServer(direction)
-            end
         end
+    end
 
-        -- Auto Follow
-        if Toggles.AutoFollow and now - lastFollow >= followInterval and myChar:FindFirstChild("HumanoidRootPart") then
-            lastFollow = now
-            local myHRP = myChar.HumanoidRootPart
-            local myHumanoid = myChar:FindFirstChild("Humanoid")
-            local closestHRP, closestDist = nil, math.huge
-            local searchFolder = Workspace:FindFirstChild("Characters") or Workspace
-            for _, obj in pairs(searchFolder:GetChildren()) do
-                if obj:IsA("Model") and obj.Name ~= player.Name and obj:FindFirstChild("HumanoidRootPart") then
-                    local dist = (myHRP.Position - obj.HumanoidRootPart.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestHRP = obj.HumanoidRootPart
-                    end
-                end
-            end
-            if closestHRP and myHumanoid then
-                myHumanoid.WalkToPoint = closestHRP.Position
+    -- Laser Cape (Fire forward every 3.5s)
+    if loopFireCape then
+        if tick() - lastCape > 3.5 then
+            lastCape = tick()
+            local handle = getCapeHandle()
+            local useItem = getUseItemRemote()
+            if handle and useItem then
+                local target = getAimPoint(600)
+                useItem:FireServer(target, handle) -- (Vector3, Handle)
             end
         end
+    end
+end)
+
+-- Buttons
+makeButton(110, "Loop Equip Quantum Cloner", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipQuantum = not autoEquipQuantum
+        btn.BackgroundColor3 = autoEquipQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
 
+makeButton(140, "Loop Activate Quantum", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoActivateQuantum = not autoActivateQuantum
+        btn.BackgroundColor3 = autoActivateQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(170, "Loop Teleport to Clone", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        teleportLoop = not teleportLoop
+        btn.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(200, "Loop Equip Bee Launcher", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipBee = not autoEquipBee
+        btn.BackgroundColor3 = autoEquipBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(230, "Loop Activate Bee Launcher", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoActivateBee = not autoActivateBee
+        btn.BackgroundColor3 = autoActivateBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(260, "Loop Equip Tung Bat", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipBat = not autoEquipBat
+        btn.BackgroundColor3 = autoEquipBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(290, "Auto Swing Bat", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoSwingBat = not autoSwingBat
+        btn.BackgroundColor3 = autoSwingBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
