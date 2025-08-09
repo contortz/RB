@@ -120,6 +120,59 @@ local loopFireCapeClosest = false        -- Laser Cape closest player logic
 local loopFireCape = false               -- Laser Cape fire forward
 local loopEquipCape = false              -- Laser Cape auto-equip logic
 
+-- Function to get Laser Cape handle in character (Accessory or Tool)
+local function getCapeHandle()
+    local char = player.Character
+    if not char then return nil end
+    -- Look for accessories with "cape" in the name or specific toon shaded cape name
+    for _, inst in ipairs(char:GetChildren()) do
+        if inst:IsA("Accessory") then
+            local n = inst.Name:lower()
+            if n:find("cape") or inst.Name == "Accessory (Toon_Shaded_Black_on_White)" then
+                local h = inst:FindFirstChild("Handle")
+                if h then return h end
+            end
+        end
+    end
+    -- If Laser Cape is a tool, try to find any "Handle" or "BasePart"
+    local tool = char:FindFirstChild("Laser Cape")
+    if tool then
+        local h = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart", true)
+        if h then return h end
+    end
+    return nil
+end
+
+-- Function to get the target position (closest player or camera direction)
+local function getAimPoint(maxDist)
+    maxDist = maxDist or 500
+    local cam = Workspace.CurrentCamera
+    if not cam then return Vector3.new() end
+    local origin = cam.CFrame.Position
+    local dir = cam.CFrame.LookVector * maxDist
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = {player.Character}
+    local result = Workspace:Raycast(origin, dir, params)
+    return result and result.Position or (origin + dir)
+end
+
+-- Function to fire Laser Cape at a specific target
+local function fireLaserCape(targetPos)
+    local handle = getCapeHandle()
+    local useItem = getUseItemRemote()  -- Assuming this remote exists
+
+    if handle and useItem then
+        local args = {
+            [1] = targetPos,  -- Target position (Vector3)
+            [2] = handle      -- Handle of Laser Cape
+        }
+        useItem:FireServer(unpack(args))
+    else
+        warn("Laser Cape handle or RemoteEvent not found.")
+    end
+end
+
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
     -- Using the Workspace model, not `Player.Character`
@@ -195,11 +248,8 @@ RunService.Heartbeat:Connect(function()
             -- Fire the Laser Cape if we found the closest part
             if closestPart then
                 local direction = (closestPart.Position - myHRP.Position).Unit
-                local useItem = getUseItemRemote()
-                local handle = getCapeHandle()
-                if useItem and handle then
-                    useItem:FireServer(closestPart.Position, handle) -- (Vector3, Handle)
-                end
+                fireLaserCape(closestPart.Position)
+                lastCapeClosest = tick()  -- Update the timer to 3.5s
             end
         end
     end
@@ -208,12 +258,8 @@ RunService.Heartbeat:Connect(function()
     if loopFireCape then
         if tick() - lastCape > 3.5 then
             lastCape = tick()
-            local handle = getCapeHandle()
-            local useItem = getUseItemRemote()
-            if handle and useItem then
-                local target = getAimPoint(600)
-                useItem:FireServer(target, handle) -- (Vector3, Handle)
-            end
+            local targetPos = getAimPoint(600)  -- Get the aim point based on the camera direction
+            fireLaserCape(targetPos)  -- Fire the Laser Cape at the target position
         end
     end
 end)
