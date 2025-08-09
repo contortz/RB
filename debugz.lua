@@ -224,17 +224,44 @@ RunService.Heartbeat:Connect(function()
 
 -- Laser Cape (fire at closest player every 3.5s) — NEVER self
 if loopFireCapeClosest and (tick() - lastCapeClosest > 3.5) then
-    local handle = getCapeHandle()
-    local useItem = getUseItemRemote()
-    local targetPlr, targetHRP = getClosestTarget(1000, 5)
-    if not useItem then
-        warn("RE/UseItem remote not found")
-    end
-    if handle and useItem and targetPlr and targetHRP and targetPlr ~= player then
-        lastCapeClosest = tick()
-        useItem:FireServer(targetHRP.Position, handle) -- (Vector3, Handle)
+    local char = player.Character
+    local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+    
+    -- Ensure we have a valid character and HumanoidRootPart
+    if myHRP then
+        local closestPart, closestDist = nil, math.huge
+        
+        -- Loop through other players to find the closest target
+        for _, otherPlayer in pairs(Players:GetPlayers()) do
+            if otherPlayer ~= player and otherPlayer.Character then
+                local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+                if humanoid and humanoid.Health > 0 then
+                    -- Check all parts of the other player's character
+                    for _, part in pairs(otherPlayer.Character:GetDescendants()) do
+                        if part:IsA("BasePart") then
+                            local dist = (myHRP.Position - part.Position).Magnitude
+                            if dist < closestDist then
+                                closestDist = dist
+                                closestPart = part
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Fire the Laser Cape if we found the closest part
+        if closestPart then
+            local direction = (closestPart.Position - myHRP.Position).Unit
+            local useItem = getUseItemRemote()
+            local handle = getCapeHandle()
+            if useItem and handle then
+                useItem:FireServer(closestPart.Position, handle) -- (Vector3, Handle)
+            end
+        end
     end
 end
+
 
 
 --// Buttons
