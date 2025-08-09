@@ -32,7 +32,7 @@ local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = true
-local BeeHiveImmune = false
+local BeeHiveImmune = true
 local PurchaseThreshold = 20000 -- default 20K
 
 local ThresholdOptions = {
@@ -532,7 +532,7 @@ local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 210) -- ✅ right under No Ragdoll
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleBeeHiveBtn.Text = "BeeHive Immune: OFF"
+toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
 
 toggleBeeHiveBtn.MouseButton1Click:Connect(function()
@@ -570,7 +570,7 @@ end)
 
 
 -- No Ragdoll Toggle
-local NoRagdoll = false
+local NoRagdoll = true
 local CharacterController = require(ReplicatedStorage.Controllers.RagdollController)
 local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
 local Controls = PlayerModule:GetControls()
@@ -582,7 +582,8 @@ local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180)
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleNoRagdollBtn.Text = "No Ragdoll: OFF"
+toggleNoRagdollBtn.Text = "No Ragdoll: ON"
+
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
 
 toggleNoRagdollBtn.MouseButton1Click:Connect(function()
