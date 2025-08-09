@@ -118,6 +118,7 @@ local autoEquipBat = false
 local autoSwingBat = false
 local loopFireCapeClosest = false        -- Laser Cape closest player logic
 local loopFireCape = false               -- Laser Cape fire forward
+local loopEquipCape = false              -- Laser Cape auto-equip logic
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -156,6 +157,12 @@ RunService.Heartbeat:Connect(function()
     if autoSwingBat and char then
         local tool = char:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
+    end
+
+    -- Laser Cape (Auto-Equip Logic)
+    if loopEquipCape and backpack and char and not char:FindFirstChild("Laser Cape") then
+        local tool = backpack:FindFirstChild("Laser Cape")
+        if tool then tool.Parent = char end
     end
 
     -- Laser Cape (Fire at closest player every 3.5s) — NEVER self
