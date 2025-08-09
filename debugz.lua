@@ -11,13 +11,15 @@ local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
 screenGui.Name = "BrainRotzUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
+screenGui.Parent = player:WaitForChild("PlayerGui")  -- Ensures it's correctly parented
 
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 280, 0, 680)
-frame.Position = UDim2.new(0, 20, 0.5, -340)
+frame.Position = UDim2.new(0, 20, 0, 20)  -- Ensures it's placed at the top-left corner
 frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Active = true
 frame.Draggable = true
+frame.ZIndex = 10  -- Ensures it appears above other elements
 
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
@@ -26,6 +28,7 @@ title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.GothamBold
 title.TextScaled = true
 title.Text = "BrainRotz by Dreamz"
+title.ZIndex = 11  -- Ensures title is above frame
 
 -- helper to make buttons (returns button so we can recolor)
 local function makeButton(y, label, onClick)
