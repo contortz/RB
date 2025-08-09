@@ -1,5 +1,5 @@
 --// Setup
-local player = game.Players.LocalPlayer
+local player = Players.LocalPlayer  -- Direct reference to LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
@@ -12,20 +12,26 @@ local screenGui = Instance.new("ScreenGui", playerGui)
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
+screenGui.Parent = player:WaitForChild("PlayerGui")  -- Ensures it's correctly parented
 
+-- Frame setup
 local frame = Instance.new("Frame", screenGui)
 frame.Size = UDim2.new(0, 250, 0, 500)
-frame.Position = UDim2.new(0, 20, 0.5, -250)
-frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Position = UDim2.new(0, 20, 0, 20)  -- Top-left corner for easy visibility
+frame.BackgroundColor3 = Color3.fromRGB(30,30,30)
 frame.Active = true
 frame.Draggable = true
+frame.ZIndex = 10  -- Ensures it appears above other elements
 
+-- Title Label setup
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
-title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-title.TextColor3 = Color3.new(1, 1, 1)
+title.BackgroundColor3 = Color3.fromRGB(50,50,50)
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextScaled = true
 title.Text = "BrainRotz by Dreamz"
-title.TextSize = 10
+title.ZIndex = 11  -- Ensures title is above frame
 
 -- Info Labels
 local baseInfoLabel = Instance.new("TextLabel", frame)
@@ -110,44 +116,98 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
+local loopFireCapeClosest = false        -- Laser Cape closest player logic
+local loopFireCape = false               -- Laser Cape fire forward
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
-    local character = player.Character
+    -- Using the Workspace model, not `Player.Character`
+    local char = Workspace:FindFirstChild(player.Name)  -- Find the player's character model in Workspace
     local backpack = player:FindFirstChild("Backpack")
 
-    if autoEquipQuantum and backpack and character and not character:FindFirstChild("Quantum Cloner") then
+    -- Quantum Cloner Logic
+    if autoEquipQuantum and backpack and char and not char:FindFirstChild("Quantum Cloner") then
         local tool = backpack:FindFirstChild("Quantum Cloner")
-        if tool then tool.Parent = character end
+        if tool then tool.Parent = char end
     end
 
-    if autoActivateQuantum and character then
-        local tool = character:FindFirstChild("Quantum Cloner")
+    if autoActivateQuantum and char then
+        local tool = char:FindFirstChild("Quantum Cloner")
         if tool then tool:Activate() end
     end
 
-    if teleportLoop then
-        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
-    end
-
-    if autoEquipBee and backpack and character and not character:FindFirstChild("Bee Launcher") then
+    -- Bee Launcher Logic
+    if autoEquipBee and backpack and char and not char:FindFirstChild("Bee Launcher") then
         local tool = backpack:FindFirstChild("Bee Launcher")
-        if tool then tool.Parent = character end
+        if tool then tool.Parent = char end
     end
 
-    if autoActivateBee and character then
-        local tool = character:FindFirstChild("Bee Launcher")
+    if autoActivateBee and char then
+        local tool = char:FindFirstChild("Bee Launcher")
         if tool then tool:Activate() end
     end
 
-    if autoEquipBat and backpack and character and not character:FindFirstChild("Tung Bat") then
+    -- Tung Bat Logic
+    if autoEquipBat and backpack and char and not char:FindFirstChild("Tung Bat") then
         local tool = backpack:FindFirstChild("Tung Bat")
-        if tool then tool.Parent = character end
+        if tool then tool.Parent = char end
     end
 
-    if autoSwingBat and character then
-        local tool = character:FindFirstChild("Tung Bat")
+    if autoSwingBat and char then
+        local tool = char:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
+    end
+
+    -- Laser Cape (Fire at closest player every 3.5s) — NEVER self
+    if loopFireCapeClosest and (tick() - lastCapeClosest > 3.5) then
+        local myHRP = char and char:FindFirstChild("HumanoidRootPart")
+        
+        -- Ensure we have a valid character and HumanoidRootPart
+        if myHRP then
+            local closestPart, closestDist = nil, math.huge
+            
+            -- Loop through other players to find the closest target
+            for _, otherPlayer in pairs(Players:GetPlayers()) do
+                if otherPlayer ~= player and otherPlayer.Character then
+                    local humanoid = otherPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        -- Check all parts of the other player's character
+                        for _, part in pairs(otherPlayer.Character:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                local dist = (myHRP.Position - part.Position).Magnitude
+                                if dist < closestDist then
+                                    closestDist = dist
+                                    closestPart = part
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            
+            -- Fire the Laser Cape if we found the closest part
+            if closestPart then
+                local direction = (closestPart.Position - myHRP.Position).Unit
+                local useItem = getUseItemRemote()
+                local handle = getCapeHandle()
+                if useItem and handle then
+                    useItem:FireServer(closestPart.Position, handle) -- (Vector3, Handle)
+                end
+            end
+        end
+    end
+
+    -- Laser Cape (Fire forward every 3.5s)
+    if loopFireCape then
+        if tick() - lastCape > 3.5 then
+            lastCape = tick()
+            local handle = getCapeHandle()
+            local useItem = getUseItemRemote()
+            if handle and useItem then
+                local target = getAimPoint(600)
+                useItem:FireServer(target, handle) -- (Vector3, Handle)
+            end
+        end
     end
 end)
 
