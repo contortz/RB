@@ -79,7 +79,7 @@ local loopEquipBee, loopActBee = false, false
 local loopEquipBat, loopActBat = false, false
 local loopEquipCoil, loopActCoil = false, false
 
--- Laser Cape 1
+-- Laser Cape
 local loopEquipCape, loopFireCape = false, false        -- (fire uses camera point)
 local loopFireCapeClosest = false                       -- fire at closest player's position every 3.5s
 
@@ -107,8 +107,8 @@ local function getCapeHandle()
             end
         end
     end
-    -- 2) if Laser Cape 1 is a tool inside character, try any Handle under it
-    local tool = char:FindFirstChild("Laser Cape 1")
+    -- 2) if Laser Cape is a tool inside character, try any Handle under it
+    local tool = char:FindFirstChild("Laser Cape")
     if tool then
         local h = tool:FindFirstChild("Handle") or tool:FindFirstChildWhichIsA("BasePart", true)
         if h then return h end
@@ -206,10 +206,10 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Laser Cape 1 (equip)
-    if loopEquipCape then equipIfInBackpack("Laser Cape 1") end
+    -- Laser Cape (equip)
+    if loopEquipCape then equipIfInBackpack("Laser Cape") end
 
-    -- Laser Cape 1 (fire forward every 3.5s)
+    -- Laser Cape (fire forward every 3.5s)
     if loopFireCape then
         if tick() - lastCape > 3.5 then
             lastCape = tick()
@@ -222,7 +222,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Laser Cape 1 (fire at closest player every 3.5s)
+    -- Laser Cape (fire at closest player every 3.5s)
     if loopFireCapeClosest then
         if tick() - lastCapeClosest > 3.5 then
             lastCapeClosest = tick()
@@ -304,15 +304,15 @@ local coilActBtn = makeButton(y, "🔁 Loop Activate Speed Coil", function(btn)
     btn.BackgroundColor3 = loopActCoil and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
 end); y = y + 40
 
--- Laser Cape 1 controls
-makeButton(y, "Laser Cape 1", function() end).BackgroundColor3 = Color3.fromRGB(40,40,40)
+-- Laser Cape controls
+makeButton(y, "Laser Cape", function() end).BackgroundColor3 = Color3.fromRGB(40,40,40)
 y = y + 34
 
-makeButton(y, "Equip Laser Cape 1 (once)", function()
-    equipIfInBackpack("Laser Cape 1")
+makeButton(y, "Equip Laser Cape (once)", function()
+    equipIfInBackpack("Laser Cape")
 end); y = y + 30
 
-local capeEquipBtn = makeButton(y, "🔁 Loop Equip Laser Cape 1", function(btn)
+local capeEquipBtn = makeButton(y, "🔁 Loop Equip Laser Cape", function(btn)
     loopEquipCape = not loopEquipCape
     btn.BackgroundColor3 = loopEquipCape and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
 end); y = y + 30
