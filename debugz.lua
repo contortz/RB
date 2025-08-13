@@ -111,6 +111,7 @@ local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
 local autoEquipGrapple = false -- Grapple Hook toggle
+local autoSpamGrapple = false -- New Spam Grapple toggle
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -157,6 +158,12 @@ RunService.Heartbeat:Connect(function()
         if tool then
             tool.Parent = character
         end
+    end
+
+    -- Spam Grapple Hook remote
+    if autoSpamGrapple then
+        local args = {0.3190609614054362}
+        Net:RemoteEvent("RE/UseItem"):FireServer(unpack(args))
     end
 end)
 
@@ -214,5 +221,12 @@ makeButton(320, "Loop Equip Grapple Hook", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoEquipGrapple = not autoEquipGrapple
         btn.BackgroundColor3 = autoEquipGrapple and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(380, "Spam Grapple Hook", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoSpamGrapple = not autoSpamGrapple
+        btn.BackgroundColor3 = autoSpamGrapple and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
