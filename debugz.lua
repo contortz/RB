@@ -1,122 +1,202 @@
-local Players = game:GetService("Players")
+--// Setup
+local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
+local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-local humanoid = character:WaitForChild("Humanoid")
+-- UI Setup
+local screenGui = Instance.new("ScreenGui", playerGui)
+screenGui.Name = "ESPMenuUI"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
 
-local tool = script.Parent
-local handle = tool:WaitForChild("Handle")
-local beam = handle:WaitForChild("Beam")
-local ropeAttachment = handle:FindFirstChild("RopeAttachment")
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 500)
+frame.Position = UDim2.new(0, 20, 0.5, -250)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.Active = true
+frame.Draggable = true
 
-local hitSound = script:WaitForChild("Hit")
-local fireSound = script:WaitForChild("Fire")
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 25)
+title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Text = "BrainRotz by Dreamz"
+title.TextSize = 10
 
-local isGrappling = false
-local grappleForce
+-- Info Labels
+local baseInfoLabel = Instance.new("TextLabel", frame)
+baseInfoLabel.Size = UDim2.new(1, -10, 0, 25)
+baseInfoLabel.Position = UDim2.new(0, 5, 0, 40)
+baseInfoLabel.BackgroundTransparency = 1
+baseInfoLabel.TextColor3 = Color3.new(1, 1, 1)
+baseInfoLabel.TextScaled = true
+baseInfoLabel.Font = Enum.Font.GothamBold
+baseInfoLabel.Text = "🏠 Base: Unknown | Tier: ?"
 
--- Clean up grapple forces and visuals
-local function cleanupGrapple()
-    if grappleForce then
-        grappleForce:Destroy()
-        grappleForce = nil
+local slotInfoLabel = Instance.new("TextLabel", frame)
+slotInfoLabel.Size = UDim2.new(1, -10, 0, 25)
+slotInfoLabel.Position = UDim2.new(0, 5, 0, 70)
+slotInfoLabel.BackgroundTransparency = 1
+slotInfoLabel.TextColor3 = Color3.new(1, 1, 1)
+slotInfoLabel.TextScaled = true
+slotInfoLabel.Font = Enum.Font.GothamBold
+slotInfoLabel.Text = "Slots: ? / ?"
+
+-- Base + Slot Logic
+local function findLocalPlayerBase()
+    local playerName = player.Name
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return end
+
+    for _, model in ipairs(plots:GetChildren()) do
+        local sign = model:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local frame = gui and gui:FindFirstChild("Frame")
+        local label = frame and frame:FindFirstChild("TextLabel")
+
+        if label and label.Text then
+            local owner = label.Text:match("^(.-)'s Base")
+            if owner == playerName then
+                local tier = model:GetAttribute("Tier")
+                baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
+                local animalPodiums = model:FindFirstChild("AnimalPodiums")
+                if animalPodiums then
+                    local filled, total = 0, 0
+                    for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
+                        if podiumModule:IsA("Model") then
+                            local base = podiumModule:FindFirstChild("Base")
+                            local spawn = base and base:FindFirstChild("Spawn")
+                            if spawn and spawn:IsA("BasePart") then
+                                total += 1
+                                if spawn:FindFirstChild("Attachment") then
+                                    filled += 1
+                                end
+                            end
+                        end
+                    end
+                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
+                end
+                break
+            end
+        end
     end
-    beam.Attachment0 = nil
-    isGrappling = false
 end
 
--- Main grapple function
-tool.Activated:Connect(function()
-    if isGrappling then
-        -- Already grappling, ignore new activation
-        return
+task.delay(1, findLocalPlayerBase)
+
+-- Button Helper
+local function makeButton(yOffset, text, callback)
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, yOffset)
+    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = text
+    button.Font = Enum.Font.Gotham
+    button.TextScaled = true
+    callback(button)
+end
+
+-- Remotes + State
+local Net = require(ReplicatedStorage:WaitForChild("Packages").Net)
+local teleportLoop = false
+local autoEquipQuantum = false
+local autoActivateQuantum = false
+local autoEquipBee = false
+local autoActivateBee = false
+local autoEquipBat = false
+local autoSwingBat = false
+
+-- Runtime Loops
+RunService.Heartbeat:Connect(function()
+    local character = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+
+    if autoEquipQuantum and backpack and character and not character:FindFirstChild("Quantum Cloner") then
+        local tool = backpack:FindFirstChild("Quantum Cloner")
+        if tool then tool.Parent = character end
     end
 
-    -- We allow grapple even if stealing (remove the check)
-    -- if player:GetAttribute("Stealing") then return end -- REMOVED
+    if autoActivateQuantum and character then
+        local tool = character:FindFirstChild("Quantum Cloner")
+        if tool then tool:Activate() end
+    end
 
-    local mouse = player:GetMouse()
-    local targetPos = mouse.Hit.p
-    local targetPart = mouse.Target
+    if teleportLoop then
+        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    end
 
-    if not targetPart then return end
+    if autoEquipBee and backpack and character and not character:FindFirstChild("Bee Launcher") then
+        local tool = backpack:FindFirstChild("Bee Launcher")
+        if tool then tool.Parent = character end
+    end
 
-    -- Check that target is not humanoid (same as original)
-    local targetHumanoid = targetPart.Parent:FindFirstChild("Humanoid") or targetPart.Parent.Parent and targetPart.Parent.Parent:FindFirstChild("Humanoid")
-    if targetHumanoid then return end
+    if autoActivateBee and character then
+        local tool = character:FindFirstChild("Bee Launcher")
+        if tool then tool:Activate() end
+    end
 
-    local charHRP = character:FindFirstChild("HumanoidRootPart")
-    if not charHRP then return end
+    if autoEquipBat and backpack and character and not character:FindFirstChild("Tung Bat") then
+        local tool = backpack:FindFirstChild("Tung Bat")
+        if tool then tool.Parent = character end
+    end
 
-    local direction = (targetPos - charHRP.Position)
-    local distance = direction.Magnitude
-    local unitDir = direction.Unit
+    if autoSwingBat and character then
+        local tool = character:FindFirstChild("Tung Bat")
+        if tool then tool:Activate() end
+    end
+end)
 
-    if distance < 10 or distance > 100 then return end
-
-    -- Play fire sound
-    fireSound:Play()
-
-    -- Create invisible anchor part at target point
-    local anchor = Instance.new("Part")
-    anchor.Anchored = true
-    anchor.CanCollide = false
-    anchor.Transparency = 1
-    anchor.Size = Vector3.new(0.1, 0.1, 0.1)
-    anchor.Position = targetPos
-    anchor.Parent = workspace
-
-    -- Create attachment at anchor
-    local anchorAttachment = Instance.new("Attachment")
-    anchorAttachment.Position = Vector3.new(0, 0, 0)
-    anchorAttachment.Parent = anchor
-
-    beam.Attachment0 = anchorAttachment
-
-    -- Create BodyForce to pull player toward anchor (allows player control)
-    grappleForce = Instance.new("BodyForce")
-    grappleForce.Force = Vector3.new(0,0,0)
-    grappleForce.Parent = charHRP
-
-    isGrappling = true
-
-    local startTime = tick()
-    local maxDuration = distance / 120 -- same as before, time to reach
-
-    -- Update loop: apply force each frame pulling player toward anchor but allow input movement
-    local connection
-    connection = RunService.Heartbeat:Connect(function()
-        if not isGrappling or not charHRP or not anchor then
-            cleanupGrapple()
-            connection:Disconnect()
-            return
-        end
-
-        local toTarget = (anchor.Position - charHRP.Position)
-        local mag = toTarget.Magnitude
-
-        if mag < 3 or (tick() - startTime) > maxDuration then
-            cleanupGrapple()
-            connection:Disconnect()
-            return
-        end
-
-        local pullStrength = 2000 -- tweak this for grapple power
-        grappleForce.Force = toTarget.Unit * pullStrength + Vector3.new(0, workspace.Gravity * humanoidRootPart:GetMass(), 0)
+-- Buttons
+makeButton(110, "Loop Equip Quantum Cloner", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipQuantum = not autoEquipQuantum
+        btn.BackgroundColor3 = autoEquipQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
+end)
 
-    hitSound:Play()
+makeButton(140, "Loop Activate Quantum", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoActivateQuantum = not autoActivateQuantum
+        btn.BackgroundColor3 = autoActivateQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
 
-    -- Cleanup if player sets Stealing attribute during grapple
-    local stealConn
-    stealConn = player:GetAttributeChangedSignal("Stealing"):Connect(function()
-        if player:GetAttribute("Stealing") then
-            cleanupGrapple()
-            stealConn:Disconnect()
-            if connection.Connected then connection:Disconnect() end
-        end
+makeButton(170, "Loop Teleport to Clone", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        teleportLoop = not teleportLoop
+        btn.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(200, "Loop Equip Bee Launcher", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipBee = not autoEquipBee
+        btn.BackgroundColor3 = autoEquipBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(230, "Loop Activate Bee Launcher", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoActivateBee = not autoActivateBee
+        btn.BackgroundColor3 = autoActivateBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(260, "Loop Equip Tung Bat", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipBat = not autoEquipBat
+        btn.BackgroundColor3 = autoEquipBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(290, "Auto Swing Bat", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoSwingBat = not autoSwingBat
+        btn.BackgroundColor3 = autoSwingBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
