@@ -110,7 +110,7 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
-local autoEquipGrapple = false -- New Grapple Hook toggle
+local autoEquipGrapple = false -- Grapple Hook toggle
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -151,7 +151,7 @@ RunService.Heartbeat:Connect(function()
         if tool then tool:Activate() end
     end
 
-    -- NEW: Auto equip Grapple Hook
+    -- Grapple Hook auto equip
     if autoEquipGrapple and backpack and character and not character:FindFirstChild("Grapple Hook") then
         local tool = backpack:FindFirstChild("Grapple Hook")
         if tool then
@@ -210,7 +210,6 @@ makeButton(290, "Auto Swing Bat", function(btn)
     end)
 end)
 
--- NEW Grapple Hook Button at Y=320
 makeButton(320, "Loop Equip Grapple Hook", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoEquipGrapple = not autoEquipGrapple
