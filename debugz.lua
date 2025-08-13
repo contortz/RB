@@ -20,36 +20,47 @@ local ControlModuleWrapper = {
     OnSetCFrame = Signal.new()
 }
 
-local originalMoveFunction = controls and controls.moveFunction or nil
+if not controls then
+    warn("[ControlModuleWrapper] Controls not found, aborting moveFunction override")
+    return ControlModuleWrapper
+end
 
--- Wrap the original moveFunction to respect FreezeLocalMovement attribute
-if controls and originalMoveFunction then
-    controls.moveFunction = function(self, moveVector, input)
-        -- Check if FreezeLocalMovement attribute is set on controls object
-        if not self:GetAttribute("FreezeLocalMovement") then
-            -- Call the original move function to allow movement
-            originalMoveFunction(self, moveVector, input)
-        else
-            -- Movement is frozen, so skip calling originalMoveFunction
-            -- (You can add optional logic here if needed)
-        end
+local originalMoveFunction = controls.moveFunction
+if not originalMoveFunction then
+    warn("[ControlModuleWrapper] Original moveFunction not found!")
+    return ControlModuleWrapper
+end
+
+print("[ControlModuleWrapper] Wrapping moveFunction")
+
+-- Wrap moveFunction to allow toggling movement freeze
+controls.moveFunction = function(self, moveVector, input)
+    local freeze = self:GetAttribute and self:GetAttribute("FreezeLocalMovement")
+    if freeze then
+        -- Movement frozen: do not call originalMoveFunction
+        -- Debug print so we know this is triggered
+        -- print("[ControlModuleWrapper] Movement frozen, skipping moveFunction call")
+        return
+    else
+        -- Movement allowed: call original move function
+        originalMoveFunction(self, moveVector, input)
     end
 end
 
 function ControlModuleWrapper.RequestMove(_, controlsObj, moveVector, input)
-    if not controlsObj:GetAttribute("FreezeLocalMovement") then
+    local freeze = controlsObj:GetAttribute and controlsObj:GetAttribute("FreezeLocalMovement")
+    if not freeze then
         controlsObj:Move(moveVector, input)
     end
 end
 
 function ControlModuleWrapper.WaitForCharacter(_, player)
-    local character, humanoid, rootPart
     player = player or localPlayer
-    while true do
+    local character, humanoid, rootPart
+    repeat
         character, humanoid, rootPart = ControlModuleWrapper.GetCharacter(_, player)
-        if character then break end
         task.wait()
-    end
+    until character
     return character, humanoid, rootPart
 end
 
