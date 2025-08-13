@@ -1,7 +1,6 @@
 --// Setup
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -55,8 +54,8 @@ local function findLocalPlayerBase()
     for _, model in ipairs(plots:GetChildren()) do
         local sign = model:FindFirstChild("PlotSign")
         local gui = sign and sign:FindFirstChild("SurfaceGui")
-        local frame = gui and gui:FindFirstChild("Frame")
-        local label = frame and frame:FindFirstChild("TextLabel")
+        local frameGui = gui and gui:FindFirstChild("Frame")
+        local label = frameGui and frameGui:FindFirstChild("TextLabel")
 
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
@@ -68,8 +67,8 @@ local function findLocalPlayerBase()
                     local filled, total = 0, 0
                     for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
                         if podiumModule:IsA("Model") then
-                            local base = podiumModule:FindFirstChild("Base")
-                            local spawn = base and base:FindFirstChild("Spawn")
+                            local basePart = podiumModule:FindFirstChild("Base")
+                            local spawn = basePart and basePart:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
                                 total += 1
                                 if spawn:FindFirstChild("Attachment") then
@@ -110,79 +109,68 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
-
 local autoEquipLaserCape = false
 local autoSpamLaser = false
-local laserSpamRange = 20 -- studs
-
-local lastTick = 0
+local laserSpamRange = 30 -- studs
 
 -- Runtime Loops
-RunService.Heartbeat:Connect(function(dt)
-    lastTick += dt
-    if lastTick < 0.2 then return end
-    lastTick = 0
-
+RunService.Heartbeat:Connect(function()
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
-    if not character or not backpack then return end
 
-    -- Auto Equip Quantum Cloner
-    if autoEquipQuantum and not character:FindFirstChild("Quantum Cloner") then
+    if autoEquipQuantum and backpack and character and not character:FindFirstChild("Quantum Cloner") then
         local tool = backpack:FindFirstChild("Quantum Cloner")
         if tool then tool.Parent = character end
     end
 
-    -- Auto Activate Quantum Cloner
-    if autoActivateQuantum then
+    if autoActivateQuantum and character then
         local tool = character:FindFirstChild("Quantum Cloner")
         if tool then tool:Activate() end
     end
 
-    -- Auto Equip Bee Launcher
-    if autoEquipBee and not character:FindFirstChild("Bee Launcher") then
+    if teleportLoop then
+        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+    end
+
+    if autoEquipBee and backpack and character and not character:FindFirstChild("Bee Launcher") then
         local tool = backpack:FindFirstChild("Bee Launcher")
         if tool then tool.Parent = character end
     end
 
-    -- Auto Activate Bee Launcher
-    if autoActivateBee then
+    if autoActivateBee and character then
         local tool = character:FindFirstChild("Bee Launcher")
         if tool then tool:Activate() end
     end
 
-    -- Auto Equip Tung Bat
-    if autoEquipBat and not character:FindFirstChild("Tung Bat") then
+    if autoEquipBat and backpack and character and not character:FindFirstChild("Tung Bat") then
         local tool = backpack:FindFirstChild("Tung Bat")
         if tool then tool.Parent = character end
     end
 
-    -- Auto Swing Tung Bat
-    if autoSwingBat then
+    if autoSwingBat and character then
         local tool = character:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
     end
 
     -- Auto Equip Laser Cape
-    if autoEquipLaserCape and not character:FindFirstChild("Laser Cape") then
+    if autoEquipLaserCape and backpack and character and not character:FindFirstChild("Laser Cape") then
         local tool = backpack:FindFirstChild("Laser Cape")
         if tool then tool.Parent = character end
     end
 
-    -- Spam Laser Nearby Players
-    if autoSpamLaser then
-        local laserCape = character:FindFirstChild("Laser Cape")
+    -- Spam Laser on nearby players
+    if autoSpamLaser and character then
         local hrp = character:FindFirstChild("HumanoidRootPart")
-        if laserCape and hrp then
+        if hrp then
             for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                    local dist = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
-                    if dist <= laserSpamRange then
-                        local targetPart = plr.Character:FindFirstChild("Accessory (head)")
-                        if targetPart and targetPart:FindFirstChild("Handle") then
+                if plr ~= player and plr.Character then
+                    local targetHRP = plr.Character:FindFirstChild("HumanoidRootPart")
+                    if targetHRP then
+                        local dist = (targetHRP.Position - hrp.Position).Magnitude
+                        if dist <= laserSpamRange then
                             local args = {
-                                plr.Character.HumanoidRootPart.Position,
-                                targetPart.Handle
+                                targetHRP.Position,
+                                targetHRP
                             }
                             Net:RemoteEvent("RE/UseItem"):FireServer(unpack(args))
                         end
@@ -190,11 +178,6 @@ RunService.Heartbeat:Connect(function(dt)
                 end
             end
         end
-    end
-
-    -- Teleport loop
-    if teleportLoop then
-        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     end
 end)
 
@@ -248,7 +231,6 @@ makeButton(290, "Auto Swing Bat", function(btn)
     end)
 end)
 
--- New Laser Cape buttons
 makeButton(320, "Loop Equip Laser Cape", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoEquipLaserCape = not autoEquipLaserCape
