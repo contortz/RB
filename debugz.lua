@@ -5,13 +5,30 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
--- GUI references
+-- Create GUI programmatically:
 local playerGui = player:WaitForChild("PlayerGui")
-local toggleGui = playerGui:WaitForChild("ToggleStatusGui")
-local speedLabel = toggleGui:WaitForChild("SpeedStatus")
-local jumpLabel = toggleGui:WaitForChild("JumpStatus")
 
--- Default values
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ToggleStatusGui"
+screenGui.Parent = playerGui
+
+local function createLabel(name, position)
+    local label = Instance.new("TextLabel")
+    label.Name = name
+    label.Size = UDim2.new(0, 150, 0, 30)
+    label.Position = position
+    label.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 20
+    label.Text = name .. ": Normal"
+    label.Parent = screenGui
+    return label
+end
+
+local speedLabel = createLabel("Speed", UDim2.new(0, 10, 0, 10))
+local jumpLabel = createLabel("Jump", UDim2.new(0, 10, 0, 50))
+
 local DEFAULT_WALK_SPEED = 16
 local BOOSTED_WALK_SPEED = 50
 
@@ -59,7 +76,6 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- Reapply settings when character respawns
 player.CharacterAdded:Connect(function(char)
     character = char
     humanoid = character:WaitForChild("Humanoid")
@@ -67,6 +83,5 @@ player.CharacterAdded:Connect(function(char)
     UpdateGui()
 end)
 
--- Apply on script start (in case player already spawned)
 ApplyCurrentSettings()
 UpdateGui()
