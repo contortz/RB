@@ -2,23 +2,24 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
 
--- Create GUI programmatically:
+-- Wait for PlayerGui
 local playerGui = player:WaitForChild("PlayerGui")
 
+-- Create ScreenGui for the toggle status display
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ToggleStatusGui"
+screenGui.ResetOnSpawn = false -- Keep GUI after respawn
 screenGui.Parent = playerGui
 
+-- Helper function to create a label
 local function createLabel(name, position)
     local label = Instance.new("TextLabel")
     label.Name = name
     label.Size = UDim2.new(0, 150, 0, 30)
     label.Position = position
     label.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    label.TextColor3 = Color3.new(1,1,1)
+    label.TextColor3 = Color3.new(1, 1, 1)
     label.Font = Enum.Font.SourceSansBold
     label.TextSize = 20
     label.Text = name .. ": Normal"
@@ -37,6 +38,9 @@ local BOOSTED_JUMP_POWER = 100
 
 local speedToggled = false
 local jumpToggled = false
+
+local humanoid -- we'll set this after character loads
+local character = player.Character or player.CharacterAdded:Wait()
 
 local function ApplyCurrentSettings()
     if humanoid then
@@ -76,12 +80,18 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
-player.CharacterAdded:Connect(function(char)
+local function onCharacterAdded(char)
     character = char
     humanoid = character:WaitForChild("Humanoid")
     ApplyCurrentSettings()
     UpdateGui()
-end)
+end
 
-ApplyCurrentSettings()
-UpdateGui()
+player.CharacterAdded:Connect(onCharacterAdded)
+
+-- Initialize humanoid and UI for current character
+if character then
+    humanoid = character:WaitForChild("Humanoid")
+    ApplyCurrentSettings()
+    UpdateGui()
+end
