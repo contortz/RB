@@ -110,6 +110,7 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
+local autoEquipGrapple = false -- New Grapple Hook toggle
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -148,6 +149,14 @@ RunService.Heartbeat:Connect(function()
     if autoSwingBat and character then
         local tool = character:FindFirstChild("Tung Bat")
         if tool then tool:Activate() end
+    end
+
+    -- NEW: Auto equip Grapple Hook
+    if autoEquipGrapple and backpack and character and not character:FindFirstChild("Grapple Hook") then
+        local tool = backpack:FindFirstChild("Grapple Hook")
+        if tool then
+            tool.Parent = character
+        end
     end
 end)
 
@@ -198,5 +207,13 @@ makeButton(290, "Auto Swing Bat", function(btn)
     btn.MouseButton1Click:Connect(function()
         autoSwingBat = not autoSwingBat
         btn.BackgroundColor3 = autoSwingBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+-- NEW Grapple Hook Button at Y=320
+makeButton(320, "Loop Equip Grapple Hook", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipGrapple = not autoEquipGrapple
+        btn.BackgroundColor3 = autoEquipGrapple and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
