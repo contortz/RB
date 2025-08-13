@@ -1,75 +1,61 @@
---[[
-    Place this in StarterPlayerScripts or StarterCharacterScripts as a LocalScript.
-    It toggles between normal and boosted WalkSpeed/JumpPower when the H key is pressed.
---]]
-
-local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 local player = Players.LocalPlayer
 
--- Settings
-local NORMAL_SPEED = 16
-local BOOSTED_SPEED = 50
+local DEFAULT_WALK_SPEED = 16
+local DEFAULT_JUMP_POWER = 50
 
-local NORMAL_JUMP = 50
-local BOOSTED_JUMP = 100
+local BOOSTED_WALK_SPEED = 32
+local BOOSTED_JUMP_POWER = 100
 
--- State
-local speedEnabled = false
+local speedToggled = false
+local jumpToggled = false
 
--- Function to apply movement values
-local function applyMovementSettings()
-    local character = player.Character
-    if character then
-        local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-        if humanoid then
-            if speedEnabled then
-                humanoid.WalkSpeed = BOOSTED_SPEED
-                humanoid.JumpPower = BOOSTED_JUMP
-            else
-                humanoid.WalkSpeed = NORMAL_SPEED
-                humanoid.JumpPower = NORMAL_JUMP
-            end
-        end
-    end
+local humanoid = nil
+
+local function InitializeHumanoid(h)
+    humanoid = h
+    humanoid.WalkSpeed = DEFAULT_WALK_SPEED
+    humanoid.JumpPower = DEFAULT_JUMP_POWER
 end
 
--- Toggle on key press
+local function ApplyCurrentSettings()
+    if not humanoid then return end
+    humanoid.WalkSpeed = speedToggled and BOOSTED_WALK_SPEED or DEFAULT_WALK_SPEED
+    humanoid.JumpPower = jumpToggled and BOOSTED_JUMP_POWER or DEFAULT_JUMP_POWER
+end
+
+local function ToggleSpeed()
+    speedToggled = not speedToggled
+    ApplyCurrentSettings()
+    print("Speed toggled. Now:", speedToggled and BOOSTED_WALK_SPEED or DEFAULT_WALK_SPEED)
+end
+
+local function ToggleJump()
+    jumpToggled = not jumpToggled
+    ApplyCurrentSettings()
+    print("Jump toggled. Now:", jumpToggled and BOOSTED_JUMP_POWER or DEFAULT_JUMP_POWER)
+end
+
+local function onCharacterAdded(character)
+    local h = character:WaitForChild("Humanoid")
+    InitializeHumanoid(h)
+    ApplyCurrentSettings()
+end
+
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.H then
-        speedEnabled = not speedEnabled
-        applyMovementSettings()
-        if speedEnabled then
-            print("✅ Speed Boost Enabled")
-        else
-            print("❌ Speed Boost Disabled")
-        end
-    end
-end)
 
--- Enforce settings continuously in case ControlScript resets them
-RunService.Heartbeat:Connect(function()
-    if speedEnabled then
-        local character = player.Character
-        if character then
-            local humanoid = character:FindFirstChildWhichIsA("Humanoid")
-            if humanoid then
-                if humanoid.WalkSpeed ~= BOOSTED_SPEED then
-                    humanoid.WalkSpeed = BOOSTED_SPEED
-                end
-                if humanoid.JumpPower ~= BOOSTED_JUMP then
-                    humanoid.JumpPower = BOOSTED_JUMP
-                end
-            end
-        end
+    if input.KeyCode == Enum.KeyCode.K then
+        ToggleSpeed()
+    elseif input.KeyCode == Enum.KeyCode.L then
+        ToggleJump()
     end
-end)
-
--- Reapply settings on character respawn
-player.CharacterAdded:Connect(function()
-    wait(1)
-    applyMovementSettings()
 end)
