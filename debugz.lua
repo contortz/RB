@@ -1,131 +1,89 @@
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
-local Packages = ReplicatedStorage:WaitForChild("Packages")
-local Signal = require(Packages.Signal)
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
 
-local localPlayer = Players.LocalPlayer
+-- Create ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "ToggleStatusGui"
+screenGui.Parent = playerGui
 
-local controls
-if RunService:IsClient() then
-    local playerScripts = localPlayer:WaitForChild("PlayerScripts")
-    controls = require(playerScripts:WaitForChild("PlayerModule")):GetControls()
-else
-    controls = nil
+-- Helper to create labels
+local function createLabel(name, position)
+    local label = Instance.new("TextLabel")
+    label.Name = name
+    label.Size = UDim2.new(0, 150, 0, 30)
+    label.Position = position
+    label.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    label.TextColor3 = Color3.new(1,1,1)
+    label.Font = Enum.Font.SourceSansBold
+    label.TextSize = 20
+    label.Text = name .. ": Normal"
+    label.Parent = screenGui
+    return label
 end
 
-local ControlModuleWrapper = {
-    OnCharacterAdded = Signal.new(),
-    OnSetCFrame = Signal.new()
-}
+local speedLabel = createLabel("Speed", UDim2.new(0, 10, 0, 10))
+local jumpLabel = createLabel("Jump", UDim2.new(0, 10, 0, 50))
 
-if not controls then
-    warn("[ControlModuleWrapper] Controls not found, aborting moveFunction override")
-    return ControlModuleWrapper
-end
+local DEFAULT_WALK_SPEED = 16
+local BOOSTED_WALK_SPEED = 50
 
-local originalMoveFunction = controls.moveFunction
-if not originalMoveFunction then
-    warn("[ControlModuleWrapper] Original moveFunction not found!")
-    return ControlModuleWrapper
-end
+local DEFAULT_JUMP_POWER = 50
+local BOOSTED_JUMP_POWER = 100
 
-print("[ControlModuleWrapper] Wrapping moveFunction")
+local speedToggled = false
+local jumpToggled = false
 
--- Wrap moveFunction to allow toggling movement freeze
-controls.moveFunction = function(self, moveVector, input)
-    local freeze = self:GetAttribute and self:GetAttribute("FreezeLocalMovement")
-    if freeze then
-        -- Movement frozen: do not call originalMoveFunction
-        -- Debug print so we know this is triggered
-        -- print("[ControlModuleWrapper] Movement frozen, skipping moveFunction call")
-        return
-    else
-        -- Movement allowed: call original move function
-        originalMoveFunction(self, moveVector, input)
+local humanoid
+
+local function updateHumanoid()
+    if humanoid then
+        humanoid.WalkSpeed = speedToggled and BOOSTED_WALK_SPEED or DEFAULT_WALK_SPEED
+        humanoid.JumpPower = jumpToggled and BOOSTED_JUMP_POWER or DEFAULT_JUMP_POWER
     end
 end
 
-function ControlModuleWrapper.RequestMove(_, controlsObj, moveVector, input)
-    local freeze = controlsObj:GetAttribute and controlsObj:GetAttribute("FreezeLocalMovement")
-    if not freeze then
-        controlsObj:Move(moveVector, input)
-    end
+local function updateGui()
+    speedLabel.Text = "Speed: " .. (speedToggled and "Boosted" or "Normal")
+    jumpLabel.Text = "Jump: " .. (jumpToggled and "Boosted" or "Normal")
 end
 
-function ControlModuleWrapper.WaitForCharacter(_, player)
-    player = player or localPlayer
-    local character, humanoid, rootPart
-    repeat
-        character, humanoid, rootPart = ControlModuleWrapper.GetCharacter(_, player)
-        task.wait()
-    until character
-    return character, humanoid, rootPart
+local function toggleSpeed()
+    speedToggled = not speedToggled
+    updateHumanoid()
+    updateGui()
+    print("Speed toggled:", speedToggled)
 end
 
-function ControlModuleWrapper.GetCharacter(_, player)
-    player = player or localPlayer
-    local character = player.Character
-    if character then
-        local humanoid = character:FindFirstChild("Humanoid")
-        local rootPart = character:FindFirstChild("HumanoidRootPart")
-        if humanoid and rootPart then
-            return character, humanoid, rootPart
+local function toggleJump()
+    jumpToggled = not jumpToggled
+    updateHumanoid()
+    updateGui()
+    print("Jump toggled:", jumpToggled)
+end
+
+-- Detect key presses
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard then
+        if input.KeyCode == Enum.KeyCode.K then
+            toggleSpeed()
+        elseif input.KeyCode == Enum.KeyCode.L then
+            toggleJump()
         end
     end
-    return nil
+end)
+
+local function onCharacterAdded(char)
+    humanoid = char:WaitForChild("Humanoid")
+    updateHumanoid()
+    updateGui()
 end
 
-function ControlModuleWrapper.SetCFrame(_, cf)
-    local character, _, rootPart = ControlModuleWrapper.GetCharacter()
-    if character and rootPart then
-        rootPart.CFrame = cf
-        ControlModuleWrapper.OnSetCFrame:Fire(cf)
-    end
+if player.Character then
+    onCharacterAdded(player.Character)
 end
 
-function ControlModuleWrapper.Start(_)
-    local defaultHipHeight = 2.08
-
-    local function onCharacterAdded(character)
-        workspace.Gravity = 196.2
-        ControlModuleWrapper.OnCharacterAdded:Fire(character)
-
-        local humanoid = character:WaitForChild("Humanoid")
-        if humanoid then
-            defaultHipHeight = humanoid.HipHeight
-
-            local jumpCount = 0
-            humanoid.StateChanged:Connect(function(oldState, newState)
-                if humanoid.Health > 0 then
-                    if (oldState == Enum.HumanoidStateType.Jumping and newState == Enum.HumanoidStateType.Jumping) or
-                       (oldState == Enum.HumanoidStateType.Freefall and newState == Enum.HumanoidStateType.Jumping) then
-                        jumpCount = jumpCount + 1
-                        task.delay(60, function()
-                            jumpCount = jumpCount - 1
-                        end)
-
-                        if jumpCount >= 5 then
-                            humanoid.Health = 0
-                        end
-                    end
-                end
-            end)
-        end
-    end
-
-    localPlayer.CharacterAdded:Connect(onCharacterAdded)
-    if localPlayer.Character then
-        task.spawn(onCharacterAdded, localPlayer.Character)
-    end
-
-    RunService.PreSimulation:Connect(function()
-        local character, humanoid = ControlModuleWrapper.GetCharacter()
-        if character and humanoid then
-            humanoid.HipHeight = defaultHipHeight
-        end
-    end)
-end
-
-return ControlModuleWrapper
+player.CharacterAdded:Connect(onCharacterAdded)
