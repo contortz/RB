@@ -1,121 +1,122 @@
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
 
-local playerGui = player:WaitForChild("PlayerGui")
+local tool = script.Parent
+local handle = tool:WaitForChild("Handle")
+local beam = handle:WaitForChild("Beam")
+local ropeAttachment = handle:FindFirstChild("RopeAttachment")
 
--- Create simple status label:
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(0, 200, 0, 50)
-statusLabel.Position = UDim2.new(0, 10, 0, 10)
-statusLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-statusLabel.TextColor3 = Color3.new(1, 1, 1)
-statusLabel.Font = Enum.Font.SourceSansBold
-statusLabel.TextSize = 24
-statusLabel.Text = ""
-statusLabel.Parent = playerGui
-statusLabel.Visible = false
+local hitSound = script:WaitForChild("Hit")
+local fireSound = script:WaitForChild("Fire")
 
-local function showStatus(text, duration)
-    statusLabel.Text = text
-    statusLabel.Visible = true
-    task.delay(duration or 2, function()
-        statusLabel.Visible = false
-    end)
+local isGrappling = false
+local grappleForce
+
+-- Clean up grapple forces and visuals
+local function cleanupGrapple()
+    if grappleForce then
+        grappleForce:Destroy()
+        grappleForce = nil
+    end
+    beam.Attachment0 = nil
+    isGrappling = false
 end
 
-v5.Activated:Connect(function()
-    if u8:GetAttribute("Stealing") then
+-- Main grapple function
+tool.Activated:Connect(function()
+    if isGrappling then
+        -- Already grappling, ignore new activation
         return
-    else
-        local v11 = require(u1.Packages.PlayerMouse)
-        local v12 = v11.Hit
-        local v13 = v11.Target
-        if v13 and not (v13.Parent:FindFirstChild("Humanoid") or v13.Parent.Parent:FindFirstChild("Humanoid")) then
-            local v14 = v12.Position
-            local v15 = u8.Character
-            if v15 then
-                local v16 = v15:FindFirstChildWhichIsA("Tool", true)
-                if v16 and v16.Name == "Grapple Hook" then
-                    local v17 = v15:FindFirstChild("HumanoidRootPart")
-                    local humanoid = v15:FindFirstChildOfClass("Humanoid")
-                    if v17 and humanoid then
-                        local v18 = (v14 - v17.Position).Unit
-                        local v19 = (v14 - v17.Position).Magnitude
-                        if v19 >= 10 and v19 <= 100 then
-                            if u4(("ItemUse/GrappleHook/Client/%*"):format(u8.Name), 3) then
-                                return
-                            end
-                            u10:Play()
-                            u3:RemoteEvent("UseItem"):FireServer(v19 / 120)
-                            local u20 = Instance.new("Part")
-                            u20.Anchored = true
-                            u20.CanCollide = false
-                            u20.Transparency = 1
-                            u20.Position = v14
-                            u20.Size = Vector3.new(0.1, 0.1, 0.1)
-                            u20.Parent = workspace
-                            local u21 = Instance.new("Attachment")
-                            u21.Position = Vector3.new(0, 0, 0)
-                            u21.Parent = u20
-                            u7.Attachment0 = u21
-                            local u22 = Instance.new("BodyVelocity")
-                            u22.Name = "FlightPower"
-                            u22.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-                            u22.Velocity = v18 * 100
-                            u22.P = 2000
-                            u22.Parent = v17
-                            u9:Play()
-
-                            -- Speed & Jump Boost
-                            local originalSpeed = humanoid.WalkSpeed
-                            local originalJump = humanoid.JumpPower
-                            local boostSpeed = 50
-                            local boostJump = 100
-                            humanoid.WalkSpeed = boostSpeed
-                            humanoid.JumpPower = boostJump
-                            showStatus("Speed & Jump Boost Active!", 3)
-
-                            task.delay(3, function()
-                                if humanoid and humanoid.Parent then
-                                    humanoid.WalkSpeed = originalSpeed
-                                    humanoid.JumpPower = originalJump
-                                    showStatus("Speed & Jump Boost Ended", 2)
-                                end
-                            end)
-
-                            local u23 = nil
-                            local u24 = nil
-                            local function u25()
-                                if u23 then
-                                    u23:Disconnect()
-                                    u23 = nil
-                                end
-                                if u24 then
-                                    if coroutine.status(u24) == "suspended" then
-                                        pcall(task.cancel, u24)
-                                    end
-                                    u24 = nil
-                                end
-                                u22:Destroy()
-                                u21:Destroy()
-                                u20:Destroy()
-                                u7.Attachment0 = nil
-                            end
-                            u23 = u8:GetAttributeChangedSignal("Stealing"):Connect(function()
-                                if u8:GetAttribute("Stealing") then
-                                    task.defer(u25)
-                                end
-                            end)
-                            u24 = task.delay(v19 / 120, function()
-                                task.defer(u25)
-                            end)
-                            if u8:GetAttribute("Stealing") then
-                                task.defer(u25)
-                            end
-                        end
-                    end
-                end
-            end
-        end
     end
+
+    -- We allow grapple even if stealing (remove the check)
+    -- if player:GetAttribute("Stealing") then return end -- REMOVED
+
+    local mouse = player:GetMouse()
+    local targetPos = mouse.Hit.p
+    local targetPart = mouse.Target
+
+    if not targetPart then return end
+
+    -- Check that target is not humanoid (same as original)
+    local targetHumanoid = targetPart.Parent:FindFirstChild("Humanoid") or targetPart.Parent.Parent and targetPart.Parent.Parent:FindFirstChild("Humanoid")
+    if targetHumanoid then return end
+
+    local charHRP = character:FindFirstChild("HumanoidRootPart")
+    if not charHRP then return end
+
+    local direction = (targetPos - charHRP.Position)
+    local distance = direction.Magnitude
+    local unitDir = direction.Unit
+
+    if distance < 10 or distance > 100 then return end
+
+    -- Play fire sound
+    fireSound:Play()
+
+    -- Create invisible anchor part at target point
+    local anchor = Instance.new("Part")
+    anchor.Anchored = true
+    anchor.CanCollide = false
+    anchor.Transparency = 1
+    anchor.Size = Vector3.new(0.1, 0.1, 0.1)
+    anchor.Position = targetPos
+    anchor.Parent = workspace
+
+    -- Create attachment at anchor
+    local anchorAttachment = Instance.new("Attachment")
+    anchorAttachment.Position = Vector3.new(0, 0, 0)
+    anchorAttachment.Parent = anchor
+
+    beam.Attachment0 = anchorAttachment
+
+    -- Create BodyForce to pull player toward anchor (allows player control)
+    grappleForce = Instance.new("BodyForce")
+    grappleForce.Force = Vector3.new(0,0,0)
+    grappleForce.Parent = charHRP
+
+    isGrappling = true
+
+    local startTime = tick()
+    local maxDuration = distance / 120 -- same as before, time to reach
+
+    -- Update loop: apply force each frame pulling player toward anchor but allow input movement
+    local connection
+    connection = RunService.Heartbeat:Connect(function()
+        if not isGrappling or not charHRP or not anchor then
+            cleanupGrapple()
+            connection:Disconnect()
+            return
+        end
+
+        local toTarget = (anchor.Position - charHRP.Position)
+        local mag = toTarget.Magnitude
+
+        if mag < 3 or (tick() - startTime) > maxDuration then
+            cleanupGrapple()
+            connection:Disconnect()
+            return
+        end
+
+        local pullStrength = 2000 -- tweak this for grapple power
+        grappleForce.Force = toTarget.Unit * pullStrength + Vector3.new(0, workspace.Gravity * humanoidRootPart:GetMass(), 0)
+    end)
+
+    hitSound:Play()
+
+    -- Cleanup if player sets Stealing attribute during grapple
+    local stealConn
+    stealConn = player:GetAttributeChangedSignal("Stealing"):Connect(function()
+        if player:GetAttribute("Stealing") then
+            cleanupGrapple()
+            stealConn:Disconnect()
+            if connection.Connected then connection:Disconnect() end
+        end
+    end)
 end)
