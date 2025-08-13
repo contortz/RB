@@ -1,8 +1,10 @@
 --// Setup
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- UI Setup
@@ -108,39 +110,91 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
-local autoEquipGrapple = false
-local autoSpamGrapple = false
 
--- Spam config
-local lastSpamTime = 0
-local spamInterval = 0.2
+local autoEquipLaserCape = false
+local autoSpamLaser = false
+local laserSpamRange = 20 -- studs
 
--- Runtime Loop
-RunService.Heartbeat:Connect(function()
+local lastTick = 0
+
+-- Runtime Loops
+RunService.Heartbeat:Connect(function(dt)
+    lastTick += dt
+    if lastTick < 0.2 then return end
+    lastTick = 0
+
     local character = player.Character
     local backpack = player:FindFirstChild("Backpack")
+    if not character or not backpack then return end
 
-    -- Existing auto-equip logic...
-    if autoEquipGrapple and backpack and character and not character:FindFirstChild("Grapple Hook") then
-        local tool = backpack:FindFirstChild("Grapple Hook")
-        if tool then
-            tool.Parent = character
+    -- Auto Equip Quantum Cloner
+    if autoEquipQuantum and not character:FindFirstChild("Quantum Cloner") then
+        local tool = backpack:FindFirstChild("Quantum Cloner")
+        if tool then tool.Parent = character end
+    end
+
+    -- Auto Activate Quantum Cloner
+    if autoActivateQuantum then
+        local tool = character:FindFirstChild("Quantum Cloner")
+        if tool then tool:Activate() end
+    end
+
+    -- Auto Equip Bee Launcher
+    if autoEquipBee and not character:FindFirstChild("Bee Launcher") then
+        local tool = backpack:FindFirstChild("Bee Launcher")
+        if tool then tool.Parent = character end
+    end
+
+    -- Auto Activate Bee Launcher
+    if autoActivateBee then
+        local tool = character:FindFirstChild("Bee Launcher")
+        if tool then tool:Activate() end
+    end
+
+    -- Auto Equip Tung Bat
+    if autoEquipBat and not character:FindFirstChild("Tung Bat") then
+        local tool = backpack:FindFirstChild("Tung Bat")
+        if tool then tool.Parent = character end
+    end
+
+    -- Auto Swing Tung Bat
+    if autoSwingBat then
+        local tool = character:FindFirstChild("Tung Bat")
+        if tool then tool:Activate() end
+    end
+
+    -- Auto Equip Laser Cape
+    if autoEquipLaserCape and not character:FindFirstChild("Laser Cape") then
+        local tool = backpack:FindFirstChild("Laser Cape")
+        if tool then tool.Parent = character end
+    end
+
+    -- Spam Laser Nearby Players
+    if autoSpamLaser then
+        local laserCape = character:FindFirstChild("Laser Cape")
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if laserCape and hrp then
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+                    local dist = (plr.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if dist <= laserSpamRange then
+                        local targetPart = plr.Character:FindFirstChild("Accessory (head)")
+                        if targetPart and targetPart:FindFirstChild("Handle") then
+                            local args = {
+                                plr.Character.HumanoidRootPart.Position,
+                                targetPart.Handle
+                            }
+                            Net:RemoteEvent("RE/UseItem"):FireServer(unpack(args))
+                        end
+                    end
+                end
+            end
         end
     end
 
-    if autoSpamGrapple then
-        local now = os.clock()
-        if now - lastSpamTime >= spamInterval then
-            lastSpamTime = now
-            print("[SpamGrapple] Sending UseItem remote...")
-            local args = {0.3190609614054362}
-            local ok, err = pcall(function()
-                Net:RemoteEvent("UseItem"):FireServer(unpack(args))
-            end)
-            if not ok then
-                warn("[SpamGrapple] Error:", err)
-            end
-        end
+    -- Teleport loop
+    if teleportLoop then
+        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
     end
 end)
 
@@ -151,17 +205,60 @@ makeButton(110, "Loop Equip Quantum Cloner", function(btn)
         btn.BackgroundColor3 = autoEquipQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
--- ... other existing buttons ...
-makeButton(320, "Loop Equip Grapple Hook", function(btn)
+
+makeButton(140, "Loop Activate Quantum", function(btn)
     btn.MouseButton1Click:Connect(function()
-        autoEquipGrapple = not autoEquipGrapple
-        btn.BackgroundColor3 = autoEquipGrapple and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+        autoActivateQuantum = not autoActivateQuantum
+        btn.BackgroundColor3 = autoActivateQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
 
-makeButton(380, "Spam Grapple Hook", function(btn)
+makeButton(170, "Loop Teleport to Clone", function(btn)
     btn.MouseButton1Click:Connect(function()
-        autoSpamGrapple = not autoSpamGrapple
-        btn.BackgroundColor3 = autoSpamGrapple and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+        teleportLoop = not teleportLoop
+        btn.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(200, "Loop Equip Bee Launcher", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipBee = not autoEquipBee
+        btn.BackgroundColor3 = autoEquipBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(230, "Loop Activate Bee Launcher", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoActivateBee = not autoActivateBee
+        btn.BackgroundColor3 = autoActivateBee and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(260, "Loop Equip Tung Bat", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipBat = not autoEquipBat
+        btn.BackgroundColor3 = autoEquipBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(290, "Auto Swing Bat", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoSwingBat = not autoSwingBat
+        btn.BackgroundColor3 = autoSwingBat and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+-- New Laser Cape buttons
+makeButton(320, "Loop Equip Laser Cape", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoEquipLaserCape = not autoEquipLaserCape
+        btn.BackgroundColor3 = autoEquipLaserCape and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+    end)
+end)
+
+makeButton(350, "Spam Laser Nearby Players", function(btn)
+    btn.MouseButton1Click:Connect(function()
+        autoSpamLaser = not autoSpamLaser
+        btn.BackgroundColor3 = autoSpamLaser and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
