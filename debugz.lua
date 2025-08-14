@@ -15,8 +15,8 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 260, 0, 140)
-frame.Position = UDim2.new(0, 20, 0.5, -70)
+frame.Size = UDim2.new(0, 280, 0, 180)
+frame.Position = UDim2.new(0, 20, 0.5, -90)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -45,16 +45,76 @@ local function makeButton(y, text, onClick)
     return b
 end
 
+-- Debug HUD labels
+local baseInfoLabel = Instance.new("TextLabel")
+baseInfoLabel.Size = UDim2.new(1, -10, 0, 26)
+baseInfoLabel.Position = UDim2.new(0, 5, 0, 110)
+baseInfoLabel.BackgroundTransparency = 1
+baseInfoLabel.TextColor3 = Color3.new(1,1,1)
+baseInfoLabel.TextScaled = true
+baseInfoLabel.Font = Enum.Font.GothamBold
+baseInfoLabel.Text = "🏠 Base: Unknown | Tier: ?"
+baseInfoLabel.Parent = frame
+
+local slotInfoLabel = Instance.new("TextLabel")
+slotInfoLabel.Size = UDim2.new(1, -10, 0, 26)
+slotInfoLabel.Position = UDim2.new(0, 5, 0, 140)
+slotInfoLabel.BackgroundTransparency = 1
+slotInfoLabel.TextColor3 = Color3.new(1,1,1)
+slotInfoLabel.TextScaled = true
+slotInfoLabel.Font = Enum.Font.GothamBold
+slotInfoLabel.Text = "Slots: ? / ?"
+slotInfoLabel.Parent = frame
+
+-- Show your base name/tier + slots filled/total
+local function findLocalPlayerBase()
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return end
+    for _, plot in ipairs(plots:GetChildren()) do
+        local sign = plot:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local fr = gui and gui:FindFirstChild("Frame")
+        local label = fr and fr:FindFirstChild("TextLabel")
+        if label and label.Text then
+            local owner = label.Text:match("^(.-)'s Base")
+            if owner == player.Name then
+                local tier = plot:GetAttribute("Tier")
+                baseInfoLabel.Text = "🏠 Base: " .. plot.Name .. " | Tier: " .. tostring(tier or "?")
+
+                local animalPodiums = plot:FindFirstChild("AnimalPodiums")
+                if animalPodiums then
+                    local filled, total = 0, 0
+                    for _, podium in ipairs(animalPodiums:GetChildren()) do
+                        if podium:IsA("Model") then
+                            local base = podium:FindFirstChild("Base")
+                            local spawn = base and base:FindFirstChild("Spawn")
+                            if spawn and spawn:IsA("BasePart") then
+                                total = total + 1
+                                if spawn:FindFirstChild("Attachment") then
+                                    filled = filled + 1
+                                end
+                            end
+                        end
+                    end
+                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
+                end
+                break
+            end
+        end
+    end
+end
+task.delay(1, findLocalPlayerBase)
+
 --// State
 local unlockClosestBase = false      -- Toggle 1
 local autoConfirmUnlock = false      -- Toggle 2
 
 local MAX_DIST = 999999
 local DEFAULT_DIST = 15
-local RETUNE_INTERVAL = 0.1 -- seconds
+local RETUNE_INTERVAL = 0.1
 local lastTune = 0
 
--- Cache each prompt's original MaxActivationDistance so we can restore
+-- Cache original distances so we can restore
 local originalDist = setmetatable({}, { __mode = "k" }) -- weak keys
 
 -- Helpers
@@ -69,7 +129,7 @@ local function getPlotOwner(plotModel)
 end
 
 local function getUnlockPrompt(plotModel)
-    -- Expected path: Workspace.Plots.<plot>.Unlock.Main.UnlockBase (ProximityPrompt)
+    -- Path: Workspace.Plots.<plot>.Unlock.Main.UnlockBase (ProximityPrompt)
     local unlock = plotModel:FindFirstChild("Unlock")
     local main = unlock and unlock:FindFirstChild("Main")
     local prompt = main and main:FindFirstChild("UnlockBase")
@@ -94,11 +154,12 @@ local function restoreAllPromptDistances()
     end
 end
 
--- Auto-confirm purchase (Yes button) – avoids VirtualInputManager
+-- Auto-confirm purchase (Yes) – avoids VirtualInputManager
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
     local root = CoreGui:FindFirstChild("PurchasePromptApp")
     if not root then return end
+
     local container = root:FindFirstChild("ProductPurchaseContainer")
     local animator = container and container:FindFirstChild("Animator")
     local prompt = animator and animator:FindFirstChild("Prompt")
@@ -107,18 +168,17 @@ local function tryConfirmPurchase()
     local buttons = footer and footer:FindFirstChild("Buttons")
     if not buttons then return end
 
-    local yesHolder = buttons:FindFirstChild("2") -- per your observation: 1 = No, 2 = Yes
+    -- As observed: 1 = No, 2 = Yes
+    local yesHolder = buttons:FindFirstChild("2")
     if not yesHolder then return end
 
     local btn = yesHolder:FindFirstChildWhichIsA("TextButton", true)
             or yesHolder:FindFirstChildWhichIsA("ImageButton", true)
-    if btn then
-        if typeof(firesignal) == "function" then
-            pcall(function()
-                if btn.MouseButton1Click then firesignal(btn.MouseButton1Click) end
-                if btn.Activated then firesignal(btn.Activated) end
-            end)
-        end
+    if btn and typeof(firesignal) == "function" then
+        pcall(function()
+            if btn.MouseButton1Click then firesignal(btn.MouseButton1Click) end
+            if btn.Activated then firesignal(btn.Activated) end
+        end)
     end
 end
 
@@ -149,14 +209,13 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Tune prompts
+    -- Tune prompts: only the closest gets MAX_DIST
     for _, plot in ipairs(plots:GetChildren()) do
         local prompt = getUnlockPrompt(plot)
         if prompt then
             if originalDist[prompt] == nil then
                 originalDist[prompt] = prompt.MaxActivationDistance
             end
-            -- QoL: make it easier to trigger
             prompt.RequiresLineOfSight = false
             prompt.ClickablePrompt = true
             prompt.ActionText = "Unlock Base"
@@ -169,11 +228,11 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- If a purchase UI popped, try to confirm (optional toggle)
+    -- If a purchase UI popped, try to confirm (optional)
     tryConfirmPurchase()
 end)
 
--- UI Buttons (two independent toggles)
+-- UI Toggles
 local btn1 = makeButton(40, "Unlock Closest Base Only (OFF)", function(b)
     unlockClosestBase = not unlockClosestBase
     b.Text = unlockClosestBase and "Unlock Closest Base Only (ON)" or "Unlock Closest Base Only (OFF)"
@@ -189,9 +248,10 @@ local btn2 = makeButton(74, "Auto-Confirm Unlock (OFF)", function(b)
     b.BackgroundColor3 = autoConfirmUnlock and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
 end)
 
--- Optional: restore on respawn (defensive)
+-- Defensive: restore on respawn if feature is off
 player.CharacterAdded:Connect(function()
     if not unlockClosestBase then
         task.delay(1, restoreAllPromptDistances)
+        task.delay(1, findLocalPlayerBase)
     end
 end)
