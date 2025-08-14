@@ -266,6 +266,7 @@ local function looksLikeOK(s)
     return (s == "ok" or s == "okay" or s == "ok!")
 end
 
+-- Find first number (as text) anywhere under root
 local function findNumberNodeIn(root, minV, maxV)
     for _, d in ipairs(root:GetDescendants()) do
         if (d:IsA("TextLabel") or d:IsA("TextButton")) and typeof(d.Text) == "string" then
@@ -281,34 +282,33 @@ local function findNumberNodeIn(root, minV, maxV)
     return nil
 end
 
-local function findOKLabelIn(root)
-    for _, d in ipairs(root:GetDescendants()) do
+-- OK present as text or icon
+local function holderHasOK(holder)
+    if not holder then return nil end
+    for _, d in ipairs(holder:GetDescendants()) do
         if d:IsA("TextLabel") and looksLikeOK(d.Text) then
             return d
         end
     end
+    local btnContent = holder:FindFirstChild("ButtonContent", true)
+    local mid = btnContent and btnContent:FindFirstChild("ButtonMiddleContent", true)
+    if mid then
+        local icon = mid:FindFirstChild("Icon") or mid:FindFirstChild("ImageLabel")
+        if icon then return icon end
+    end
     return nil
 end
 
-local function clickableAncestor(node, stopAt)
-    local cur = node
-    while cur and cur ~= stopAt do
-        if cur:IsA("TextButton") or cur:IsA("ImageButton") then
-            return cur
-        end
-        cur = cur.Parent
-    end
-    if stopAt then
-        return stopAt:FindFirstChildWhichIsA("TextButton", true)
-            or stopAt:FindFirstChildWhichIsA("ImageButton", true)
-    end
-    return nil
+local function clickableIn(holder)
+    if not holder then return nil end
+    if holder:IsA("TextButton") or holder:IsA("ImageButton") then return holder end
+    return holder:FindFirstChildWhichIsA("TextButton", true)
+        or holder:FindFirstChildWhichIsA("ImageButton", true)
 end
 
 local function pressButton(btn)
     if not btn then return false end
     local ok = false
-    -- iPad-friendly: triggers a “touch” activation when permitted
     if btn.Activate then
         ok = pcall(function() btn:Activate() end)
     end
@@ -324,7 +324,7 @@ local function pressButton(btn)
     return ok
 end
 
--- Two-phase: Phase1 press the price (39..50) in Buttons.1, then Phase2 press OK (1 or 2)
+-- Two-phase: Phase1 press the price (39..50) -> Buttons.1, then Phase2 press OK (1 or 2)
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
     if os.clock() - lastConfirmAt < CONFIRM_COOLDOWN then return end
@@ -337,13 +337,17 @@ local function tryConfirmPurchase()
     local footer = controls:FindFirstChild("Footer"); if not footer then return end
     local buttons = footer:FindFirstChild("Buttons"); if not buttons then return end
 
-    -- Phase 1: tap the price area in Buttons.1
-    if confirmPhase ~= "price_pressed" then
-        local holder1 = buttons:FindFirstChild("1"); if not holder1 then return end
-        local numberNode, price = findNumberNodeIn(holder1, PRICE_MIN, PRICE_MAX)
-        if not numberNode then return end
+    local holder1 = buttons:FindFirstChild("1")
+    local holder2 = buttons:FindFirstChild("2")
 
-        local tapBtn = clickableAncestor(numberNode, holder1); if not tapBtn then return end
+    -- PHASE 1: any number 39..50 anywhere in the prompt -> press holder1
+    if confirmPhase ~= "price_pressed" then
+        local anyNumNode, price = findNumberNodeIn(prompt, PRICE_MIN, PRICE_MAX)
+        if not anyNumNode then return end
+
+        local tapBtn = clickableIn(holder1)
+        if not tapBtn then return end
+
         local pressed = pressButton(tapBtn)
         if not pressed then
             confirmBanner.Text = ("Tap price to continue (%d)"):format(price)
@@ -357,35 +361,27 @@ local function tryConfirmPurchase()
         return
     end
 
-    -- Phase timeout -> reset
+    -- Timeout -> reset
     if os.clock() > phaseUntil then
         confirmPhase = "idle"
         return
     end
 
-    -- Phase 2: now tap the OK (in Buttons.1 or Buttons.2)
-    local function findOKButton(buttonsNode)
-        for _, id in ipairs({"1","2"}) do
-            local h = buttonsNode:FindFirstChild(id)
-            if h then
-                local okLabel = findOKLabelIn(h)
-                if okLabel then
-                    local b = clickableAncestor(okLabel, h)
-                    if b then return b end
-                end
-            end
-        end
-        return nil
-    end
+    -- PHASE 2: press OK (text or icon) in holder1 or holder2
+    local okNodeH1 = holderHasOK(holder1)
+    local okNodeH2 = holderHasOK(holder2)
+    local targetBtn =
+        (okNodeH1 and clickableIn(holder1)) or
+        (okNodeH2 and clickableIn(holder2)) or
+        clickableIn(holder2) or clickableIn(holder1)
 
-    local okBtn = findOKButton(buttons)
-    if not okBtn then return end
+    if not targetBtn then return end
 
-    local pressedOK = pressButton(okBtn)
+    local pressedOK = pressButton(targetBtn)
     if not pressedOK then
         confirmBanner.Text = "Tap OK to confirm"
         confirmBanner.Visible = true
-        pcall(function() GuiService.SelectedObject = okBtn end)
+        pcall(function() GuiService.SelectedObject = targetBtn end)
         task.delay(2.0, function() if confirmBanner then confirmBanner.Visible = false end end)
     end
 
@@ -452,9 +448,9 @@ local btn1 = makeButton(40, "Unlock Closest Base Only (OFF)", function(b)
     if not unlockClosestBase then restoreAllPromptDistances() end
 end)
 
-local btn2 = makeButton(74, "Auto-Confirm Unlock (OFF)", function(b)
+local btn2 = makeButton(74, "Auto-Confirm (39–50 then OK) (OFF)", function(b)
     autoConfirmUnlock = not autoConfirmUnlock
-    b.Text = autoConfirmUnlock and "Auto-Confirm Unlock (ON)" or "Auto-Confirm Unlock (OFF)"
+    b.Text = autoConfirmUnlock and "Auto-Confirm (39–50 then OK) (ON)" or "Auto-Confirm (39–50 then OK) (OFF)"
     b.BackgroundColor3 = autoConfirmUnlock and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
 end)
 
