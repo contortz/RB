@@ -1,6 +1,7 @@
 --// Setup
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
@@ -54,8 +55,8 @@ local function findLocalPlayerBase()
     for _, model in ipairs(plots:GetChildren()) do
         local sign = model:FindFirstChild("PlotSign")
         local gui = sign and sign:FindFirstChild("SurfaceGui")
-        local frameGui = gui and gui:FindFirstChild("Frame")
-        local label = frameGui and frameGui:FindFirstChild("TextLabel")
+        local frame = gui and gui:FindFirstChild("Frame")
+        local label = frame and frame:FindFirstChild("TextLabel")
 
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
@@ -67,8 +68,8 @@ local function findLocalPlayerBase()
                     local filled, total = 0, 0
                     for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
                         if podiumModule:IsA("Model") then
-                            local basePart = podiumModule:FindFirstChild("Base")
-                            local spawn = basePart and basePart:FindFirstChild("Spawn")
+                            local base = podiumModule:FindFirstChild("Base")
+                            local spawn = base and base:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
                                 total += 1
                                 if spawn:FindFirstChild("Attachment") then
@@ -109,9 +110,11 @@ local autoEquipBee = false
 local autoActivateBee = false
 local autoEquipBat = false
 local autoSwingBat = false
-local autoEquipLaserCape = false
-local autoSpamLaser = false
-local laserSpamRange = 30 -- studs
+local unlockClosestBase = false
+
+-- Constants
+local maxDistValue = 999999
+local defaultDistValue = 30
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
@@ -152,29 +155,30 @@ RunService.Heartbeat:Connect(function()
         if tool then tool:Activate() end
     end
 
-    -- Auto Equip Laser Cape
-    if autoEquipLaserCape and backpack and character and not character:FindFirstChild("Laser Cape") then
-        local tool = backpack:FindFirstChild("Laser Cape")
-        if tool then tool.Parent = character end
-    end
+    -- Unlock Closest Base Logic
+    if unlockClosestBase then
+        local closestPlot, closestDist = nil, math.huge
+        local hrp = character and character:FindFirstChild("HumanoidRootPart")
+        local plots = Workspace:FindFirstChild("Plots")
 
-    -- Spam Laser on nearby players
-    if autoSpamLaser and character then
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr ~= player and plr.Character then
-                    local targetHRP = plr.Character:FindFirstChild("HumanoidRootPart")
-                    if targetHRP then
-                        local dist = (targetHRP.Position - hrp.Position).Magnitude
-                        if dist <= laserSpamRange then
-                            local args = {
-                                targetHRP.Position,
-                                targetHRP
-                            }
-                            Net:RemoteEvent("RE/UseItem"):FireServer(unpack(args))
-                        end
+        if hrp and plots then
+            for _, plot in ipairs(plots:GetChildren()) do
+                local hitbox = plot:FindFirstChild("StealHitBox")
+                if hitbox and hitbox:IsA("BasePart") then
+                    local dist = (hitbox.Position - hrp.Position).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestPlot = plot
                     end
+                end
+            end
+
+            for _, plot in ipairs(plots:GetChildren()) do
+                local unlockBase = plot:FindFirstChild("Unlock")
+                    and plot.Unlock:FindFirstChild("Main")
+                    and plot.Unlock.Main:FindFirstChild("UnlockBase")
+                if unlockBase then
+                    unlockBase:SetAttribute("MaxActivationDistance", plot == closestPlot and maxDistValue or defaultDistValue)
                 end
             end
         end
@@ -231,16 +235,10 @@ makeButton(290, "Auto Swing Bat", function(btn)
     end)
 end)
 
-makeButton(320, "Loop Equip Laser Cape", function(btn)
+-- NEW: Unlock Closest Base Button
+makeButton(320, "Unlock Closest Base Only", function(btn)
     btn.MouseButton1Click:Connect(function()
-        autoEquipLaserCape = not autoEquipLaserCape
-        btn.BackgroundColor3 = autoEquipLaserCape and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
-    end)
-end)
-
-makeButton(350, "Spam Laser Nearby Players", function(btn)
-    btn.MouseButton1Click:Connect(function()
-        autoSpamLaser = not autoSpamLaser
-        btn.BackgroundColor3 = autoSpamLaser and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+        unlockClosestBase = not unlockClosestBase
+        btn.BackgroundColor3 = unlockClosestBase and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
     end)
 end)
