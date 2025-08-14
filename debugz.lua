@@ -79,7 +79,6 @@ local function findLocalPlayerBase()
             local owner = label.Text:match("^(.-)'s Base")
             if owner == player.Name then
                 baseInfoLabel.Text = ("🏠 Base: %s | Tier: %s"):format(plot.Name, tostring(plot:GetAttribute("Tier") or "?"))
-
                 local animalPodiums = plot:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
                     local filled, total = 0, 0
@@ -132,12 +131,9 @@ end
 local function plotAnchorPosition(plot)
     local mainRoot = plot:FindFirstChild("MainRoot")
     if mainRoot and mainRoot:IsA("BasePart") then return mainRoot.Position end
-
     local hb = plot:FindFirstChild("StealHitBox")
     if hb and hb:IsA("BasePart") then return hb.Position end
-
     if plot:IsA("Model") and plot.PrimaryPart then return plot.PrimaryPart.Position end
-
     for _, d in ipairs(plot:GetDescendants()) do
         if d:IsA("BasePart") then return d.Position end
     end
@@ -148,6 +144,22 @@ local function getPlotByName(name)
     local plots = plotsFolder()
     if not plots then return nil end
     return plots:FindFirstChild(name)
+end
+
+-- Identify unlock prompts robustly (name or ActionText prefix)
+local function isUnlockPrompt(d)
+    return d:IsA("ProximityPrompt")
+       and (d.Name == "UnlockBase"
+            or (typeof(d.ActionText) == "string" and d.ActionText:sub(1, 11) == "Unlock Base"))
+end
+
+-- Build the ActionText with Floor tag if present
+local function actionTextWithFloor(prompt)
+    local floorAttr = prompt:GetAttribute("Floor")
+    if floorAttr ~= nil then
+        return ("Unlock Base (%s)"):format(tostring(floorAttr))
+    end
+    return "Unlock Base"
 end
 
 -- Collect prompts from BOTH layouts:
@@ -164,7 +176,7 @@ local function getAllUnlockPromptsMapped()
             local unlock = plot:FindFirstChild("Unlock")
             if unlock then
                 for _, d in ipairs(unlock:GetDescendants()) do
-                    if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
+                    if isUnlockPrompt(d) then
                         table.insert(mapped, {prompt = d, plot = plot})
                     end
                 end
@@ -178,12 +190,14 @@ local function getAllUnlockPromptsMapped()
         for _, holder in ipairs(globalUnlock:GetChildren()) do
             local plot = getPlotByName(holder.Name)
             for _, d in ipairs(holder:GetDescendants()) do
-                if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
+                if isUnlockPrompt(d) then
                     if not plot then
-                        -- fallback: nearest plot to the prompt
-                        local parent = d.Parent
-                        local pos = parent and parent:IsA("BasePart") and parent.Position
-                                   or (parent and parent:IsA("Model") and parent.PrimaryPart and parent.PrimaryPart.Position)
+                        -- fallback: nearest plot to this prompt
+                        local parent, pos = d.Parent, nil
+                        if parent then
+                            if parent:IsA("BasePart") then pos = parent.Position
+                            elseif parent:IsA("Model") and parent.PrimaryPart then pos = parent.PrimaryPart.Position end
+                        end
                         if pos then
                             local best, bestD = nil, math.huge
                             local pf = plotsFolder()
@@ -208,35 +222,27 @@ local function getAllUnlockPromptsMapped()
     return mapped
 end
 
--- Build the label with Floor info if present
-local function actionTextWithFloor(prompt)
-    local floorAttr = prompt:GetAttribute("Floor")
-    if floorAttr ~= nil then
-        return ("Unlock Base (%s)"):format(tostring(floorAttr))
-    end
-    return "Unlock Base"
-end
-
 local function setPromptDistance(prompt, dist)
     if originalPromptDist[prompt] == nil then
         originalPromptDist[prompt] = prompt.MaxActivationDistance
     end
     prompt.RequiresLineOfSight = false
     prompt.ClickablePrompt = true
-    prompt.ActionText = actionTextWithFloor(prompt) -- <-- add floor tag
+    prompt.ActionText = actionTextWithFloor(prompt) -- keep label with Floor tag
     prompt.MaxActivationDistance = dist
+    -- Debug: print(("[SetDist] %s -> %d"):format(prompt:GetFullName(), dist))
 end
 
 local function restoreAllPromptDistances()
     for _, pair in ipairs(getAllUnlockPromptsMapped()) do
         local prompt = pair.prompt
         local orig = originalPromptDist[prompt]
-        prompt.ActionText = actionTextWithFloor(prompt) -- keep label correct even after restore
+        prompt.ActionText = actionTextWithFloor(prompt)
         prompt.MaxActivationDistance = typeof(orig) == "number" and orig or DEFAULT_DIST
     end
 end
 
--- Auto-confirm purchase (Yes)
+-- Auto-confirm purchase (Yes) – avoids VirtualInputManager
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
     local root = CoreGui:FindFirstChild("PurchasePromptApp"); if not root then return end
