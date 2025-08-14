@@ -125,10 +125,13 @@ local DEFAULT_DIST = 15
 local RETUNE_INTERVAL = 0.10
 local lastTune = 0
 
--- auto-confirm throttles
+-- auto-confirm throttles + phasing
+local PRICE_MIN, PRICE_MAX = 39, 50
 local lastConfirmAt = 0
 local CONFIRM_COOLDOWN = 1.2
-local PRICE_MIN, PRICE_MAX = 39, 50
+local confirmPhase = "idle"     -- "idle" | "price_pressed"
+local PHASE_TIMEOUT = 3.0
+local phaseUntil = 0
 
 local originalPromptDist = setmetatable({}, { __mode = "k" })
 
@@ -256,7 +259,7 @@ local function restoreAllPromptDistances()
     end
 end
 
--- ===== Auto-confirm helpers =====
+-- ===== Auto-confirm helpers (two-phase, iPad-friendly) =====
 local function looksLikeOK(s)
     if typeof(s) ~= "string" then return false end
     s = s:lower():gsub("%s+", "")
@@ -305,6 +308,7 @@ end
 local function pressButton(btn)
     if not btn then return false end
     local ok = false
+    -- iPad-friendly: triggers a “touch” activation when permitted
     if btn.Activate then
         ok = pcall(function() btn:Activate() end)
     end
@@ -320,7 +324,7 @@ local function pressButton(btn)
     return ok
 end
 
--- Auto-confirm purchase (OK) with price guard [39..50], pressing the FIRST holder region
+-- Two-phase: Phase1 press the price (39..50) in Buttons.1, then Phase2 press OK (1 or 2)
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
     if os.clock() - lastConfirmAt < CONFIRM_COOLDOWN then return end
@@ -333,23 +337,59 @@ local function tryConfirmPurchase()
     local footer = controls:FindFirstChild("Footer"); if not footer then return end
     local buttons = footer:FindFirstChild("Buttons"); if not buttons then return end
 
-    local holder1 = buttons:FindFirstChild("1"); if not holder1 then return end
+    -- Phase 1: tap the price area in Buttons.1
+    if confirmPhase ~= "price_pressed" then
+        local holder1 = buttons:FindFirstChild("1"); if not holder1 then return end
+        local numberNode, price = findNumberNodeIn(holder1, PRICE_MIN, PRICE_MAX)
+        if not numberNode then return end
 
-    local okLabel = findOKLabelIn(holder1); if not okLabel then return end
-    local numberNode, price = findNumberNodeIn(holder1, PRICE_MIN, PRICE_MAX); if not numberNode then return end
+        local tapBtn = clickableAncestor(numberNode, holder1); if not tapBtn then return end
+        local pressed = pressButton(tapBtn)
+        if not pressed then
+            confirmBanner.Text = ("Tap price to continue (%d)"):format(price)
+            confirmBanner.Visible = true
+            task.delay(1.5, function() if confirmBanner then confirmBanner.Visible = false end end)
+        end
 
-    local okBtn = clickableAncestor(numberNode, holder1); if not okBtn then return end
-
-    local pressed = pressButton(okBtn)
-    if not pressed then
-        confirmBanner.Text = ("Press OK to confirm (%d)"):format(price)
-        confirmBanner.Visible = true
-        pcall(function() GuiService.SelectedObject = okBtn end)
-        task.delay(2.0, function()
-            if confirmBanner then confirmBanner.Visible = false end
-        end)
+        confirmPhase = "price_pressed"
+        phaseUntil = os.clock() + PHASE_TIMEOUT
+        lastConfirmAt = os.clock()
+        return
     end
 
+    -- Phase timeout -> reset
+    if os.clock() > phaseUntil then
+        confirmPhase = "idle"
+        return
+    end
+
+    -- Phase 2: now tap the OK (in Buttons.1 or Buttons.2)
+    local function findOKButton(buttonsNode)
+        for _, id in ipairs({"1","2"}) do
+            local h = buttonsNode:FindFirstChild(id)
+            if h then
+                local okLabel = findOKLabelIn(h)
+                if okLabel then
+                    local b = clickableAncestor(okLabel, h)
+                    if b then return b end
+                end
+            end
+        end
+        return nil
+    end
+
+    local okBtn = findOKButton(buttons)
+    if not okBtn then return end
+
+    local pressedOK = pressButton(okBtn)
+    if not pressedOK then
+        confirmBanner.Text = "Tap OK to confirm"
+        confirmBanner.Visible = true
+        pcall(function() GuiService.SelectedObject = okBtn end)
+        task.delay(2.0, function() if confirmBanner then confirmBanner.Visible = false end end)
+    end
+
+    confirmPhase = "idle"
     lastConfirmAt = os.clock()
 end
 
@@ -362,8 +402,9 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- Only run boosting if toggled on
     local pairsList = getAllUnlockPromptsMapped()
+
+    -- Only run boosting if toggled on
     if unlockClosestBase and #pairsList > 0 then
         -- Determine the enemy plot closest to YOU
         local pf = plotsFolder()
@@ -399,7 +440,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Auto-confirm if a prompt is open (safe: no action if not visible)
+    -- Auto-confirm if a purchase prompt is open
     tryConfirmPurchase()
 end)
 
