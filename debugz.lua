@@ -9,7 +9,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- ===== UI =====
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BaseUnlockz"
+screenGui.Name = "BaseUnlockHelper"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
@@ -28,7 +28,7 @@ title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
-title.Text = "BaseUnlockz by Dreamz"
+title.Text = "Base Unlock Helper"
 title.Parent = frame
 
 local function makeButton(y, text, onClick)
@@ -53,7 +53,7 @@ baseInfoLabel.BackgroundTransparency = 1
 baseInfoLabel.TextColor3 = Color3.new(1,1,1)
 baseInfoLabel.TextScaled = true
 baseInfoLabel.Font = Enum.Font.GothamBold
-baseInfoLabel.Text = "Base: Unknown | Tier: ?"
+baseInfoLabel.Text = "🏠 Base: Unknown | Tier: ?"
 baseInfoLabel.Parent = frame
 
 local slotInfoLabel = Instance.new("TextLabel")
@@ -78,7 +78,7 @@ local function findLocalPlayerBase()
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
             if owner == player.Name then
-                baseInfoLabel.Text = ("Base: %s | Tier: %s"):format(plot.Name, tostring(plot:GetAttribute("Tier") or "?"))
+                baseInfoLabel.Text = ("🏠 Base: %s | Tier: %s"):format(plot.Name, tostring(plot:GetAttribute("Tier") or "?"))
                 local animalPodiums = plot:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
                     local filled, total = 0, 0
@@ -87,9 +87,9 @@ local function findLocalPlayerBase()
                             local base = podium:FindFirstChild("Base")
                             local spawn = base and base:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
-                                total += 1
+                                total = total + 1
                                 if spawn:FindFirstChild("Attachment") then
-                                    filled += 1
+                                    filled = filled + 1
                                 end
                             end
                         end
@@ -111,6 +111,9 @@ local MAX_DIST = 999999
 local DEFAULT_DIST = 15
 local RETUNE_INTERVAL = 0.10
 local lastTune = 0
+
+local lastConfirmAt = 0
+local CONFIRM_COOLDOWN = 1.2
 
 local originalPromptDist = setmetatable({}, { __mode = "k" }) -- weak keys
 
@@ -242,29 +245,90 @@ local function restoreAllPromptDistances()
     end
 end
 
--- Auto-confirm purchase (Yes) – avoids VirtualInputManager
+-- ===== Auto-confirm helpers =====
+local function looksLikeOK(s)
+    if typeof(s) ~= "string" then return false end
+    s = s:lower():gsub("%s+", "")
+    return (s == "ok" or s == "okay" or s == "ok!")
+end
+
+-- Scan any Text-like descendants for the first number; return number (or nil)
+local function findNumberInText(root)
+    for _, d in ipairs(root:GetDescendants()) do
+        if (d:IsA("TextLabel") or d:IsA("TextButton")) and typeof(d.Text) == "string" then
+            local num = d.Text:match("(%d+)")
+            if num then
+                return tonumber(num), d
+            end
+        end
+    end
+    return nil
+end
+
+-- Find the actual OK button inside Buttons.1, ensuring its label says "OK"
+local function findOKButton(buttons)
+    local holder = buttons:FindFirstChild("1")
+    if not holder then return nil end
+
+    -- Usually a nested TextButton/ImageButton exists
+    local btn = holder:FindFirstChildWhichIsA("TextButton", true)
+             or holder:FindFirstChildWhichIsA("ImageButton", true)
+             or (holder:IsA("TextButton") and holder)
+             or (holder:IsA("ImageButton") and holder)
+
+    if not btn then return nil end
+
+    -- Your path: ButtonContent.ButtonMiddleContent.Text
+    local okLabel = holder:FindFirstChild("ButtonContent", true)
+    okLabel = okLabel and okLabel:FindFirstChild("ButtonMiddleContent", true)
+    okLabel = okLabel and okLabel:FindFirstChild("Text", true)
+
+    -- Fallback: any TextLabel saying OK
+    if not okLabel then
+        for _, d in ipairs(holder:GetDescendants()) do
+            if d:IsA("TextLabel") and looksLikeOK(d.Text) then
+                okLabel = d
+                break
+            end
+        end
+    end
+
+    if okLabel and looksLikeOK(okLabel.Text) then
+        return btn
+    end
+    return nil
+end
+
+-- Auto-confirm purchase (OK) with price guard [30..50]
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
+    if typeof(firesignal) ~= "function" then return end
+    if os.clock() - lastConfirmAt < CONFIRM_COOLDOWN then return end
+
     local root = CoreGui:FindFirstChild("PurchasePromptApp"); if not root then return end
-    local container = root:FindFirstChild("ProductPurchaseContainer")
-    local animator = container and container:FindFirstChild("Animator")
-    local prompt = animator and animator:FindFirstChild("Prompt")
-    local controls = prompt and prompt:FindFirstChild("AlertControls")
-    local footer = controls and controls:FindFirstChild("Footer")
-    local buttons = footer and footer:FindFirstChild("Buttons")
-    if not buttons then return end
+    local container = root:FindFirstChild("ProductPurchaseContainer"); if not container then return end
+    local animator = container:FindFirstChild("Animator"); if not animator then return end
+    local prompt = animator:FindFirstChild("Prompt"); if not prompt then return end
+    local controls = prompt:FindFirstChild("AlertControls"); if not controls then return end
+    local footer = controls:FindFirstChild("Footer"); if not footer then return end
+    local buttons = footer:FindFirstChild("Buttons"); if not buttons then return end
 
-    local yesHolder = buttons:FindFirstChild("2") -- 1 = No, 2 = Yes
-    if not yesHolder then return end
-
-    local btn = yesHolder:FindFirstChildWhichIsA("TextButton", true)
-              or yesHolder:FindFirstChildWhichIsA("ImageButton", true)
-    if btn and typeof(firesignal) == "function" then
-        pcall(function()
-            if btn.MouseButton1Click then firesignal(btn.MouseButton1Click) end
-            if btn.Activated then firesignal(btn.Activated) end
-        end)
+    -- Ensure a number 30..50 is present in the prompt text
+    local num = findNumberInText(prompt)
+    if not num or num < 30 or num > 50 then
+        return
     end
+
+    -- Find the OK button (Buttons.1 … OK)
+    local okBtn = findOKButton(buttons)
+    if not okBtn then return end
+
+    -- Click it (firesignal), once per cooldown
+    pcall(function()
+        if okBtn.MouseButton1Click then firesignal(okBtn.MouseButton1Click) end
+        if okBtn.Activated then firesignal(okBtn.Activated) end
+    end)
+    lastConfirmAt = os.clock()
 end
 
 -- ===== Main loop: choose closest ENEMY plot (by MainRoot) and boost its prompts =====
