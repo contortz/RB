@@ -48,57 +48,57 @@ slotInfoLabel.Text = "Slots: ? / ?"
 
 -- Base + Slot Logic
 local function findLocalPlayerBase()
-    local playerName = player.Name
-    local plots = Workspace:FindFirstChild("Plots")
-    if not plots then return end
+	local playerName = player.Name
+	local plots = Workspace:FindFirstChild("Plots")
+	if not plots then return end
 
-    for _, model in ipairs(plots:GetChildren()) do
-        local sign = model:FindFirstChild("PlotSign")
-        local gui = sign and sign:FindFirstChild("SurfaceGui")
-        local frame = gui and gui:FindFirstChild("Frame")
-        local label = frame and frame:FindFirstChild("TextLabel")
+	for _, model in ipairs(plots:GetChildren()) do
+		local sign = model:FindFirstChild("PlotSign")
+		local gui = sign and sign:FindFirstChild("SurfaceGui")
+		local frame = gui and gui:FindFirstChild("Frame")
+		local label = frame and frame:FindFirstChild("TextLabel")
 
-        if label and label.Text then
-            local owner = label.Text:match("^(.-)'s Base")
-            if owner == playerName then
-                local tier = model:GetAttribute("Tier")
-                baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
-                local animalPodiums = model:FindFirstChild("AnimalPodiums")
-                if animalPodiums then
-                    local filled, total = 0, 0
-                    for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
-                        if podiumModule:IsA("Model") then
-                            local base = podiumModule:FindFirstChild("Base")
-                            local spawn = base and base:FindFirstChild("Spawn")
-                            if spawn and spawn:IsA("BasePart") then
-                                total += 1
-                                if spawn:FindFirstChild("Attachment") then
-                                    filled += 1
-                                end
-                            end
-                        end
-                    end
-                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
-                end
-                break
-            end
-        end
-    end
+		if label and label.Text then
+			local owner = label.Text:match("^(.-)'s Base")
+			if owner == playerName then
+				local tier = model:GetAttribute("Tier")
+				baseInfoLabel.Text = "🏠 Base: " .. model.Name .. " | Tier: " .. tostring(tier or "?")
+				local animalPodiums = model:FindFirstChild("AnimalPodiums")
+				if animalPodiums then
+					local filled, total = 0, 0
+					for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
+						if podiumModule:IsA("Model") then
+							local base = podiumModule:FindFirstChild("Base")
+							local spawn = base and base:FindFirstChild("Spawn")
+							if spawn and spawn:IsA("BasePart") then
+								total += 1
+								if spawn:FindFirstChild("Attachment") then
+									filled += 1
+								end
+							end
+						end
+					end
+					slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
+				end
+				break
+			end
+		end
+	end
 end
 
 task.delay(1, findLocalPlayerBase)
 
 -- Button Helper
 local function makeButton(yOffset, text, callback)
-    local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(1, -10, 0, 25)
-    button.Position = UDim2.new(0, 5, 0, yOffset)
-    button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.Text = text
-    button.Font = Enum.Font.Gotham
-    button.TextScaled = true
-    callback(button)
+	local button = Instance.new("TextButton", frame)
+	button.Size = UDim2.new(1, -10, 0, 25)
+	button.Position = UDim2.new(0, 5, 0, yOffset)
+	button.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	button.TextColor3 = Color3.new(1, 1, 1)
+	button.Text = text
+	button.Font = Enum.Font.Gotham
+	button.TextScaled = true
+	callback(button)
 end
 
 -- Remotes + State
@@ -114,97 +114,93 @@ local unlockClosestBase = false
 
 -- Constants
 local maxDistValue = 999999
-local defaultDistValue = 30
+local defaultDistValue = 15
 
 -- Runtime Loops
 RunService.Heartbeat:Connect(function()
-    local character = player.Character
-    local backpack = player:FindFirstChild("Backpack")
+	local character = player.Character
+	local backpack = player:FindFirstChild("Backpack")
 
-    if autoEquipQuantum and backpack and character and not character:FindFirstChild("Quantum Cloner") then
-        local tool = backpack:FindFirstChild("Quantum Cloner")
-        if tool then tool.Parent = character end
-    end
+	-- Tool Auto Equip/Activate
+	if autoEquipQuantum and backpack and character and not character:FindFirstChild("Quantum Cloner") then
+		local tool = backpack:FindFirstChild("Quantum Cloner")
+		if tool then tool.Parent = character end
+	end
+	if autoActivateQuantum and character then
+		local tool = character:FindFirstChild("Quantum Cloner")
+		if tool then tool:Activate() end
+	end
+	if teleportLoop then
+		Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
+	end
+	if autoEquipBee and backpack and character and not character:FindFirstChild("Bee Launcher") then
+		local tool = backpack:FindFirstChild("Bee Launcher")
+		if tool then tool.Parent = character end
+	end
+	if autoActivateBee and character then
+		local tool = character:FindFirstChild("Bee Launcher")
+		if tool then tool:Activate() end
+	end
+	if autoEquipBat and backpack and character and not character:FindFirstChild("Tung Bat") then
+		local tool = backpack:FindFirstChild("Tung Bat")
+		if tool then tool.Parent = character end
+	end
+	if autoSwingBat and character then
+		local tool = character:FindFirstChild("Tung Bat")
+		if tool then tool:Activate() end
+	end
 
-    if autoActivateQuantum and character then
-        local tool = character:FindFirstChild("Quantum Cloner")
-        if tool then tool:Activate() end
-    end
+	-- Unlock Closest Base Logic
+	if unlockClosestBase then
+		local closestPlot, closestDist = nil, math.huge
+		local hrp = character and character:FindFirstChild("HumanoidRootPart")
+		local plots = Workspace:FindFirstChild("Plots")
 
-    if teleportLoop then
-        Net:RemoteEvent("QuantumCloner/OnTeleport"):FireServer()
-    end
+		if hrp and plots then
+			for _, plot in ipairs(plots:GetChildren()) do
+				local hitbox = plot:FindFirstChild("StealHitBox")
+				if hitbox and hitbox:IsA("BasePart") then
+					local dist = (hitbox.Position - hrp.Position).Magnitude
+					if dist < closestDist then
+						closestDist = dist
+						closestPlot = plot
+					end
+				end
+			end
 
-    if autoEquipBee and backpack and character and not character:FindFirstChild("Bee Launcher") then
-        local tool = backpack:FindFirstChild("Bee Launcher")
-        if tool then tool.Parent = character end
-    end
+			for _, plot in ipairs(plots:GetChildren()) do
+				local unlockBase = plot:FindFirstChild("Unlock")
+					and plot.Unlock:FindFirstChild("Main")
+					and plot.Unlock.Main:FindFirstChild("UnlockBase")
 
-    if autoActivateBee and character then
-        local tool = character:FindFirstChild("Bee Launcher")
-        if tool then tool:Activate() end
-    end
-
-    if autoEquipBat and backpack and character and not character:FindFirstChild("Tung Bat") then
-        local tool = backpack:FindFirstChild("Tung Bat")
-        if tool then tool.Parent = character end
-    end
-
-    if autoSwingBat and character then
-        local tool = character:FindFirstChild("Tung Bat")
-        if tool then tool:Activate() end
-    end
-
-    -- Unlock Closest Base Logic
-    if unlockClosestBase then
-        local closestPlot, closestDist = nil, math.huge
-        local hrp = character and character:FindFirstChild("HumanoidRootPart")
-        local plots = Workspace:FindFirstChild("Plots")
-
-        if hrp and plots then
-            for _, plot in ipairs(plots:GetChildren()) do
-                local hitbox = plot:FindFirstChild("StealHitBox")
-                if hitbox and hitbox:IsA("BasePart") then
-                    local dist = (hitbox.Position - hrp.Position).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestPlot = plot
-                    end
-                end
-            end
-
-            for _, plot in ipairs(plots:GetChildren()) do
-                local unlockBase = plot:FindFirstChild("Unlock")
-                    and plot.Unlock:FindFirstChild("Main")
-                    and plot.Unlock.Main:FindFirstChild("UnlockBase")
-                if unlockBase then
-                    unlockBase:SetAttribute("MaxActivationDistance", plot == closestPlot and maxDistValue or defaultDistValue)
-                end
-            end
-        end
-    end
+				if unlockBase and unlockBase:IsA("NumberValue") then
+					unlockBase.Value = (plot == closestPlot) and maxDistValue or defaultDistValue
+				end
+			end
+		end
+	end
 end)
 
 -- Buttons
 makeButton(110, "Loop Equip Quantum Cloner", function(btn)
-    btn.MouseButton1Click:Connect(function()
-        autoEquipQuantum = not autoEquipQuantum
-        btn.BackgroundColor3 = autoEquipQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
-    end)
+	btn.MouseButton1Click:Connect(function()
+		autoEquipQuantum = not autoEquipQuantum
+		btn.BackgroundColor3 = autoEquipQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+	end)
 end)
 
 makeButton(140, "Loop Activate Quantum", function(btn)
-    btn.MouseButton1Click:Connect(function()
-        autoActivateQuantum = not autoActivateQuantum
-        btn.BackgroundColor3 = autoActivateQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
-    end)
+	btn.MouseButton1Click:Connect(function()
+		autoActivateQuantum = not autoActivateQuantum
+		btn.BackgroundColor3 = autoActivateQuantum and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+	end)
 end)
 
 makeButton(170, "Loop Teleport to Clone", function(btn)
-    btn.MouseButton1Click:Connect(function()
-        teleportLoop = not teleportLoop
-        btn.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
-    end)
+	btn.MouseButton1Click:Connect(function()
+		teleportLoop = not teleportLoop
+		btn.BackgroundColor3 = teleportLoop and Color3.fromRGB(0, 170, 0) or Color3.fromRGB(50, 50, 50)
+	end)
 end)
 
 makeButton(200, "Loop Equip Bee Launcher", function(btn)
