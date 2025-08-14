@@ -9,7 +9,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- ===== UI =====
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BaseUnlockHelper"
+screenGui.Name = "BaseUnlockz by Dreamz"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
@@ -53,7 +53,7 @@ baseInfoLabel.BackgroundTransparency = 1
 baseInfoLabel.TextColor3 = Color3.new(1,1,1)
 baseInfoLabel.TextScaled = true
 baseInfoLabel.Font = Enum.Font.GothamBold
-baseInfoLabel.Text = "🏠 Base: Unknown | Tier: ?"
+baseInfoLabel.Text = "Base: Unknown | Tier: ?"
 baseInfoLabel.Parent = frame
 
 local slotInfoLabel = Instance.new("TextLabel")
