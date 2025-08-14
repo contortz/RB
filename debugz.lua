@@ -245,64 +245,70 @@ local function restoreAllPromptDistances()
     end
 end
 
--- ===== Auto-confirm helpers =====
+-- ===== Auto-confirm helpers (press the FIRST holder, on the region with the number) =====
 local function looksLikeOK(s)
     if typeof(s) ~= "string" then return false end
     s = s:lower():gsub("%s+", "")
     return (s == "ok" or s == "okay" or s == "ok!")
 end
 
--- Scan any Text-like descendants for the first number; return number (or nil)
-local function findNumberInText(root)
+-- Find a Text-like node with a number in range inside root; return node, num
+local function findNumberNodeIn(root, minV, maxV)
     for _, d in ipairs(root:GetDescendants()) do
         if (d:IsA("TextLabel") or d:IsA("TextButton")) and typeof(d.Text) == "string" then
             local num = d.Text:match("(%d+)")
             if num then
-                return tonumber(num), d
+                local val = tonumber(num)
+                if val and val >= minV and val <= maxV then
+                    return d, val
+                end
             end
         end
     end
     return nil
 end
 
--- Find the actual OK button inside Buttons.1, ensuring its label says "OK"
-local function findOKButton(buttons)
-    local holder = buttons:FindFirstChild("1")
-    if not holder then return nil end
-
-    -- Usually a nested TextButton/ImageButton exists
-    local btn = holder:FindFirstChildWhichIsA("TextButton", true)
-             or holder:FindFirstChildWhichIsA("ImageButton", true)
-             or (holder:IsA("TextButton") and holder)
-             or (holder:IsA("ImageButton") and holder)
-
-    if not btn then return nil end
-
-    -- Your path: ButtonContent.ButtonMiddleContent.Text
-    local okLabel = holder:FindFirstChild("ButtonContent", true)
-    okLabel = okLabel and okLabel:FindFirstChild("ButtonMiddleContent", true)
-    okLabel = okLabel and okLabel:FindFirstChild("Text", true)
-
-    -- Fallback: any TextLabel saying OK
-    if not okLabel then
-        for _, d in ipairs(holder:GetDescendants()) do
-            if d:IsA("TextLabel") and looksLikeOK(d.Text) then
-                okLabel = d
-                break
-            end
+-- Find an "OK" label under root
+local function findOKLabelIn(root)
+    for _, d in ipairs(root:GetDescendants()) do
+        if d:IsA("TextLabel") and looksLikeOK(d.Text) then
+            return d
         end
-    end
-
-    if okLabel and looksLikeOK(okLabel.Text) then
-        return btn
     end
     return nil
 end
 
--- Auto-confirm purchase (OK) with price guard [30..50]
+-- Walk up to the nearest clickable ancestor (TextButton/ImageButton)
+local function clickableAncestor(node, stopAt)
+    local cur = node
+    while cur and cur ~= stopAt do
+        if cur:IsA("TextButton") or cur:IsA("ImageButton") then
+            return cur
+        end
+        cur = cur.Parent
+    end
+    -- fallback: any button inside the holder
+    if stopAt then
+        return stopAt:FindFirstChildWhichIsA("TextButton", true)
+            or stopAt:FindFirstChildWhichIsA("ImageButton", true)
+    end
+    return nil
+end
+
+local function pressButton(btn)
+    if not btn then return end
+    if typeof(firesignal) ~= "function" then return end
+    pcall(function()
+        if btn.MouseButton1Down then firesignal(btn.MouseButton1Down) end
+        if btn.MouseButton1Click then firesignal(btn.MouseButton1Click) end
+        if btn.MouseButton1Up then firesignal(btn.MouseButton1Up) end
+        if btn.Activated then firesignal(btn.Activated) end
+    end)
+end
+
+-- Auto-confirm purchase (OK) with price guard [30..50], pressing the first holder ("1") area
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
-    if typeof(firesignal) ~= "function" then return end
     if os.clock() - lastConfirmAt < CONFIRM_COOLDOWN then return end
 
     local root = CoreGui:FindFirstChild("PurchasePromptApp"); if not root then return end
@@ -313,21 +319,19 @@ local function tryConfirmPurchase()
     local footer = controls:FindFirstChild("Footer"); if not footer then return end
     local buttons = footer:FindFirstChild("Buttons"); if not buttons then return end
 
-    -- Ensure a number 30..50 is present in the prompt text
-    local num = findNumberInText(prompt)
-    if not num or num < 30 or num > 50 then
-        return
-    end
+    -- Target the FIRST holder explicitly
+    local holder1 = buttons:FindFirstChild("1")
+    if not holder1 then return end
 
-    -- Find the OK button (Buttons.1 … OK)
-    local okBtn = findOKButton(buttons)
+    -- Must contain an OK label and a number 30..50 inside this same holder
+    local okLabel = findOKLabelIn(holder1); if not okLabel then return end
+    local numberNode, num = findNumberNodeIn(holder1, 30, 50); if not numberNode then return end
+
+    -- Click the clickable ancestor of the number node (so we press the region with the "39")
+    local okBtn = clickableAncestor(numberNode, holder1)
     if not okBtn then return end
 
-    -- Click it (firesignal), once per cooldown
-    pcall(function()
-        if okBtn.MouseButton1Click then firesignal(okBtn.MouseButton1Click) end
-        if okBtn.Activated then firesignal(okBtn.Activated) end
-    end)
+    pressButton(okBtn)
     lastConfirmAt = os.clock()
 end
 
