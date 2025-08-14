@@ -15,8 +15,8 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 280, 0, 180)
-frame.Position = UDim2.new(0, 20, 0.5, -90)
+frame.Size = UDim2.new(0, 300, 0, 200)
+frame.Position = UDim2.new(0, 24, 0.5, -100)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -48,7 +48,7 @@ end
 -- Debug HUD labels
 local baseInfoLabel = Instance.new("TextLabel")
 baseInfoLabel.Size = UDim2.new(1, -10, 0, 26)
-baseInfoLabel.Position = UDim2.new(0, 5, 0, 110)
+baseInfoLabel.Position = UDim2.new(0, 5, 0, 112)
 baseInfoLabel.BackgroundTransparency = 1
 baseInfoLabel.TextColor3 = Color3.new(1,1,1)
 baseInfoLabel.TextScaled = true
@@ -58,7 +58,7 @@ baseInfoLabel.Parent = frame
 
 local slotInfoLabel = Instance.new("TextLabel")
 slotInfoLabel.Size = UDim2.new(1, -10, 0, 26)
-slotInfoLabel.Position = UDim2.new(0, 5, 0, 140)
+slotInfoLabel.Position = UDim2.new(0, 5, 0, 142)
 slotInfoLabel.BackgroundTransparency = 1
 slotInfoLabel.TextColor3 = Color3.new(1,1,1)
 slotInfoLabel.TextScaled = true
@@ -114,8 +114,8 @@ local DEFAULT_DIST = 15
 local RETUNE_INTERVAL = 0.1
 local lastTune = 0
 
--- Cache original distances so we can restore
-local originalDist = setmetatable({}, { __mode = "k" }) -- weak keys
+-- Cache original distances per prompt so we can restore
+local originalPromptDist = setmetatable({}, { __mode = "k" }) -- weak keys
 
 -- Helpers
 local function getPlotOwner(plotModel)
@@ -128,13 +128,37 @@ local function getPlotOwner(plotModel)
     end
 end
 
-local function getUnlockPrompt(plotModel)
-    -- Path: Workspace.Plots.<plot>.Unlock.Main.UnlockBase (ProximityPrompt)
-    local unlock = plotModel:FindFirstChild("Unlock")
-    local main = unlock and unlock:FindFirstChild("Main")
-    local prompt = main and main:FindFirstChild("UnlockBase")
-    if prompt and prompt:IsA("ProximityPrompt") then
-        return prompt
+-- Get all "Unlock Base" ProximityPrompts under every Main (your layout)
+local function getUnlockPrompts(plotModel)
+    local prompts = {}
+    for _, main in ipairs(plotModel:GetChildren()) do
+        if main.Name == "Main" and (main:IsA("Model") or main:IsA("BasePart")) then
+            -- Direct children of Main
+            for _, d in ipairs(main:GetChildren()) do
+                if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
+                    table.insert(prompts, d)
+                end
+            end
+            -- Also check descendants in case prompt is nested one layer deeper
+            for _, d in ipairs(main:GetDescendants()) do
+                if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
+                    table.insert(prompts, d)
+                end
+            end
+        end
+    end
+    return prompts
+end
+
+local function setPromptsDistance(prompts, dist)
+    for _, prompt in ipairs(prompts) do
+        if originalPromptDist[prompt] == nil then
+            originalPromptDist[prompt] = prompt.MaxActivationDistance
+        end
+        prompt.RequiresLineOfSight = false
+        prompt.ClickablePrompt = true
+        prompt.ActionText = "Unlock Base"
+        prompt.MaxActivationDistance = dist
     end
 end
 
@@ -142,14 +166,10 @@ local function restoreAllPromptDistances()
     local plots = Workspace:FindFirstChild("Plots")
     if not plots then return end
     for _, plot in ipairs(plots:GetChildren()) do
-        local prompt = getUnlockPrompt(plot)
-        if prompt then
-            local orig = originalDist[prompt]
-            if typeof(orig) == "number" then
-                prompt.MaxActivationDistance = orig
-            else
-                prompt.MaxActivationDistance = DEFAULT_DIST
-            end
+        local prompts = getUnlockPrompts(plot)
+        for _, prompt in ipairs(prompts) do
+            local orig = originalPromptDist[prompt]
+            prompt.MaxActivationDistance = typeof(orig) == "number" and orig or DEFAULT_DIST
         end
     end
 end
@@ -168,7 +188,7 @@ local function tryConfirmPurchase()
     local buttons = footer and footer:FindFirstChild("Buttons")
     if not buttons then return end
 
-    -- As observed: 1 = No, 2 = Yes
+    -- Observed: 1 = No, 2 = Yes
     local yesHolder = buttons:FindFirstChild("2")
     if not yesHolder then return end
 
@@ -193,7 +213,7 @@ RunService.Heartbeat:Connect(function()
     local plots = Workspace:FindFirstChild("Plots")
     if not (hrp and plots) then return end
 
-    -- Find nearest plot that is NOT ours
+    -- Find nearest plot that is NOT ours (using StealHitBox)
     local closestPlot, closestDist = nil, math.huge
     for _, plot in ipairs(plots:GetChildren()) do
         local owner = getPlotOwner(plot)
@@ -209,26 +229,19 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- Tune prompts: only the closest gets MAX_DIST
+    -- Apply distances per-plot (all Main prompts inside that plot)
     for _, plot in ipairs(plots:GetChildren()) do
-        local prompt = getUnlockPrompt(plot)
-        if prompt then
-            if originalDist[prompt] == nil then
-                originalDist[prompt] = prompt.MaxActivationDistance
-            end
-            prompt.RequiresLineOfSight = false
-            prompt.ClickablePrompt = true
-            prompt.ActionText = "Unlock Base"
-
+        local prompts = getUnlockPrompts(plot)
+        if #prompts > 0 then
             if plot == closestPlot then
-                prompt.MaxActivationDistance = MAX_DIST
+                setPromptsDistance(prompts, MAX_DIST)
             else
-                prompt.MaxActivationDistance = DEFAULT_DIST
+                setPromptsDistance(prompts, DEFAULT_DIST)
             end
         end
     end
 
-    -- If a purchase UI popped, try to confirm (optional)
+    -- If a purchase UI popped, try to confirm (optional toggle)
     tryConfirmPurchase()
 end)
 
