@@ -139,9 +139,7 @@ local function plotAnchorPosition(plot)
     if plot:IsA("Model") and plot.PrimaryPart then return plot.PrimaryPart.Position end
 
     for _, d in ipairs(plot:GetDescendants()) do
-        if d:IsA("BasePart") then
-            return d.Position
-        end
+        if d:IsA("BasePart") then return d.Position end
     end
     return nil
 end
@@ -181,25 +179,25 @@ local function getAllUnlockPromptsMapped()
             local plot = getPlotByName(holder.Name)
             for _, d in ipairs(holder:GetDescendants()) do
                 if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
-                    -- If no direct name match, try nearest by anchor
                     if not plot then
-                        local fallbackPlot, bestD = nil, math.huge
+                        -- fallback: nearest plot to the prompt
                         local parent = d.Parent
                         local pos = parent and parent:IsA("BasePart") and parent.Position
                                    or (parent and parent:IsA("Model") and parent.PrimaryPart and parent.PrimaryPart.Position)
                         if pos then
+                            local best, bestD = nil, math.huge
                             local pf = plotsFolder()
                             if pf then
                                 for _, p in ipairs(pf:GetChildren()) do
                                     local a = plotAnchorPosition(p)
                                     if a then
                                         local dd = (a - pos).Magnitude
-                                        if dd < bestD then bestD = dd; fallbackPlot = p end
+                                        if dd < bestD then bestD = dd; best = p end
                                     end
                                 end
                             end
+                            plot = best
                         end
-                        plot = fallbackPlot
                     end
                     table.insert(mapped, {prompt = d, plot = plot})
                 end
@@ -210,13 +208,22 @@ local function getAllUnlockPromptsMapped()
     return mapped
 end
 
+-- Build the label with Floor info if present
+local function actionTextWithFloor(prompt)
+    local floorAttr = prompt:GetAttribute("Floor")
+    if floorAttr ~= nil then
+        return ("Unlock Base (%s)"):format(tostring(floorAttr))
+    end
+    return "Unlock Base"
+end
+
 local function setPromptDistance(prompt, dist)
     if originalPromptDist[prompt] == nil then
         originalPromptDist[prompt] = prompt.MaxActivationDistance
     end
     prompt.RequiresLineOfSight = false
     prompt.ClickablePrompt = true
-    prompt.ActionText = "Unlock Base"
+    prompt.ActionText = actionTextWithFloor(prompt) -- <-- add floor tag
     prompt.MaxActivationDistance = dist
 end
 
@@ -224,6 +231,7 @@ local function restoreAllPromptDistances()
     for _, pair in ipairs(getAllUnlockPromptsMapped()) do
         local prompt = pair.prompt
         local orig = originalPromptDist[prompt]
+        prompt.ActionText = actionTextWithFloor(prompt) -- keep label correct even after restore
         prompt.MaxActivationDistance = typeof(orig) == "number" and orig or DEFAULT_DIST
     end
 end
@@ -253,7 +261,7 @@ local function tryConfirmPurchase()
     end
 end
 
--- ===== Main loop: choose closest ENEMY plot by MainRoot =====
+-- ===== Main loop: choose closest ENEMY plot (by MainRoot) and boost its prompts =====
 RunService.Heartbeat:Connect(function()
     if not unlockClosestBase then return end
     if os.clock() - lastTune < RETUNE_INTERVAL then return end
@@ -266,9 +274,9 @@ RunService.Heartbeat:Connect(function()
     local pairsList = getAllUnlockPromptsMapped()
     if #pairsList == 0 then return end
 
-    -- Determine the enemy plot closest to YOU using plot.MainRoot (preferred)
-    local closestEnemyPlot, closestDist = nil, math.huge
+    -- Determine the enemy plot closest to YOU
     local pf = plotsFolder()
+    local closestEnemyPlot, closestDist = nil, math.huge
     if pf then
         for _, plot in ipairs(pf:GetChildren()) do
             local owner = getPlotOwner(plot)
@@ -284,15 +292,16 @@ RunService.Heartbeat:Connect(function()
             end
         end
     end
+
     if not closestEnemyPlot then
-        -- no enemy plots? normalize and bail
+        -- No enemy plots? normalize all
         for _, pair in ipairs(pairsList) do
             setPromptDistance(pair.prompt, DEFAULT_DIST)
         end
         return
     end
 
-    -- Apply distances: prompts that belong to the closest enemy plot get MAX, others DEFAULT
+    -- Apply distances; also keep ActionText updated with Floor tag
     for _, pair in ipairs(pairsList) do
         if pair.plot == closestEnemyPlot then
             setPromptDistance(pair.prompt, MAX_DIST)
