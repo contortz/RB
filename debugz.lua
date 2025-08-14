@@ -7,7 +7,7 @@ local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
---// UI
+-- ===== UI =====
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BaseUnlockHelper"
 screenGui.ResetOnSpawn = false
@@ -45,7 +45,7 @@ local function makeButton(y, text, onClick)
     return b
 end
 
--- Debug HUD labels
+-- HUD
 local baseInfoLabel = Instance.new("TextLabel")
 baseInfoLabel.Size = UDim2.new(1, -10, 0, 26)
 baseInfoLabel.Position = UDim2.new(0, 5, 0, 112)
@@ -66,7 +66,7 @@ slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.Parent = frame
 
--- Show your base name/tier + slots filled/total
+-- Show your base info
 local function findLocalPlayerBase()
     local plots = Workspace:FindFirstChild("Plots")
     if not plots then return end
@@ -78,8 +78,7 @@ local function findLocalPlayerBase()
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
             if owner == player.Name then
-                local tier = plot:GetAttribute("Tier")
-                baseInfoLabel.Text = "🏠 Base: " .. plot.Name .. " | Tier: " .. tostring(tier or "?")
+                baseInfoLabel.Text = ("🏠 Base: %s | Tier: %s"):format(plot.Name, tostring(plot:GetAttribute("Tier") or "?"))
 
                 local animalPodiums = plot:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
@@ -89,14 +88,14 @@ local function findLocalPlayerBase()
                             local base = podium:FindFirstChild("Base")
                             local spawn = base and base:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
-                                total = total + 1
+                                total += 1
                                 if spawn:FindFirstChild("Attachment") then
-                                    filled = filled + 1
+                                    filled += 1
                                 end
                             end
                         end
                     end
-                    slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
+                    slotInfoLabel.Text = ("Slots: %d / %d"):format(filled, total)
                 end
                 break
             end
@@ -105,19 +104,20 @@ local function findLocalPlayerBase()
 end
 task.delay(1, findLocalPlayerBase)
 
---// State
+-- ===== State / consts =====
 local unlockClosestBase = false      -- Toggle 1
 local autoConfirmUnlock = false      -- Toggle 2
 
 local MAX_DIST = 999999
 local DEFAULT_DIST = 15
-local RETUNE_INTERVAL = 0.1
+local RETUNE_INTERVAL = 0.10
 local lastTune = 0
 
--- Cache original distances per prompt so we can restore
 local originalPromptDist = setmetatable({}, { __mode = "k" }) -- weak keys
 
--- Helpers
+-- ===== Helpers =====
+local function plotsFolder() return Workspace:FindFirstChild("Plots") end
+
 local function getPlotOwner(plotModel)
     local sign = plotModel:FindFirstChild("PlotSign")
     local gui = sign and sign:FindFirstChild("SurfaceGui")
@@ -128,58 +128,110 @@ local function getPlotOwner(plotModel)
     end
 end
 
--- Get all "Unlock Base" ProximityPrompts under every Main (your layout)
-local function getUnlockPrompts(plotModel)
-    local prompts = {}
-    for _, main in ipairs(plotModel:GetChildren()) do
-        if main.Name == "Main" and (main:IsA("Model") or main:IsA("BasePart")) then
-            -- Direct children of Main
-            for _, d in ipairs(main:GetChildren()) do
-                if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
-                    table.insert(prompts, d)
-                end
-            end
-            -- Also check descendants in case prompt is nested one layer deeper
-            for _, d in ipairs(main:GetDescendants()) do
-                if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
-                    table.insert(prompts, d)
-                end
-            end
+-- Preferred anchor position: MainRoot; then StealHitBox; then PrimaryPart; then any BasePart
+local function plotAnchorPosition(plot)
+    local mainRoot = plot:FindFirstChild("MainRoot")
+    if mainRoot and mainRoot:IsA("BasePart") then return mainRoot.Position end
+
+    local hb = plot:FindFirstChild("StealHitBox")
+    if hb and hb:IsA("BasePart") then return hb.Position end
+
+    if plot:IsA("Model") and plot.PrimaryPart then return plot.PrimaryPart.Position end
+
+    for _, d in ipairs(plot:GetDescendants()) do
+        if d:IsA("BasePart") then
+            return d.Position
         end
     end
-    return prompts
+    return nil
 end
 
-local function setPromptsDistance(prompts, dist)
-    for _, prompt in ipairs(prompts) do
-        if originalPromptDist[prompt] == nil then
-            originalPromptDist[prompt] = prompt.MaxActivationDistance
+local function getPlotByName(name)
+    local plots = plotsFolder()
+    if not plots then return nil end
+    return plots:FindFirstChild(name)
+end
+
+-- Collect prompts from BOTH layouts:
+--  A) Workspace.Plots.<plot>.Unlock...
+--  B) Workspace.Unlock.<plotName>...
+local function getAllUnlockPromptsMapped()
+    -- returns array of {prompt = ProximityPrompt, plot = Model}
+    local mapped = {}
+
+    -- A) per-plot Unlock
+    local plots = plotsFolder()
+    if plots then
+        for _, plot in ipairs(plots:GetChildren()) do
+            local unlock = plot:FindFirstChild("Unlock")
+            if unlock then
+                for _, d in ipairs(unlock:GetDescendants()) do
+                    if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
+                        table.insert(mapped, {prompt = d, plot = plot})
+                    end
+                end
+            end
         end
-        prompt.RequiresLineOfSight = false
-        prompt.ClickablePrompt = true
-        prompt.ActionText = "Unlock Base"
-        prompt.MaxActivationDistance = dist
     end
+
+    -- B) Workspace.Unlock.<plotName>...
+    local globalUnlock = Workspace:FindFirstChild("Unlock")
+    if globalUnlock then
+        for _, holder in ipairs(globalUnlock:GetChildren()) do
+            local plot = getPlotByName(holder.Name)
+            for _, d in ipairs(holder:GetDescendants()) do
+                if d:IsA("ProximityPrompt") and d.ActionText == "Unlock Base" then
+                    -- If no direct name match, try nearest by anchor
+                    if not plot then
+                        local fallbackPlot, bestD = nil, math.huge
+                        local parent = d.Parent
+                        local pos = parent and parent:IsA("BasePart") and parent.Position
+                                   or (parent and parent:IsA("Model") and parent.PrimaryPart and parent.PrimaryPart.Position)
+                        if pos then
+                            local pf = plotsFolder()
+                            if pf then
+                                for _, p in ipairs(pf:GetChildren()) do
+                                    local a = plotAnchorPosition(p)
+                                    if a then
+                                        local dd = (a - pos).Magnitude
+                                        if dd < bestD then bestD = dd; fallbackPlot = p end
+                                    end
+                                end
+                            end
+                        end
+                        plot = fallbackPlot
+                    end
+                    table.insert(mapped, {prompt = d, plot = plot})
+                end
+            end
+        end
+    end
+
+    return mapped
+end
+
+local function setPromptDistance(prompt, dist)
+    if originalPromptDist[prompt] == nil then
+        originalPromptDist[prompt] = prompt.MaxActivationDistance
+    end
+    prompt.RequiresLineOfSight = false
+    prompt.ClickablePrompt = true
+    prompt.ActionText = "Unlock Base"
+    prompt.MaxActivationDistance = dist
 end
 
 local function restoreAllPromptDistances()
-    local plots = Workspace:FindFirstChild("Plots")
-    if not plots then return end
-    for _, plot in ipairs(plots:GetChildren()) do
-        local prompts = getUnlockPrompts(plot)
-        for _, prompt in ipairs(prompts) do
-            local orig = originalPromptDist[prompt]
-            prompt.MaxActivationDistance = typeof(orig) == "number" and orig or DEFAULT_DIST
-        end
+    for _, pair in ipairs(getAllUnlockPromptsMapped()) do
+        local prompt = pair.prompt
+        local orig = originalPromptDist[prompt]
+        prompt.MaxActivationDistance = typeof(orig) == "number" and orig or DEFAULT_DIST
     end
 end
 
--- Auto-confirm purchase (Yes) – avoids VirtualInputManager
+-- Auto-confirm purchase (Yes)
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
-    local root = CoreGui:FindFirstChild("PurchasePromptApp")
-    if not root then return end
-
+    local root = CoreGui:FindFirstChild("PurchasePromptApp"); if not root then return end
     local container = root:FindFirstChild("ProductPurchaseContainer")
     local animator = container and container:FindFirstChild("Animator")
     local prompt = animator and animator:FindFirstChild("Prompt")
@@ -188,12 +240,11 @@ local function tryConfirmPurchase()
     local buttons = footer and footer:FindFirstChild("Buttons")
     if not buttons then return end
 
-    -- Observed: 1 = No, 2 = Yes
-    local yesHolder = buttons:FindFirstChild("2")
+    local yesHolder = buttons:FindFirstChild("2") -- 1 = No, 2 = Yes
     if not yesHolder then return end
 
     local btn = yesHolder:FindFirstChildWhichIsA("TextButton", true)
-            or yesHolder:FindFirstChildWhichIsA("ImageButton", true)
+              or yesHolder:FindFirstChildWhichIsA("ImageButton", true)
     if btn and typeof(firesignal) == "function" then
         pcall(function()
             if btn.MouseButton1Click then firesignal(btn.MouseButton1Click) end
@@ -202,57 +253,63 @@ local function tryConfirmPurchase()
     end
 end
 
--- Main loop: Only nearest enemy plot gets huge prompt distance
+-- ===== Main loop: choose closest ENEMY plot by MainRoot =====
 RunService.Heartbeat:Connect(function()
     if not unlockClosestBase then return end
     if os.clock() - lastTune < RETUNE_INTERVAL then return end
     lastTune = os.clock()
 
-    local character = player.Character
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    local plots = Workspace:FindFirstChild("Plots")
-    if not (hrp and plots) then return end
+    local char = player.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
 
-    -- Find nearest plot that is NOT ours (using StealHitBox)
-    local closestPlot, closestDist = nil, math.huge
-    for _, plot in ipairs(plots:GetChildren()) do
-        local owner = getPlotOwner(plot)
-        if owner ~= player.Name then
-            local hitbox = plot:FindFirstChild("StealHitBox")
-            if hitbox and hitbox:IsA("BasePart") then
-                local d = (hitbox.Position - hrp.Position).Magnitude
-                if d < closestDist then
-                    closestDist = d
-                    closestPlot = plot
+    local pairsList = getAllUnlockPromptsMapped()
+    if #pairsList == 0 then return end
+
+    -- Determine the enemy plot closest to YOU using plot.MainRoot (preferred)
+    local closestEnemyPlot, closestDist = nil, math.huge
+    local pf = plotsFolder()
+    if pf then
+        for _, plot in ipairs(pf:GetChildren()) do
+            local owner = getPlotOwner(plot)
+            if owner ~= player.Name then
+                local anchor = plotAnchorPosition(plot)
+                if anchor then
+                    local d = (anchor - hrp.Position).Magnitude
+                    if d < closestDist then
+                        closestDist = d
+                        closestEnemyPlot = plot
+                    end
                 end
             end
         end
     end
+    if not closestEnemyPlot then
+        -- no enemy plots? normalize and bail
+        for _, pair in ipairs(pairsList) do
+            setPromptDistance(pair.prompt, DEFAULT_DIST)
+        end
+        return
+    end
 
-    -- Apply distances per-plot (all Main prompts inside that plot)
-    for _, plot in ipairs(plots:GetChildren()) do
-        local prompts = getUnlockPrompts(plot)
-        if #prompts > 0 then
-            if plot == closestPlot then
-                setPromptsDistance(prompts, MAX_DIST)
-            else
-                setPromptsDistance(prompts, DEFAULT_DIST)
-            end
+    -- Apply distances: prompts that belong to the closest enemy plot get MAX, others DEFAULT
+    for _, pair in ipairs(pairsList) do
+        if pair.plot == closestEnemyPlot then
+            setPromptDistance(pair.prompt, MAX_DIST)
+        else
+            setPromptDistance(pair.prompt, DEFAULT_DIST)
         end
     end
 
-    -- If a purchase UI popped, try to confirm (optional toggle)
     tryConfirmPurchase()
 end)
 
--- UI Toggles
+-- Toggles
 local btn1 = makeButton(40, "Unlock Closest Base Only (OFF)", function(b)
     unlockClosestBase = not unlockClosestBase
     b.Text = unlockClosestBase and "Unlock Closest Base Only (ON)" or "Unlock Closest Base Only (OFF)"
     b.BackgroundColor3 = unlockClosestBase and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
-    if not unlockClosestBase then
-        restoreAllPromptDistances()
-    end
+    if not unlockClosestBase then restoreAllPromptDistances() end
 end)
 
 local btn2 = makeButton(74, "Auto-Confirm Unlock (OFF)", function(b)
@@ -261,7 +318,7 @@ local btn2 = makeButton(74, "Auto-Confirm Unlock (OFF)", function(b)
     b.BackgroundColor3 = autoConfirmUnlock and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
 end)
 
--- Defensive: restore on respawn if feature is off
+-- Defensive reset on respawn (when feature is off)
 player.CharacterAdded:Connect(function()
     if not unlockClosestBase then
         task.delay(1, restoreAllPromptDistances)
