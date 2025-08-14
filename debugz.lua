@@ -4,6 +4,7 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local GuiService = game:GetService("GuiService")
+local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -46,7 +47,7 @@ local function makeButton(y, text, onClick)
     return b
 end
 
--- Tiny banner for “press OK” fallback
+-- Tiny banner for “press OK/price” fallback
 local confirmBanner = Instance.new("TextLabel")
 confirmBanner.Size = UDim2.new(1, -12, 0, 24)
 confirmBanner.Position = UDim2.new(0, 6, 0, 6)
@@ -324,6 +325,26 @@ local function pressButton(btn)
     return ok
 end
 
+-- One-shot binding: next real input activates targetBtn, then runs afterFn (if any)
+local _oneTapConn
+local function bindOneTapPress(targetBtn, afterFn)
+    if _oneTapConn then _oneTapConn:Disconnect() end
+    _oneTapConn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if gameProcessed then return end
+        local t, k = input.UserInputType, input.KeyCode
+        if t == Enum.UserInputType.Touch
+        or t == Enum.UserInputType.MouseButton1
+        or k == Enum.KeyCode.Return
+        or k == Enum.KeyCode.KeypadEnter
+        or k == Enum.KeyCode.ButtonA then
+            pressButton(targetBtn)
+            if afterFn then pcall(afterFn) end
+            if _oneTapConn then _oneTapConn:Disconnect() _oneTapConn = nil end
+            confirmBanner.Visible = false
+        end
+    end)
+end
+
 -- Two-phase: Phase1 press the price (39..50) -> Buttons.1, then Phase2 press OK (1 or 2)
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
@@ -352,7 +373,12 @@ local function tryConfirmPurchase()
         if not pressed then
             confirmBanner.Text = ("Tap price to continue (%d)"):format(price)
             confirmBanner.Visible = true
-            task.delay(1.5, function() if confirmBanner then confirmBanner.Visible = false end end)
+            bindOneTapPress(tapBtn, function()
+                confirmPhase = "price_pressed"
+                phaseUntil = os.clock() + PHASE_TIMEOUT
+                lastConfirmAt = os.clock()
+            end)
+            return
         end
 
         confirmPhase = "price_pressed"
@@ -382,7 +408,11 @@ local function tryConfirmPurchase()
         confirmBanner.Text = "Tap OK to confirm"
         confirmBanner.Visible = true
         pcall(function() GuiService.SelectedObject = targetBtn end)
-        task.delay(2.0, function() if confirmBanner then confirmBanner.Visible = false end end)
+        bindOneTapPress(targetBtn, function()
+            confirmPhase = "idle"
+            lastConfirmAt = os.clock()
+        end)
+        return
     end
 
     confirmPhase = "idle"
@@ -438,6 +468,13 @@ RunService.Heartbeat:Connect(function()
 
     -- Auto-confirm if a purchase prompt is open
     tryConfirmPurchase()
+
+    -- Cleanup binding/banner if prompt closed
+    if not CoreGui:FindFirstChild("PurchasePromptApp") then
+        if _oneTapConn then _oneTapConn:Disconnect() _oneTapConn = nil end
+        if confirmBanner.Visible then confirmBanner.Visible = false end
+        confirmPhase = "idle"
+    end
 end)
 
 -- Toggles
