@@ -9,7 +9,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 
 -- ===== UI =====
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "BaseUnlockz by Dreamz"
+screenGui.Name = "BaseUnlockz"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
@@ -28,7 +28,7 @@ title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1,1,1)
 title.Font = Enum.Font.GothamBold
 title.TextSize = 14
-title.Text = "Base Unlock Helper"
+title.Text = "BaseUnlockz by Dreamz"
 title.Parent = frame
 
 local function makeButton(y, text, onClick)
@@ -78,7 +78,7 @@ local function findLocalPlayerBase()
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
             if owner == player.Name then
-                baseInfoLabel.Text = ("🏠 Base: %s | Tier: %s"):format(plot.Name, tostring(plot:GetAttribute("Tier") or "?"))
+                baseInfoLabel.Text = ("Base: %s | Tier: %s"):format(plot.Name, tostring(plot:GetAttribute("Tier") or "?"))
                 local animalPodiums = plot:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
                     local filled, total = 0, 0
