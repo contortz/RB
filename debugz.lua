@@ -32,6 +32,7 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BaseUnlockHelper"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
+screenGui.DisplayOrder = 10
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
@@ -194,6 +195,7 @@ local function setRowSelected(row, isSel)
     row.BackgroundColor3 = isSel and Color3.fromRGB(0,110,70) or Color3.fromRGB(55,55,55)
 end
 
+-- Selected target display + floor picker (main panel)
 local selectedLabelParent = Instance.new("Frame")
 selectedLabelParent.Size = UDim2.new(1, -12, 0, 72)
 selectedLabelParent.Position = UDim2.new(0, 6, 0, 440)
@@ -238,13 +240,20 @@ local function smallBtn(txt, onClick)
     return b
 end
 
+-- Forward declare HUD helpers (defined later)
+local refreshHUD
+
 local function selectTargetPlayer(plr)
-    if selectedTarget == plr then return end
+    if selectedTarget == plr then
+        if refreshHUD then refreshHUD() end
+        return
+    end
     if selectedRow then setRowSelected(selectedRow, false) end
     selectedTarget = plr
     selectedLabel.Text = plr and string.format("Selected: %s (%d)", plr.Name, plr.UserId) or "Selected: (none)"
     selectedRow = rowsByPlayerName[plr and plr.Name or ""]
     if selectedRow then setRowSelected(selectedRow, true) end
+    if refreshHUD then refreshHUD() end
 end
 
 local function purchaseForSelected(floor)
@@ -295,7 +304,7 @@ local function addPlayerRow(plr, order)
 
     row.MouseButton1Click:Connect(function()
         selectTargetPlayer(plr)
-        -- Manual select is allowed even while AUTO is on; AUTO may re-target next tick
+        -- AUTO may re-target next tick if enabled
     end)
 
     rowsByPlayerName[plr.Name] = row
@@ -312,7 +321,6 @@ local function rebuildPlayerList()
 
     if selectedRow then setRowSelected(selectedRow, false) end
     selectedRow = nil
-    -- keep selectedTarget if still present; re-highlight below
 
     for i, plr in ipairs(list) do
         local row = addPlayerRow(plr, i)
@@ -322,6 +330,7 @@ local function rebuildPlayerList()
         end
     end
     autoSizeCanvas()
+    if refreshHUD then refreshHUD() end
 end
 
 Players.PlayerAdded:Connect(rebuildPlayerList)
@@ -649,12 +658,72 @@ local function tryConfirmPurchase()
     lastConfirmAt = os.clock()
 end
 
--- ===== Main loop =====
-local unlockClosestBase = false
-local MAX_DIST, DEFAULT_DIST = 999999, 15
+-- ===== Top-right Quick Actions HUD (always visible) =====
+local hud = Instance.new("Frame")
+hud.Name = "QuickActionsHUD"
+hud.AnchorPoint = Vector2.new(1, 0)
+hud.Size = UDim2.new(0, 210, 0, 62)
+hud.Position = UDim2.new(1, -12, 0, 12)
+hud.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+hud.BorderSizePixel = 0
+hud.Parent = screenGui
+hud.ZIndex = 1000
 
+local hudLabel = Instance.new("TextLabel")
+hudLabel.Size = UDim2.new(1, -8, 0, 24)
+hudLabel.Position = UDim2.new(0, 4, 0, 4)
+hudLabel.BackgroundTransparency = 1
+hudLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+hudLabel.Font = Enum.Font.GothamSemibold
+hudLabel.TextScaled = true
+hudLabel.TextXAlignment = Enum.TextXAlignment.Left
+hudLabel.ZIndex = 1001
+hudLabel.Text = "Target: (none)"
+hudLabel.Parent = hud
+
+local hudRow = Instance.new("Frame")
+hudRow.Size = UDim2.new(1, -8, 0, 28)
+hudRow.Position = UDim2.new(0, 4, 0, 30)
+hudRow.BackgroundTransparency = 1
+hudRow.Parent = hud
+hudRow.ZIndex = 1001
+
+local hudLayout = Instance.new("UIListLayout")
+hudLayout.FillDirection = Enum.FillDirection.Horizontal
+hudLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+hudLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+hudLayout.Padding = UDim.new(0, 6)
+hudLayout.Parent = hudRow
+
+local function hudBtn(txt, floor)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0, 60, 0, 24)
+    b.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextScaled = true
+    b.Font = Enum.Font.GothamBold
+    b.Text = txt
+    b.Parent = hudRow
+    b.ZIndex = 1002
+    b.MouseButton1Click:Connect(function() purchaseForSelected(floor) end)
+    return b
+end
+
+hudBtn("Floor 1", 1)
+hudBtn("Floor 2", 2)
+hudBtn("Floor 3", 3)
+
+-- Keep HUD label in sync with selection
+refreshHUD = function()
+    if selectedTarget then
+        hudLabel.Text = string.format("Target: %s", selectedTarget.Name)
+    else
+        hudLabel.Text = "Target: (none)"
+    end
+end
+
+-- ===== Main loop =====
 local function autoSelectOwnerByProximity()
-    -- Only run if toggle ON and interval elapsed
     if not autoSelectBaseOwner then return end
     local now = os.clock()
     if now - lastAutoSelectCheck < AUTO_SELECT_INTERVAL then return end
@@ -664,16 +733,26 @@ local function autoSelectOwnerByProximity()
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    local plots = plotsFolder()
+    local plots = Workspace:FindFirstChild("Plots")
     if not plots then return end
 
     local closestPlot, closestDist = nil, math.huge
     for _, plot in ipairs(plots:GetChildren()) do
-        local owner = getPlotOwner(plot)
+        local sign = plot:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local fr = gui and gui:FindFirstChild("Frame")
+        local label = fr and fr:FindFirstChild("TextLabel")
+        local owner = label and label.Text and label.Text:match("^(.-)'s Base") or nil
         if owner and owner ~= player.Name then
-            local anchor = plotAnchorPosition(plot)
-            if anchor then
-                local d = (anchor - hrp.Position).Magnitude
+            local anchor = plot:FindFirstChild("MainRoot")
+            local pos = anchor and anchor.Position or (plot.PrimaryPart and plot.PrimaryPart.Position)
+            if not pos then
+                for _, d in ipairs(plot:GetDescendants()) do
+                    if d:IsA("BasePart") then pos = d.Position break end
+                end
+            end
+            if pos then
+                local d = (pos - hrp.Position).Magnitude
                 if d < closestDist then
                     closestDist = d
                     closestPlot = plot
@@ -683,19 +762,20 @@ local function autoSelectOwnerByProximity()
     end
 
     if closestPlot and (closestDist <= BASE_SELECT_RADIUS or BASE_SELECT_RADIUS == math.huge) then
-        local ownerName = getPlotOwner(closestPlot)
+        local sign = closestPlot:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local fr = gui and gui:FindFirstChild("Frame")
+        local label = fr and fr:FindFirstChild("TextLabel")
+        local ownerName = label and label.Text and label.Text:match("^(.-)'s Base") or nil
         if ownerName and ownerName ~= player.Name then
             local plr = Players:FindFirstChild(ownerName)
-            if plr then
-                selectTargetPlayer(plr)
-            end
+            if plr then selectTargetPlayer(plr) end
         end
     end
 end
 
 RunService.Heartbeat:Connect(function()
     if os.clock() - lastTune < RETUNE_INTERVAL then
-        -- still do proximity selection at a separate cadence
         autoSelectOwnerByProximity()
         return
     end
@@ -703,15 +783,11 @@ RunService.Heartbeat:Connect(function()
 
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then
-        autoSelectOwnerByProximity()
-        return
-    end
 
-    -- Adjust prompt distances (only if you still use this feature elsewhere)
+    -- Adjust prompt distances (optional feature toggle)
     local pairsList = getAllUnlockPromptsMapped()
-    if unlockClosestBase and #pairsList > 0 then
-        local pf = plotsFolder()
+    if unlockClosestBase and #pairsList > 0 and hrp then
+        local pf = Workspace:FindFirstChild("Plots")
         local closestEnemyPlot, closestDist = nil, math.huge
         if pf then
             for _, plot in ipairs(pf:GetChildren()) do
@@ -721,8 +797,7 @@ RunService.Heartbeat:Connect(function()
                     if anchor then
                         local d = (anchor - hrp.Position).Magnitude
                         if d < closestDist then
-                            closestDist = d
-                            closestEnemyPlot = plot
+                            closestDist = d; closestEnemyPlot = plot
                         end
                     end
                 end
@@ -757,7 +832,7 @@ RunService.Heartbeat:Connect(function()
     autoSelectOwnerByProximity()
 end)
 
--- Toggles
+-- Toggles (existing)
 local btn1 = makeButton(40, "Unlock Closest Base Only (OFF)", function(b)
     unlockClosestBase = not unlockClosestBase
     b.Text = unlockClosestBase and "Unlock Closest Base Only (ON)" or "Unlock Closest Base Only (OFF)"
@@ -777,4 +852,5 @@ player.CharacterAdded:Connect(function()
     if not unlockClosestBase then
         task.delay(1, restoreAllPromptDistances)
     end
+    if refreshHUD then refreshHUD() end
 end)
