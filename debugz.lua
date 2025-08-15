@@ -17,8 +17,8 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 220)
-frame.Position = UDim2.new(0, 24, 0.5, -110)
+frame.Size = UDim2.new(0, 300, 0, 420) -- increased height to fit player list
+frame.Position = UDim2.new(0, 24, 0.5, -210)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -79,6 +79,84 @@ slotInfoLabel.TextScaled = true
 slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.Parent = frame
+
+-- === Players list (Name — UserId) ===
+local playersHeader = Instance.new("TextLabel")
+playersHeader.Size = UDim2.new(1, -10, 0, 22)
+playersHeader.Position = UDim2.new(0, 5, 0, 184)
+playersHeader.BackgroundTransparency = 1
+playersHeader.TextColor3 = Color3.fromRGB(200, 220, 255)
+playersHeader.TextScaled = true
+playersHeader.Font = Enum.Font.GothamSemibold
+playersHeader.Text = "Players (Name — UserId)"
+playersHeader.Parent = frame
+
+local playerList = Instance.new("ScrollingFrame")
+playerList.Name = "PlayerList"
+playerList.Size = UDim2.new(1, -12, 0, 200)
+playerList.Position = UDim2.new(0, 6, 0, 210)
+playerList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+playerList.BorderSizePixel = 0
+playerList.ScrollBarThickness = 6
+playerList.CanvasSize = UDim2.new(0, 0, 0, 0)
+playerList.Parent = frame
+
+local uiPadding = Instance.new("UIPadding")
+uiPadding.PaddingTop = UDim.new(0, 6)
+uiPadding.PaddingBottom = UDim.new(0, 6)
+uiPadding.PaddingLeft = UDim.new(0, 6)
+uiPadding.PaddingRight = UDim.new(0, 6)
+uiPadding.Parent = playerList
+
+local listLayout = Instance.new("UIListLayout")
+listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+listLayout.Padding = UDim.new(0, 4)
+listLayout.Parent = playerList
+
+local function autoSizeCanvas()
+    playerList.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 12)
+end
+listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(autoSizeCanvas)
+
+local function addPlayerRow(plr, order)
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1, 0, 0, 24)
+    row.BackgroundColor3 = Color3.fromRGB(55, 55, 55)
+    row.BorderSizePixel = 0
+    row.LayoutOrder = order or 0
+    row.Parent = playerList
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -8, 1, 0)
+    lbl.Position = UDim2.new(0, 4, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextScaled = true
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextColor3 = Color3.new(1, 1, 1)
+    lbl.Text = string.format("%s — %d", plr.Name, plr.UserId)
+    lbl.Parent = row
+
+    return row
+end
+
+local function rebuildPlayerList()
+    -- clear rows (keep padding & layout)
+    for _, child in ipairs(playerList:GetChildren()) do
+        if child:IsA("Frame") then child:Destroy() end
+    end
+    -- sort by name
+    local list = Players:GetPlayers()
+    table.sort(list, function(a, b) return a.Name:lower() < b.Name:lower() end)
+    for i, plr in ipairs(list) do
+        addPlayerRow(plr, i)
+    end
+    autoSizeCanvas()
+end
+
+Players.PlayerAdded:Connect(rebuildPlayerList)
+Players.PlayerRemoving:Connect(rebuildPlayerList)
+task.defer(rebuildPlayerList)
 
 -- Show your base info
 local function findLocalPlayerBase()
@@ -188,7 +266,6 @@ end
 --  A) Workspace.Plots.<plot>.Unlock...
 --  B) Workspace.Unlock.<plotName>...
 local function getAllUnlockPromptsMapped()
-    -- returns array of {prompt = ProximityPrompt, plot = Model}
     local mapped = {}
 
     local plots = plotsFolder()
@@ -432,7 +509,6 @@ RunService.Heartbeat:Connect(function()
 
     -- Only run boosting if toggled on
     if unlockClosestBase and #pairsList > 0 then
-        -- Determine the enemy plot closest to YOU
         local pf = plotsFolder()
         local closestEnemyPlot, closestDist = nil, math.huge
         if pf then
