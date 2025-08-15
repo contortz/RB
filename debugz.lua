@@ -21,6 +21,12 @@ local ProductIds = {
     [3] = 3312023715, -- Floor 3
 }
 
+-- ===== Proximity auto-select config =====
+local AUTO_SELECT_INTERVAL = 0.25      -- seconds between checks
+local BASE_SELECT_RADIUS   = 80        -- studs; set to math.huge to always pick nearest
+local lastAutoSelectCheck  = 0
+local autoSelectBaseOwner  = false     -- toggled by "AUTO" button
+
 -- ===== UI =====
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "BaseUnlockHelper"
@@ -29,7 +35,7 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 520) -- tall to fit player list + picker
+frame.Size = UDim2.new(0, 300, 0, 520)
 frame.Position = UDim2.new(0, 24, 0.5, -260)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
@@ -45,7 +51,7 @@ title.TextSize = 14
 title.Text = "Base Unlock Helper"
 title.Parent = frame
 
--- === Minimize UI ===
+-- Minimize & Restore icon
 local minimizeBtn = Instance.new("TextButton")
 minimizeBtn.Size = UDim2.new(0, 24, 0, 24)
 minimizeBtn.Position = UDim2.new(1, -28, 0, 2)
@@ -53,15 +59,14 @@ minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
 minimizeBtn.ZIndex = 1000
-minimizeBtn.AutoButtonColor = true
 minimizeBtn.Parent = frame
 
 local miniIcon = Instance.new("ImageButton")
 miniIcon.Name = "RestoreIcon"
 miniIcon.Size = UDim2.new(0, 60, 0, 60)
-miniIcon.Position = UDim2.new(0, 15, 0.27, -50) -- tweak as you like
+miniIcon.Position = UDim2.new(0, 15, 0.27, -50)
 miniIcon.BackgroundTransparency = 1
-miniIcon.Image = "rbxassetid://76154122039576" -- your icon asset
+miniIcon.Image = "rbxassetid://76154122039576"
 miniIcon.ZIndex = 1000
 miniIcon.Visible = false
 miniIcon.Parent = screenGui
@@ -74,6 +79,25 @@ miniIcon.MouseButton1Click:Connect(function()
     frame.Visible = true
     miniIcon.Visible = false
 end)
+
+-- NEW: Auto-select toggle on title bar
+local autoBtn = Instance.new("TextButton")
+autoBtn.Size = UDim2.new(0, 48, 0, 24)
+autoBtn.Position = UDim2.new(1, -80, 0, 2)
+autoBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+autoBtn.TextColor3 = Color3.new(1,1,1)
+autoBtn.Font = Enum.Font.GothamBold
+autoBtn.TextScaled = true
+autoBtn.Text = "AUTO"
+autoBtn.Parent = frame
+local function paintAuto()
+    autoBtn.BackgroundColor3 = autoSelectBaseOwner and Color3.fromRGB(0,170,0) or Color3.fromRGB(60,60,60)
+end
+autoBtn.MouseButton1Click:Connect(function()
+    autoSelectBaseOwner = not autoSelectBaseOwner
+    paintAuto()
+end)
+paintAuto()
 
 local function makeButton(y, text, onClick)
     local b = Instance.new("TextButton")
@@ -89,7 +113,7 @@ local function makeButton(y, text, onClick)
     return b
 end
 
--- Tiny banner for “press OK/price” fallback
+-- Tiny banner for hints
 local confirmBanner = Instance.new("TextLabel")
 confirmBanner.Size = UDim2.new(1, -12, 0, 24)
 confirmBanner.Position = UDim2.new(0, 6, 0, 6)
@@ -160,21 +184,22 @@ local function autoSizeCanvas()
 end
 listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(autoSizeCanvas)
 
--- Selection state
-local selectedTarget -- Player or nil
-local selectedRow -- Frame/TextButton or nil
+-- Selection + rows map
+local selectedTarget -- Player
+local selectedRow -- TextButton
+local rowsByPlayerName = {} -- [player.Name] = row
+
 local function setRowSelected(row, isSel)
     if not row then return end
     row.BackgroundColor3 = isSel and Color3.fromRGB(0,110,70) or Color3.fromRGB(55,55,55)
 end
 
--- Selected target display + floor picker
-local pickerBox = Instance.new("Frame")
-pickerBox.Size = UDim2.new(1, -12, 0, 72)
-pickerBox.Position = UDim2.new(0, 6, 0, 440)
-pickerBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-pickerBox.BorderSizePixel = 0
-pickerBox.Parent = frame
+local selectedLabelParent = Instance.new("Frame")
+selectedLabelParent.Size = UDim2.new(1, -12, 0, 72)
+selectedLabelParent.Position = UDim2.new(0, 6, 0, 440)
+selectedLabelParent.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+selectedLabelParent.BorderSizePixel = 0
+selectedLabelParent.Parent = frame
 
 local selectedLabel = Instance.new("TextLabel")
 selectedLabel.Size = UDim2.new(1, -8, 0, 22)
@@ -185,13 +210,13 @@ selectedLabel.Font = Enum.Font.GothamSemibold
 selectedLabel.TextScaled = true
 selectedLabel.TextXAlignment = Enum.TextXAlignment.Left
 selectedLabel.Text = "Selected: (none)"
-selectedLabel.Parent = pickerBox
+selectedLabel.Parent = selectedLabelParent
 
 local buttonsRow = Instance.new("Frame")
 buttonsRow.Size = UDim2.new(1, -8, 0, 36)
 buttonsRow.Position = UDim2.new(0, 4, 0, 30)
 buttonsRow.BackgroundTransparency = 1
-buttonsRow.Parent = pickerBox
+buttonsRow.Parent = selectedLabelParent
 
 local rowLayout = Instance.new("UIListLayout")
 rowLayout.FillDirection = Enum.FillDirection.Horizontal
@@ -213,25 +238,33 @@ local function smallBtn(txt, onClick)
     return b
 end
 
+local function selectTargetPlayer(plr)
+    if selectedTarget == plr then return end
+    if selectedRow then setRowSelected(selectedRow, false) end
+    selectedTarget = plr
+    selectedLabel.Text = plr and string.format("Selected: %s (%d)", plr.Name, plr.UserId) or "Selected: (none)"
+    selectedRow = rowsByPlayerName[plr and plr.Name or ""]
+    if selectedRow then setRowSelected(selectedRow, true) end
+end
+
 local function purchaseForSelected(floor)
     if not selectedTarget then
         confirmBanner.Text = "Select a player first"
         confirmBanner.Visible = true
-        task.delay(1.5, function() if confirmBanner then confirmBanner.Visible = false end end)
+        task.delay(1.2, function() if confirmBanner then confirmBanner.Visible = false end end)
         return
     end
     local productId = ProductIds[floor]
     if not (PurchaseRE and productId) then
         confirmBanner.Text = "Purchase remote not found"
         confirmBanner.Visible = true
-        task.delay(1.5, function() if confirmBanner then confirmBanner.Visible = false end end)
+        task.delay(1.2, function() if confirmBanner then confirmBanner.Visible = false end end)
         return
     end
-    local userId = selectedTarget.UserId -- Arg 2
-    PurchaseRE:FireServer(productId, userId)
+    PurchaseRE:FireServer(productId, selectedTarget.UserId)
     confirmBanner.Text = ("Sent: %s → Floor %d"):format(selectedTarget.Name, floor)
     confirmBanner.Visible = true
-    task.delay(1.2, function() if confirmBanner then confirmBanner.Visible = false end end)
+    task.delay(1.0, function() if confirmBanner then confirmBanner.Visible = false end end)
 end
 
 smallBtn("Floor 1", function() purchaseForSelected(1) end)
@@ -261,29 +294,32 @@ local function addPlayerRow(plr, order)
     lbl.Parent = row
 
     row.MouseButton1Click:Connect(function()
-        if selectedRow and selectedRow ~= row then setRowSelected(selectedRow, false) end
-        selectedRow = row
-        setRowSelected(row, true)
-        selectedTarget = plr
-        selectedLabel.Text = string.format("Selected: %s (%d)", plr.Name, plr.UserId)
+        selectTargetPlayer(plr)
+        -- Manual select is allowed even while AUTO is on; AUTO may re-target next tick
     end)
 
+    rowsByPlayerName[plr.Name] = row
     return row
 end
 
 local function rebuildPlayerList()
+    rowsByPlayerName = {}
     for _, child in ipairs(playerList:GetChildren()) do
         if child:IsA("TextButton") then child:Destroy() end
     end
     local list = Players:GetPlayers()
     table.sort(list, function(a, b) return a.Name:lower() < b.Name:lower() end)
 
+    if selectedRow then setRowSelected(selectedRow, false) end
     selectedRow = nil
-    selectedTarget = nil
-    selectedLabel.Text = "Selected: (none)"
+    -- keep selectedTarget if still present; re-highlight below
 
     for i, plr in ipairs(list) do
-        addPlayerRow(plr, i)
+        local row = addPlayerRow(plr, i)
+        if selectedTarget and plr == selectedTarget then
+            selectedRow = row
+            setRowSelected(selectedRow, true)
+        end
     end
     autoSizeCanvas()
 end
@@ -291,15 +327,13 @@ end
 Players.PlayerAdded:Connect(rebuildPlayerList)
 Players.PlayerRemoving:Connect(function(rem)
     if selectedTarget == rem then
-        selectedTarget = nil
-        selectedRow = nil
-        selectedLabel.Text = "Selected: (none)"
+        selectTargetPlayer(nil)
     end
     rebuildPlayerList()
 end)
 task.defer(rebuildPlayerList)
 
--- Show your base info
+-- Show your own base info
 local function findLocalPlayerBase()
     local plots = Workspace:FindFirstChild("Plots")
     if not plots then return end
@@ -336,26 +370,25 @@ local function findLocalPlayerBase()
 end
 task.delay(1, findLocalPlayerBase)
 
--- ===== State / consts =====
-local unlockClosestBase = false      -- Toggle 1
-local autoConfirmUnlock = false      -- Toggle 2
+-- ===== Existing state / consts for prompts & confirm =====
+local unlockClosestBase = false
+local autoConfirmUnlock = false
 
 local MAX_DIST = 999999
 local DEFAULT_DIST = 15
 local RETUNE_INTERVAL = 0.10
 local lastTune = 0
 
--- auto-confirm throttles + phasing
 local PRICE_MIN, PRICE_MAX = 39, 50
 local lastConfirmAt = 0
 local CONFIRM_COOLDOWN = 1.2
-local confirmPhase = "idle"     -- "idle" | "price_pressed"
+local confirmPhase = "idle"
 local PHASE_TIMEOUT = 3.0
 local phaseUntil = 0
 
 local originalPromptDist = setmetatable({}, { __mode = "k" })
 
--- ===== Helpers =====
+-- ===== Helpers (plots & prompts) =====
 local function plotsFolder() return Workspace:FindFirstChild("Plots") end
 
 local function getPlotOwner(plotModel)
@@ -368,7 +401,6 @@ local function getPlotOwner(plotModel)
     end
 end
 
--- Preferred anchor position: MainRoot; then StealHitBox; then PrimaryPart; then any BasePart
 local function plotAnchorPosition(plot)
     local mainRoot = plot:FindFirstChild("MainRoot")
     if mainRoot and mainRoot:IsA("BasePart") then return mainRoot.Position end
@@ -382,19 +414,16 @@ local function plotAnchorPosition(plot)
 end
 
 local function getPlotByName(name)
-    local plots = plotsFolder()
-    if not plots then return nil end
-    return plots:FindFirstChild(name)
+    local pf = plotsFolder()
+    return pf and pf:FindFirstChild(name) or nil
 end
 
--- Identify unlock prompts robustly (name or ActionText prefix)
 local function isUnlockPrompt(d)
     return d:IsA("ProximityPrompt")
        and (d.Name == "UnlockBase"
             or (typeof(d.ActionText) == "string" and d.ActionText:sub(1, 11) == "Unlock Base"))
 end
 
--- Build the ActionText with Floor tag if present
 local function actionTextWithFloor(prompt)
     local floorAttr = prompt:GetAttribute("Floor")
     if floorAttr ~= nil then
@@ -403,10 +432,8 @@ local function actionTextWithFloor(prompt)
     return "Unlock Base"
 end
 
--- Collect prompts (both layouts supported)
 local function getAllUnlockPromptsMapped()
     local mapped = {}
-
     local plots = plotsFolder()
     if plots then
         for _, plot in ipairs(plots:GetChildren()) do
@@ -420,7 +447,6 @@ local function getAllUnlockPromptsMapped()
             end
         end
     end
-
     local globalUnlock = Workspace:FindFirstChild("Unlock")
     if globalUnlock then
         for _, holder in ipairs(globalUnlock:GetChildren()) do
@@ -453,7 +479,6 @@ local function getAllUnlockPromptsMapped()
             end
         end
     end
-
     return mapped
 end
 
@@ -483,7 +508,6 @@ local function looksLikeOK(s)
     return (s == "ok" or s == "okay" or s == "ok!")
 end
 
--- Find first number (as text) anywhere under root
 local function findNumberNodeIn(root, minV, maxV)
     for _, d in ipairs(root:GetDescendants()) do
         if (d:IsA("TextLabel") or d:IsA("TextButton")) and typeof(d.Text) == "string" then
@@ -499,7 +523,6 @@ local function findNumberNodeIn(root, minV, maxV)
     return nil
 end
 
--- OK present as text or icon
 local function holderHasOK(holder)
     if not holder then return nil end
     for _, d in ipairs(holder:GetDescendants()) do
@@ -526,9 +549,7 @@ end
 local function pressButton(btn)
     if not btn then return false end
     local ok = false
-    if btn.Activate then
-        ok = pcall(function() btn:Activate() end)
-    end
+    if btn.Activate then ok = pcall(function() btn:Activate() end) end
     if not ok and typeof(firesignal) == "function" then
         pcall(function()
             if btn.MouseButton1Down then firesignal(btn.MouseButton1Down) end
@@ -541,7 +562,7 @@ local function pressButton(btn)
     return ok
 end
 
--- One-shot binding: next real input activates targetBtn, then runs afterFn (if any)
+-- One-shot binding for real input
 local _oneTapConn
 local function bindOneTapPress(targetBtn, afterFn)
     if _oneTapConn then _oneTapConn:Disconnect() end
@@ -560,14 +581,6 @@ local function bindOneTapPress(targetBtn, afterFn)
         end
     end)
 end
-
--- Two-phase purchase confirm
-local lastConfirmAt = 0
-local CONFIRM_COOLDOWN = 1.2
-local confirmPhase = "idle"
-local PHASE_TIMEOUT = 3.0
-local PRICE_MIN, PRICE_MAX = 39, 50
-local phaseUntil = 0
 
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
@@ -636,17 +649,67 @@ local function tryConfirmPurchase()
     lastConfirmAt = os.clock()
 end
 
--- ===== Main loop: choose closest ENEMY plot (by MainRoot) and boost its prompts =====
+-- ===== Main loop =====
+local unlockClosestBase = false
+local MAX_DIST, DEFAULT_DIST = 999999, 15
+
+local function autoSelectOwnerByProximity()
+    -- Only run if toggle ON and interval elapsed
+    if not autoSelectBaseOwner then return end
+    local now = os.clock()
+    if now - lastAutoSelectCheck < AUTO_SELECT_INTERVAL then return end
+    lastAutoSelectCheck = now
+
+    local char = player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local plots = plotsFolder()
+    if not plots then return end
+
+    local closestPlot, closestDist = nil, math.huge
+    for _, plot in ipairs(plots:GetChildren()) do
+        local owner = getPlotOwner(plot)
+        if owner and owner ~= player.Name then
+            local anchor = plotAnchorPosition(plot)
+            if anchor then
+                local d = (anchor - hrp.Position).Magnitude
+                if d < closestDist then
+                    closestDist = d
+                    closestPlot = plot
+                end
+            end
+        end
+    end
+
+    if closestPlot and (closestDist <= BASE_SELECT_RADIUS or BASE_SELECT_RADIUS == math.huge) then
+        local ownerName = getPlotOwner(closestPlot)
+        if ownerName and ownerName ~= player.Name then
+            local plr = Players:FindFirstChild(ownerName)
+            if plr then
+                selectTargetPlayer(plr)
+            end
+        end
+    end
+end
+
 RunService.Heartbeat:Connect(function()
-    if os.clock() - lastTune < RETUNE_INTERVAL then return end
+    if os.clock() - lastTune < RETUNE_INTERVAL then
+        -- still do proximity selection at a separate cadence
+        autoSelectOwnerByProximity()
+        return
+    end
     lastTune = os.clock()
 
     local char = player.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    if not hrp then
+        autoSelectOwnerByProximity()
+        return
+    end
 
+    -- Adjust prompt distances (only if you still use this feature elsewhere)
     local pairsList = getAllUnlockPromptsMapped()
-
     if unlockClosestBase and #pairsList > 0 then
         local pf = plotsFolder()
         local closestEnemyPlot, closestDist = nil, math.huge
@@ -665,7 +728,6 @@ RunService.Heartbeat:Connect(function()
                 end
             end
         end
-
         if closestEnemyPlot then
             for _, pair in ipairs(pairsList) do
                 if pair.plot == closestEnemyPlot then
@@ -690,6 +752,9 @@ RunService.Heartbeat:Connect(function()
         if confirmBanner.Visible then confirmBanner.Visible = false end
         confirmPhase = "idle"
     end
+
+    -- Proximity auto-select runs each frame too (on its own interval)
+    autoSelectOwnerByProximity()
 end)
 
 -- Toggles
@@ -706,10 +771,10 @@ local btn2 = makeButton(74, "Auto-Confirm (39–50 then OK) (OFF)", function(b)
     b.BackgroundColor3 = autoConfirmUnlock and Color3.fromRGB(0,170,0) or Color3.fromRGB(50,50,50)
 end)
 
--- Defensive reset on respawn (when feature is off)
+-- Defensive reset on respawn
 player.CharacterAdded:Connect(function()
+    task.delay(1, findLocalPlayerBase)
     if not unlockClosestBase then
         task.delay(1, restoreAllPromptDistances)
-        task.delay(1, findLocalPlayerBase)
     end
 end)
