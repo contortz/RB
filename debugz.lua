@@ -29,7 +29,7 @@ screenGui.IgnoreGuiInset = true
 screenGui.Parent = playerGui
 
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 300, 0, 520) -- taller to fit player list + floor picker
+frame.Size = UDim2.new(0, 300, 0, 520) -- tall to fit player list + picker
 frame.Position = UDim2.new(0, 24, 0.5, -260)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
@@ -44,6 +44,36 @@ title.Font = Enum.Font.GothamBold
 title.TextSize = 14
 title.Text = "Base Unlock Helper"
 title.Parent = frame
+
+-- === Minimize UI ===
+local minimizeBtn = Instance.new("TextButton")
+minimizeBtn.Size = UDim2.new(0, 24, 0, 24)
+minimizeBtn.Position = UDim2.new(1, -28, 0, 2)
+minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
+minimizeBtn.Text = "-"
+minimizeBtn.ZIndex = 1000
+minimizeBtn.AutoButtonColor = true
+minimizeBtn.Parent = frame
+
+local miniIcon = Instance.new("ImageButton")
+miniIcon.Name = "RestoreIcon"
+miniIcon.Size = UDim2.new(0, 60, 0, 60)
+miniIcon.Position = UDim2.new(0, 15, 0.27, -50) -- tweak as you like
+miniIcon.BackgroundTransparency = 1
+miniIcon.Image = "rbxassetid://76154122039576" -- your icon asset
+miniIcon.ZIndex = 1000
+miniIcon.Visible = false
+miniIcon.Parent = screenGui
+
+minimizeBtn.MouseButton1Click:Connect(function()
+    frame.Visible = false
+    miniIcon.Visible = true
+end)
+miniIcon.MouseButton1Click:Connect(function()
+    frame.Visible = true
+    miniIcon.Visible = false
+end)
 
 local function makeButton(y, text, onClick)
     local b = Instance.new("TextButton")
@@ -92,7 +122,7 @@ slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.Parent = frame
 
--- === Players list (Name — UserId) ===
+-- === Players list (tap to select) ===
 local playersHeader = Instance.new("TextLabel")
 playersHeader.Size = UDim2.new(1, -10, 0, 22)
 playersHeader.Position = UDim2.new(0, 5, 0, 184)
@@ -130,13 +160,12 @@ local function autoSizeCanvas()
 end
 listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(autoSizeCanvas)
 
--- Selection state for target player
-local selectedTarget: Player? = nil
-local selectedRow: Instance? = nil
-
+-- Selection state
+local selectedTarget -- Player or nil
+local selectedRow -- Frame/TextButton or nil
 local function setRowSelected(row, isSel)
     if not row then return end
-    row.BackgroundColor3 = isSel and Color3.fromRGB(0, 110, 70) or Color3.fromRGB(55, 55, 55)
+    row.BackgroundColor3 = isSel and Color3.fromRGB(0,110,70) or Color3.fromRGB(55,55,55)
 end
 
 -- Selected target display + floor picker
@@ -199,7 +228,6 @@ local function purchaseForSelected(floor)
         return
     end
     local userId = selectedTarget.UserId -- Arg 2
-    -- Fire: Arg1=ProductId (floor), Arg2=UserId (target)
     PurchaseRE:FireServer(productId, userId)
     confirmBanner.Text = ("Sent: %s → Floor %d"):format(selectedTarget.Name, floor)
     confirmBanner.Visible = true
@@ -210,7 +238,7 @@ smallBtn("Floor 1", function() purchaseForSelected(1) end)
 smallBtn("Floor 2", function() purchaseForSelected(2) end)
 smallBtn("Floor 3", function() purchaseForSelected(3) end)
 
--- Build each player row (clickable)
+-- Build player rows
 local function addPlayerRow(plr, order)
     local row = Instance.new("TextButton")
     row.Size = UDim2.new(1, 0, 0, 24)
@@ -271,7 +299,7 @@ Players.PlayerRemoving:Connect(function(rem)
 end)
 task.defer(rebuildPlayerList)
 
--- ===== Base info (unchanged) =====
+-- Show your base info
 local function findLocalPlayerBase()
     local plots = Workspace:FindFirstChild("Plots")
     if not plots then return end
@@ -327,7 +355,7 @@ local phaseUntil = 0
 
 local originalPromptDist = setmetatable({}, { __mode = "k" })
 
--- ===== Helpers (plot + prompts) =====
+-- ===== Helpers =====
 local function plotsFolder() return Workspace:FindFirstChild("Plots") end
 
 local function getPlotOwner(plotModel)
@@ -340,6 +368,7 @@ local function getPlotOwner(plotModel)
     end
 end
 
+-- Preferred anchor position: MainRoot; then StealHitBox; then PrimaryPart; then any BasePart
 local function plotAnchorPosition(plot)
     local mainRoot = plot:FindFirstChild("MainRoot")
     if mainRoot and mainRoot:IsA("BasePart") then return mainRoot.Position end
@@ -358,12 +387,14 @@ local function getPlotByName(name)
     return plots:FindFirstChild(name)
 end
 
+-- Identify unlock prompts robustly (name or ActionText prefix)
 local function isUnlockPrompt(d)
     return d:IsA("ProximityPrompt")
        and (d.Name == "UnlockBase"
             or (typeof(d.ActionText) == "string" and d.ActionText:sub(1, 11) == "Unlock Base"))
 end
 
+-- Build the ActionText with Floor tag if present
 local function actionTextWithFloor(prompt)
     local floorAttr = prompt:GetAttribute("Floor")
     if floorAttr ~= nil then
@@ -372,8 +403,10 @@ local function actionTextWithFloor(prompt)
     return "Unlock Base"
 end
 
+-- Collect prompts (both layouts supported)
 local function getAllUnlockPromptsMapped()
     local mapped = {}
+
     local plots = plotsFolder()
     if plots then
         for _, plot in ipairs(plots:GetChildren()) do
@@ -387,6 +420,7 @@ local function getAllUnlockPromptsMapped()
             end
         end
     end
+
     local globalUnlock = Workspace:FindFirstChild("Unlock")
     if globalUnlock then
         for _, holder in ipairs(globalUnlock:GetChildren()) do
@@ -419,6 +453,7 @@ local function getAllUnlockPromptsMapped()
             end
         end
     end
+
     return mapped
 end
 
@@ -448,6 +483,7 @@ local function looksLikeOK(s)
     return (s == "ok" or s == "okay" or s == "ok!")
 end
 
+-- Find first number (as text) anywhere under root
 local function findNumberNodeIn(root, minV, maxV)
     for _, d in ipairs(root:GetDescendants()) do
         if (d:IsA("TextLabel") or d:IsA("TextButton")) and typeof(d.Text) == "string" then
@@ -463,6 +499,7 @@ local function findNumberNodeIn(root, minV, maxV)
     return nil
 end
 
+-- OK present as text or icon
 local function holderHasOK(holder)
     if not holder then return nil end
     for _, d in ipairs(holder:GetDescendants()) do
@@ -524,6 +561,7 @@ local function bindOneTapPress(targetBtn, afterFn)
     end)
 end
 
+-- Two-phase purchase confirm
 local lastConfirmAt = 0
 local CONFIRM_COOLDOWN = 1.2
 local confirmPhase = "idle"
@@ -531,7 +569,6 @@ local PHASE_TIMEOUT = 3.0
 local PRICE_MIN, PRICE_MAX = 39, 50
 local phaseUntil = 0
 
--- Two-phase: Phase1 press the price (39..50) -> Buttons.1, then Phase2 press OK (1 or 2)
 local function tryConfirmPurchase()
     if not autoConfirmUnlock then return end
     if os.clock() - lastConfirmAt < CONFIRM_COOLDOWN then return end
@@ -550,8 +587,7 @@ local function tryConfirmPurchase()
     if confirmPhase ~= "price_pressed" then
         local anyNumNode, price = findNumberNodeIn(prompt, PRICE_MIN, PRICE_MAX)
         if not anyNumNode then return end
-        local tapBtn = clickableIn(holder1)
-        if not tapBtn then return end
+        local tapBtn = clickableIn(holder1); if not tapBtn then return end
 
         local pressed = pressButton(tapBtn)
         if not pressed then
@@ -564,7 +600,6 @@ local function tryConfirmPurchase()
             end)
             return
         end
-
         confirmPhase = "price_pressed"
         phaseUntil = os.clock() + PHASE_TIMEOUT
         lastConfirmAt = os.clock()
@@ -602,122 +637,6 @@ local function tryConfirmPurchase()
 end
 
 -- ===== Main loop: choose closest ENEMY plot (by MainRoot) and boost its prompts =====
-local unlockClosestBase = false
-local autoConfirmUnlock = false
-local MAX_DIST, DEFAULT_DIST = 999999, 15
-local RETUNE_INTERVAL, lastTune = 0.10, 0
-local originalPromptDist = setmetatable({}, { __mode = "k" })
-
-local function getAllUnlockPromptsMapped()
-    local mapped = {}
-    local function isUnlockPrompt(d)
-        return d:IsA("ProximityPrompt")
-           and (d.Name == "UnlockBase"
-                or (typeof(d.ActionText) == "string" and d.ActionText:sub(1, 11) == "Unlock Base"))
-    end
-    local function actionTextWithFloor(prompt)
-        local floorAttr = prompt:GetAttribute("Floor")
-        if floorAttr ~= nil then
-            return ("Unlock Base (%s)"):format(tostring(floorAttr))
-        end
-        return "Unlock Base"
-    end
-    local function setPromptDistance(prompt, dist)
-        if originalPromptDist[prompt] == nil then
-            originalPromptDist[prompt] = prompt.MaxActivationDistance
-        end
-        prompt.RequiresLineOfSight = false
-        prompt.ClickablePrompt = true
-        prompt.ActionText = actionTextWithFloor(prompt)
-        prompt.MaxActivationDistance = dist
-    end
-
-    -- expose helpers to outer scope
-    _G.__setPromptDistance = setPromptDistance
-    _G.__actionTextWithFloor = actionTextWithFloor
-
-    local plots = Workspace:FindFirstChild("Plots")
-    if plots then
-        for _, plot in ipairs(plots:GetChildren()) do
-            local unlock = plot:FindFirstChild("Unlock")
-            if unlock then
-                for _, d in ipairs(unlock:GetDescendants()) do
-                    if isUnlockPrompt(d) then
-                        table.insert(mapped, {prompt = d, plot = plot})
-                    end
-                end
-            end
-        end
-    end
-    local function plotsFolder() return Workspace:FindFirstChild("Plots") end
-    local function plotAnchorPosition(plot)
-        local mainRoot = plot:FindFirstChild("MainRoot")
-        if mainRoot and mainRoot:IsA("BasePart") then return mainRoot.Position end
-        local hb = plot:FindFirstChild("StealHitBox")
-        if hb and hb:IsA("BasePart") then return hb.Position end
-        if plot:IsA("Model") and plot.PrimaryPart then return plot.PrimaryPart.Position end
-        for _, d in ipairs(plot:GetDescendants()) do
-            if d:IsA("BasePart") then return d.Position end
-        end
-        return nil
-    end
-    local function getPlotByName(name)
-        local plots = plotsFolder()
-        if not plots then return nil end
-        return plots:FindFirstChild(name)
-    end
-
-    local globalUnlock = Workspace:FindFirstChild("Unlock")
-    if globalUnlock then
-        for _, holder in ipairs(globalUnlock:GetChildren()) do
-            local plot = getPlotByName(holder.Name)
-            for _, d in ipairs(holder:GetDescendants()) do
-                if isUnlockPrompt(d) then
-                    if not plot then
-                        local parent, pos = d.Parent, nil
-                        if parent then
-                            if parent:IsA("BasePart") then pos = parent.Position
-                            elseif parent:IsA("Model") and parent.PrimaryPart then pos = parent.PrimaryPart.Position end
-                        end
-                        if pos then
-                            local best, bestD = nil, math.huge
-                            local pf = plotsFolder()
-                            if pf then
-                                for _, p in ipairs(pf:GetChildren()) do
-                                    local a = plotAnchorPosition(p)
-                                    if a then
-                                        local dd = (a - pos).Magnitude
-                                        if dd < bestD then bestD = dd; best = p end
-                                    end
-                                end
-                            end
-                            plot = best
-                        end
-                    end
-                    table.insert(mapped, {prompt = d, plot = plot})
-                end
-            end
-        end
-    end
-    return mapped
-end
-
-local function setPromptDistance(prompt, dist)
-    _G.__setPromptDistance(prompt, dist)
-end
-local function actionTextWithFloor(prompt)
-    return _G.__actionTextWithFloor(prompt)
-end
-
-local function restoreAllPromptDistances()
-    for _, pair in ipairs(getAllUnlockPromptsMapped()) do
-        local prompt = pair.prompt
-        local orig = originalPromptDist[prompt]
-        prompt.ActionText = actionTextWithFloor(prompt)
-        prompt.MaxActivationDistance = typeof(orig) == "number" and orig or DEFAULT_DIST
-    end
-end
-
 RunService.Heartbeat:Connect(function()
     if os.clock() - lastTune < RETUNE_INTERVAL then return end
     lastTune = os.clock()
@@ -729,31 +648,10 @@ RunService.Heartbeat:Connect(function()
     local pairsList = getAllUnlockPromptsMapped()
 
     if unlockClosestBase and #pairsList > 0 then
-        local plots = Workspace:FindFirstChild("Plots")
-        local function getPlotOwner(plotModel)
-            local sign = plotModel:FindFirstChild("PlotSign")
-            local gui = sign and sign:FindFirstChild("SurfaceGui")
-            local fr = gui and gui:FindFirstChild("Frame")
-            local label = fr and fr:FindFirstChild("TextLabel")
-            if label and label.Text then
-                return label.Text:match("^(.-)'s Base")
-            end
-        end
-        local function plotAnchorPosition(plot)
-            local mainRoot = plot:FindFirstChild("MainRoot")
-            if mainRoot and mainRoot:IsA("BasePart") then return mainRoot.Position end
-            local hb = plot:FindFirstChild("StealHitBox")
-            if hb and hb:IsA("BasePart") then return hb.Position end
-            if plot:IsA("Model") and plot.PrimaryPart then return plot.PrimaryPart.Position end
-            for _, d in ipairs(plot:GetDescendants()) do
-                if d:IsA("BasePart") then return d.Position end
-            end
-            return nil
-        end
-
+        local pf = plotsFolder()
         local closestEnemyPlot, closestDist = nil, math.huge
-        if plots then
-            for _, plot in ipairs(plots:GetChildren()) do
+        if pf then
+            for _, plot in ipairs(pf:GetChildren()) do
                 local owner = getPlotOwner(plot)
                 if owner ~= player.Name then
                     local anchor = plotAnchorPosition(plot)
