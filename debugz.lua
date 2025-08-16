@@ -25,7 +25,7 @@ local ProductIds = {
 local AUTO_SELECT_INTERVAL = 0.25      -- seconds between checks
 local BASE_SELECT_RADIUS   = 80        -- studs; set to math.huge to always pick nearest
 local lastAutoSelectCheck  = 0
-local autoSelectBaseOwner  = false     -- toggled by "AUTO" button
+local autoSelectBaseOwner  = true     -- toggled by "AUTO" button
 
 -- ===== UI =====
 local screenGui = Instance.new("ScreenGui")
