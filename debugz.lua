@@ -80,6 +80,10 @@ miniIcon.MouseButton1Click:Connect(function()
     frame.Visible = true
     miniIcon.Visible = false
 end)
+-- start minimized on execute
+frame.Visible = false
+miniIcon.Visible = true
+
 
 -- NEW: Auto-select toggle on title bar
 local autoBtn = Instance.new("TextButton")
