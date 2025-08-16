@@ -53,7 +53,7 @@ local RequirePromptNearTarget = false -- animals usually have no prompt; leave O
 
 -- Ignore animals near *your* base (walk logic only)
 local IgnoreNearMyBase = true
-local IgnoreRadius = 85 -- padding around your plot bounds
+local IgnoreRadius = 70 -- padding around your plot bounds
 local IgnoreRadiusOptions = {70,85,90}
 
 -- Show the blue ignore ring around your base
