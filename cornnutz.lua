@@ -27,14 +27,6 @@ for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- util: dictionary size (for layout math)
-local function dictSize(t)
-    local n = 0
-    for _ in pairs(t) do n += 1 end
-    return n
-end
-local RARITY_COUNT = dictSize(RarityColors)
-
 -- Lucky Block helper
 local function getRarityFromName(objectName)
     for rarity in pairs(RarityColors) do
@@ -52,17 +44,14 @@ local MostExpensiveOnly = false
 local AutoPurchaseEnabled = true
 local BeeHiveImmune = true
 local PurchaseThreshold = 20000 -- default 20K
-local RequirePromptNearTarget = false -- default OFF (animals usually have no prompt)
+local RequirePromptNearTarget = false -- animals usually have no prompt; leave OFF
+local IgnoreNearMyBase = true        -- NEW: ignore animals near *your* base (walk logic only)
+local IgnoreRadius = 50              -- NEW: distance around your base to ignore (studs)
+local IgnoreRadiusOptions = {20,30,40,50,70,100,150}
 
 local ThresholdOptions = {
-    ["0K"] = 0,
-    ["1K"] = 1000,
-    ["5K"] = 5000,
-    ["10K"] = 10000,
-    ["20K"] = 20000,
-    ["50K"] = 50000,
-    ["100K"] = 100000,
-    ["300K"] = 300000
+    ["0K"] = 0, ["1K"] = 1000, ["5K"] = 5000, ["10K"] = 10000,
+    ["20K"] = 20000, ["50K"] = 50000, ["100K"] = 100000, ["300K"] = 300000
 }
 
 -- UI helpers
@@ -91,24 +80,20 @@ local function parseGenerationText(text)
 end
 
 -- ESP Folders
-local worldESPFolder = Instance.new("Folder")
+local worldESPFolder = Instance.new("Folder", CoreGui)
 worldESPFolder.Name = "WorldRarityESP"
-worldESPFolder.Parent = CoreGui
-local playerESPFolder = Instance.new("Folder")
+local playerESPFolder = Instance.new("Folder", CoreGui)
 playerESPFolder.Name = "PlayerESPFolder"
-playerESPFolder.Parent = CoreGui
 
--- UI (parent to CoreGui so the game can't delete it)
+-- UI
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
-screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-screenGui.DisplayOrder = 1000
-screenGui.Parent = CoreGui
+screenGui.Parent = playerGui
 
 -- Slot Info Display (top-middle)
-local slotInfoLabel = Instance.new("TextLabel")
+local slotInfoLabel = Instance.new("TextLabel", screenGui)
 slotInfoLabel.Position = UDim2.new(0.5, -100, 0, 10)
 slotInfoLabel.Size = UDim2.new(0, 200, 0, 30)
 slotInfoLabel.BackgroundTransparency = 1
@@ -118,36 +103,32 @@ slotInfoLabel.TextScaled = true
 slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.ZIndex = 10
-slotInfoLabel.Parent = screenGui
 
 -- Main Frame
-local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 560)
-frame.Position = UDim2.new(0, 20, 0.5, -230)
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 590)
+frame.Position = UDim2.new(0, 20, 0.5, -250)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
-frame.Parent = screenGui
 
 -- Minimize Button
-local minimizeBtn = Instance.new("TextButton")
+local minimizeBtn = Instance.new("TextButton", frame)
 minimizeBtn.Size = UDim2.new(0, 25, 0, 25)
 minimizeBtn.Position = UDim2.new(1, -30, 0, 0)
 minimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
 minimizeBtn.TextColor3 = Color3.new(1, 1, 1)
 minimizeBtn.Text = "-"
 minimizeBtn.ZIndex = 999
-minimizeBtn.Parent = frame
 
 -- Corn Icon (restore button)
-local cornIcon = Instance.new("ImageButton")
+local cornIcon = Instance.new("ImageButton", screenGui)
 cornIcon.Size = UDim2.new(0, 60, 0, 60)
 cornIcon.Position = UDim2.new(0, 15, 0.27, 0)
 cornIcon.BackgroundTransparency = 1
 cornIcon.Image = "rbxassetid://76154122039576"
 cornIcon.ZIndex = 999
 cornIcon.Visible = false
-cornIcon.Parent = screenGui
 
 -- Dragging for Corn Icon
 do
@@ -187,16 +168,15 @@ cornIcon.MouseButton1Click:Connect(function()
 end)
 
 -- Title
-local title = Instance.new("TextLabel")
+local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Text = "BrainRotz by Dreamz"
 title.TextSize = 10
-title.Parent = frame
 
 -- Avoid In Machine Toggle
-local toggleAvoidBtn = Instance.new("TextButton")
+local toggleAvoidBtn = Instance.new("TextButton", frame)
 toggleAvoidBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAvoidBtn.Position = UDim2.new(0, 5, 0, 30)
 toggleAvoidBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -207,10 +187,9 @@ toggleAvoidBtn.MouseButton1Click:Connect(function()
     toggleAvoidBtn.Text = "Avoid In Machine: " .. (AvoidInMachine and "ON" or "OFF")
     updateToggleColor(toggleAvoidBtn, AvoidInMachine)
 end)
-toggleAvoidBtn.Parent = frame
 
 -- Player ESP Toggle
-local togglePlayerESPBtn = Instance.new("TextButton")
+local togglePlayerESPBtn = Instance.new("TextButton", frame)
 togglePlayerESPBtn.Size = UDim2.new(1, -10, 0, 25)
 togglePlayerESPBtn.Position = UDim2.new(0, 5, 0, 60)
 togglePlayerESPBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -221,10 +200,9 @@ togglePlayerESPBtn.MouseButton1Click:Connect(function()
     togglePlayerESPBtn.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
     updateToggleColor(togglePlayerESPBtn, PlayerESPEnabled)
 end)
-togglePlayerESPBtn.Parent = frame
 
 -- Most Expensive Only Toggle (for ESP)
-local toggleMostExpBtn = Instance.new("TextButton")
+local toggleMostExpBtn = Instance.new("TextButton", frame)
 toggleMostExpBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleMostExpBtn.Position = UDim2.new(0, 5, 0, 90)
 toggleMostExpBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -235,10 +213,9 @@ toggleMostExpBtn.MouseButton1Click:Connect(function()
     toggleMostExpBtn.Text = "Most Expensive: " .. (MostExpensiveOnly and "ON" or "OFF")
     updateToggleColor(toggleMostExpBtn, MostExpensiveOnly)
 end)
-toggleMostExpBtn.Parent = frame
 
 -- Auto Purchase Toggle (hold prompts)
-local toggleAutoPurchaseBtn = Instance.new("TextButton")
+local toggleAutoPurchaseBtn = Instance.new("TextButton", frame)
 toggleAutoPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAutoPurchaseBtn.Position = UDim2.new(0, 5, 0, 120)
 toggleAutoPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -249,10 +226,9 @@ toggleAutoPurchaseBtn.MouseButton1Click:Connect(function()
     toggleAutoPurchaseBtn.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
     updateToggleColor(toggleAutoPurchaseBtn, AutoPurchaseEnabled)
 end)
-toggleAutoPurchaseBtn.Parent = frame
 
 -- Purchase Threshold Dropdown
-local thresholdDropdown = Instance.new("TextButton")
+local thresholdDropdown = Instance.new("TextButton", frame)
 thresholdDropdown.Size = UDim2.new(1, -10, 0, 25)
 thresholdDropdown.Position = UDim2.new(0, 5, 0, 150)
 thresholdDropdown.BackgroundColor3 = Color3.fromRGB(0, 120, 255)
@@ -266,10 +242,9 @@ thresholdDropdown.MouseButton1Click:Connect(function()
     PurchaseThreshold = ThresholdOptions[selected]
     thresholdDropdown.Text = "Threshold: ≥ "..selected
 end)
-thresholdDropdown.Parent = frame
 
--- Require Prompt Near Target toggle
-local toggleReqPromptBtn = Instance.new("TextButton")
+-- Require Prompt Near Target toggle (optional)
+local toggleReqPromptBtn = Instance.new("TextButton", frame)
 toggleReqPromptBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleReqPromptBtn.Position = UDim2.new(0, 5, 0, 180)
 toggleReqPromptBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -280,9 +255,35 @@ toggleReqPromptBtn.MouseButton1Click:Connect(function()
     toggleReqPromptBtn.Text = "Require Prompt Near Target: " .. (RequirePromptNearTarget and "ON" or "OFF")
     updateToggleColor(toggleReqPromptBtn, RequirePromptNearTarget)
 end)
-toggleReqPromptBtn.Parent = frame
 
--- Slot counter
+-- NEW: Ignore Near My Base toggle
+local toggleIgnoreBaseBtn = Instance.new("TextButton", frame)
+toggleIgnoreBaseBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleIgnoreBaseBtn.Position = UDim2.new(0, 5, 0, 210)
+toggleIgnoreBaseBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleIgnoreBaseBtn.Text = "Ignore Near My Base: ON"
+updateToggleColor(toggleIgnoreBaseBtn, IgnoreNearMyBase)
+toggleIgnoreBaseBtn.MouseButton1Click:Connect(function()
+    IgnoreNearMyBase = not IgnoreNearMyBase
+    toggleIgnoreBaseBtn.Text = "Ignore Near My Base: " .. (IgnoreNearMyBase and "ON" or "OFF")
+    updateToggleColor(toggleIgnoreBaseBtn, IgnoreNearMyBase)
+end)
+
+-- NEW: Ignore Radius button (cycles)
+local ignoreRadiusBtn = Instance.new("TextButton", frame)
+ignoreRadiusBtn.Size = UDim2.new(1, -10, 0, 25)
+ignoreRadiusBtn.Position = UDim2.new(0, 5, 0, 240)
+ignoreRadiusBtn.TextColor3 = Color3.new(1, 1, 1)
+ignoreRadiusBtn.Text = ("Ignore Radius: %dstu"):format(IgnoreRadius)
+updateToggleColor(ignoreRadiusBtn, true)
+ignoreRadiusBtn.MouseButton1Click:Connect(function()
+    local idx = table.find(IgnoreRadiusOptions, IgnoreRadius) or 4
+    idx = idx % #IgnoreRadiusOptions + 1
+    IgnoreRadius = IgnoreRadiusOptions[idx]
+    ignoreRadiusBtn.Text = ("Ignore Radius: %dstu"):format(IgnoreRadius)
+end)
+
+-- Slot counter (unchanged)
 local function updateSlotCountOnly()
     local playerName = player.Name
     local plots = Workspace:FindFirstChild("Plots")
@@ -375,9 +376,9 @@ end)
 -- Speed Boost
 local SpeedBoostEnabled = false
 local DesiredWalkSpeed = 70
-local toggleSpeedBoostBtn = Instance.new("TextButton")
+local toggleSpeedBoostBtn = Instance.new("TextButton", frame)
 toggleSpeedBoostBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 210)
+toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 270)
 toggleSpeedBoostBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleSpeedBoostBtn.Text = "Speed Boost: OFF"
 updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
@@ -386,7 +387,6 @@ toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
     toggleSpeedBoostBtn.Text = "Speed Boost: " .. (SpeedBoostEnabled and "ON" or "OFF")
     updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
 end)
-toggleSpeedBoostBtn.Parent = frame
 
 local CharController = require(ReplicatedStorage.Controllers.CharacterController)
 RunService.Heartbeat:Connect(function()
@@ -400,9 +400,9 @@ end)
 local AutoJumperEnabled = false
 local JumpInterval = 60
 local LastJumpTime = tick()
-local toggleAutoJumperBtn = Instance.new("TextButton")
+local toggleAutoJumperBtn = Instance.new("TextButton", frame)
 toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 240)
+toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 300)
 toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAutoJumperBtn.Text = "Anti AFK: OFF"
 updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
@@ -411,8 +411,6 @@ toggleAutoJumperBtn.MouseButton1Click:Connect(function()
     toggleAutoJumperBtn.Text = "Anti AFK: " .. (AutoJumperEnabled and "ON" or "OFF")
     updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
 end)
-toggleAutoJumperBtn.Parent = frame
-
 RunService.Heartbeat:Connect(function()
     if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
         game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
@@ -424,9 +422,9 @@ end)
 
 -- Walk Purchase Toggle
 local WalkPurchaseEnabled = false
-local toggleWalkPurchaseBtn = Instance.new("TextButton")
+local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
 toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 270)
+toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 330)
 toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
 updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
@@ -435,14 +433,13 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     toggleWalkPurchaseBtn.Text = "Walk Purchase: " .. (WalkPurchaseEnabled and "ON" or "OFF")
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
-toggleWalkPurchaseBtn.Parent = frame
 
 -- Pause settings
 local pauseDistance = 5
 local pauseTime = 0.35
 local lastPause = 0
 
--- Purchase prompt check (for optional gating near target)
+-- Purchase prompt check (optional gating near target)
 local function purchasePromptActive()
     local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
     if not promptGui then return false end
@@ -453,13 +450,53 @@ local function purchasePromptActive()
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
 
--- Walk helpers: robust target part + movement
+-- Find your base center (cached every few seconds)
+local myBaseCenter : Vector3? = nil
+local function computeMyBaseCenter()
+    myBaseCenter = nil
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return end
+    for _, plot in ipairs(plots:GetChildren()) do
+        local sign = plot:FindFirstChild("PlotSign")
+        local gui = sign and sign:FindFirstChild("SurfaceGui")
+        local fr = gui and gui:FindFirstChild("Frame")
+        local label = fr and fr:FindFirstChild("TextLabel")
+        if label and label.Text then
+            local owner = label.Text:match("^(.-)'s Base")
+            if owner == player.Name then
+                local mainRoot = plot:FindFirstChild("MainRoot")
+                if mainRoot and mainRoot:IsA("BasePart") then
+                    myBaseCenter = mainRoot.Position
+                    return
+                end
+                if plot.PrimaryPart then
+                    myBaseCenter = plot.PrimaryPart.Position
+                    return
+                end
+                for _, d in ipairs(plot:GetDescendants()) do
+                    if d:IsA("BasePart") then
+                        myBaseCenter = d.Position
+                        return
+                    end
+                end
+            end
+        end
+    end
+end
+task.spawn(function()
+    while true do
+        computeMyBaseCenter()
+        task.wait(3)
+    end
+end)
+
+-- Walk helpers: target part + movement
 local function findTargetPart(model)
     return model:FindFirstChild("HumanoidRootPart")
         or model:FindFirstChild("RootPart")
         or model:FindFirstChild("FakeRootPart")
         or model.PrimaryPart
-        or model:FindFirstChild("Part", true) -- recursive "Part"
+        or model:FindFirstChild("Part", true)
         or model:FindFirstChildWhichIsA("BasePart", true)
 end
 
@@ -478,7 +515,7 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
--- Walk-to-purchase: scan Workspace root (all descendants) for animals
+-- Walk-to-purchase: scan Workspace for animals (ESP unchanged)
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
 
@@ -494,15 +531,24 @@ RunService.Heartbeat:Connect(function()
             local overhead = obj:FindFirstChild("AnimalOverhead", true)
             local genLabel = overhead and overhead:FindFirstChild("Generation")
             if genLabel then
+                -- Skip fusing/in machine if requested
                 if AvoidInMachine then
                     local stolen = overhead:FindFirstChild("Stolen")
                     local inMachine = stolen and stolen:IsA("TextLabel") and (stolen.Text == "IN MACHINE" or stolen.Text == "FUSING")
                     if inMachine then
-                        continue
+                        goto continue_model
                     end
                 end
+
                 local targetPart = findTargetPart(obj)
                 if targetPart and targetPart:IsA("BasePart") then
+                    -- NEW: ignore animals near *your* base
+                    if IgnoreNearMyBase and myBaseCenter then
+                        if (targetPart.Position - myBaseCenter).Magnitude <= IgnoreRadius then
+                            goto continue_model
+                        end
+                    end
+
                     local genValue = parseGenerationText(genLabel.Text or "")
                     if genValue >= PurchaseThreshold then
                         local dist = (hrp.Position - targetPart.Position).Magnitude
@@ -513,6 +559,7 @@ RunService.Heartbeat:Connect(function()
                 end
             end
         end
+        ::continue_model::
     end
 
     if not bestModel then return end
@@ -534,9 +581,9 @@ end)
 
 -- Rarity Toggles (ESP)
 do
-    local y = 300
+    local y = 360
     for rarity in pairs(RarityColors) do
-        local button = Instance.new("TextButton")
+        local button = Instance.new("TextButton", frame)
         button.Size = UDim2.new(1, -10, 0, 25)
         button.Position = UDim2.new(0, 5, 0, y)
         button.TextColor3 = Color3.new(1, 1, 1)
@@ -547,7 +594,6 @@ do
             button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
             updateToggleColor(button, EnabledRarities[rarity])
         end)
-        button.Parent = frame
         y += 28
     end
 end
@@ -555,10 +601,9 @@ end
 -- BeeHive Immune Toggle
 local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
 local Controls = PlayerModule:GetControls()
-
-local toggleBeeHiveBtn = Instance.new("TextButton")
+local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 300 + (28 * RARITY_COUNT))
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 330)
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
@@ -567,18 +612,18 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
     updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
     if BeeHiveImmune then
-        Controls.moveFunction = CharController.originalMoveFunction
+        if CharController and CharController.originalMoveFunction then
+            Controls.moveFunction = CharController.originalMoveFunction
+        end
     end
 end)
-toggleBeeHiveBtn.Parent = frame
-
 RunService.Heartbeat:Connect(function()
     if BeeHiveImmune then
         local blur = game:GetService("Lighting"):FindFirstChild("BeeBlur")
         if blur then blur.Enabled = false end
         local cam = workspace.CurrentCamera
         if cam and cam.FieldOfView ~= 70 then cam.FieldOfView = 70 end
-        if Controls.moveFunction ~= CharController.originalMoveFunction then
+        if CharController and CharController.originalMoveFunction and Controls.moveFunction ~= CharController.originalMoveFunction then
             Controls.moveFunction = CharController.originalMoveFunction
         end
     end
@@ -588,10 +633,9 @@ end)
 local NoRagdoll = true
 local RagdollController = require(ReplicatedStorage.Controllers.RagdollController)
 local originalToggleControls = RagdollController.ToggleControls
-
-local toggleNoRagdollBtn = Instance.new("TextButton")
+local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 330 + (28 * RARITY_COUNT))
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 630) -- placed after rarity buttons section height
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: ON"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
@@ -607,8 +651,6 @@ toggleNoRagdollBtn.MouseButton1Click:Connect(function()
         RagdollController.ToggleControls = originalToggleControls
     end
 end)
-toggleNoRagdollBtn.Parent = frame
-
 RunService.Heartbeat:Connect(function()
     if NoRagdoll then
         local char = player.Character
@@ -649,7 +691,7 @@ local function createBillboard(adorn, color, text)
     return billboard
 end
 
--- ESP loop
+-- ESP loop (UNCHANGED by ignore-base logic)
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
