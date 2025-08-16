@@ -9,26 +9,31 @@ local UserInputService = game:GetService("UserInputService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- Data (Lucky Blocks)
-local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
+-- Data (Lucky Blocks) - safe require
+local AnimalsData do
+    local ok, mod = pcall(function()
+        return require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
+    end)
+    AnimalsData = ok and mod or {}
+end
 
 -- =========================
 --   CONFIG / CONSTANTS
 -- =========================
-local IGNORE_RADIUS = 90                  -- fixed default (no UI to change)
+local IGNORE_RADIUS = 90                  -- fixed default (walk ignore near your base)
 local AvoidInMachine = true               -- ESP filter
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false           -- ESP "max only"
 local AutoPurchaseEnabled = true          -- hold prompts automatically
 local BeeHiveImmune = true
-local PurchaseThreshold = 20000           -- animals only; Lucky Blocks bypass this
+local PurchaseThreshold = 20000           -- animals only; Lucky Blocks BYPASS this
 local SpeedBoostEnabled = false
 local DesiredWalkSpeed = 70
 local AutoJumperEnabled = false
 local WalkPurchaseEnabled = false
 local ShowIgnoreRing = true               -- show the blue ring ESP
 
--- Rarity colors
+-- Rarity colors / defaults
 local RarityColors = {
     Common = Color3.fromRGB(150, 150, 150),
     Rare = Color3.fromRGB(0, 170, 255),
@@ -38,14 +43,12 @@ local RarityColors = {
     ["Brainrot God"] = Color3.fromRGB(255, 0, 0),
     Secret = Color3.fromRGB(0, 255, 255),
 }
-
--- Enabled rarities (default)
 local EnabledRarities = {}
 for r in pairs(RarityColors) do
     EnabledRarities[r] = (r == "Brainrot God" or r == "Secret")
 end
 
--- Rarity priority (for choosing Lucky Blocks)
+-- Rarity priority (for choosing which Lucky Block to walk to)
 local RarityPriority = {
     Secret = 7, ["Brainrot God"] = 6, Mythic = 5,
     Legendary = 4, Epic = 3, Rare = 2, Common = 1,
@@ -74,7 +77,8 @@ end
 
 -- "123K/s" -> 123000
 local function parseGenerationText(text)
-    local num = tonumber((text or ""):match("[%d%.]+")) or 0
+    text = text or ""
+    local num = tonumber(text:match("[%d%.]+")) or 0
     if text:find("K") then num *= 1e3 end
     if text:find("M") then num *= 1e6 end
     return num
@@ -109,12 +113,12 @@ local function findTargetPart(model)
         or model:FindFirstChildWhichIsA("BasePart", true)
 end
 
--- Safe requires / fallbacks
-local okCC, CharController = pcall(function()
-    return require(ReplicatedStorage.Controllers.CharacterController)
-end)
-if not okCC or type(CharController) ~= "table" or not CharController.GetCharacter then
-    CharController = {
+-- Controllers (safe fallbacks)
+local CharController do
+    local ok, mod = pcall(function()
+        return require(ReplicatedStorage:FindFirstChild("Controllers") and ReplicatedStorage.Controllers:FindFirstChild("CharacterController"))
+    end)
+    CharController = (ok and mod and type(mod) == "table" and mod.GetCharacter) and mod or {
         GetCharacter = function()
             local c = player.Character or player.CharacterAdded:Wait()
             local h = c:FindFirstChildOfClass("Humanoid")
@@ -124,11 +128,23 @@ if not okCC or type(CharController) ~= "table" or not CharController.GetCharacte
     }
 end
 
-local okRC, RagdollController = pcall(function()
-    return require(ReplicatedStorage.Controllers.RagdollController)
-end)
-if not okRC or type(RagdollController) ~= "table" then
-    RagdollController = { ToggleControls = function() end }
+local RagdollController do
+    local ok, mod = pcall(function()
+        return require(ReplicatedStorage:FindFirstChild("Controllers") and ReplicatedStorage.Controllers:FindFirstChild("RagdollController"))
+    end)
+    RagdollController = ok and mod or { ToggleControls = function() end }
+end
+
+-- PlayerModule Controls (safe)
+local Controls do
+    local PM = Players.LocalPlayer.PlayerScripts:FindFirstChild("PlayerModule")
+    if PM then
+        local ok, mod = pcall(require, PM)
+        if ok and mod and mod.GetControls then
+            Controls = mod:GetControls()
+        end
+    end
+    Controls = Controls or { Enable = function() end, moveFunction = nil }
 end
 
 -- =========================
@@ -258,25 +274,25 @@ local btnAvoid = makeBtn(yRow, "Avoid In Machine: ON", function(b)
     AvoidInMachine = not AvoidInMachine
     b.Text = "Avoid In Machine: " .. (AvoidInMachine and "ON" or "OFF")
     updateToggleColor(b, AvoidInMachine)
-end, AvoidInMachine); yRow = yRow + 30
+end, AvoidInMachine); yRow += 30
 
 local btnPESP = makeBtn(yRow, "Player ESP: OFF", function(b)
     PlayerESPEnabled = not PlayerESPEnabled
     b.Text = "Player ESP: " .. (PlayerESPEnabled and "ON" or "OFF")
     updateToggleColor(b, PlayerESPEnabled)
-end, PlayerESPEnabled); yRow = yRow + 30
+end, PlayerESPEnabled); yRow += 30
 
 local btnMost = makeBtn(yRow, "Most Expensive: OFF", function(b)
     MostExpensiveOnly = not MostExpensiveOnly
     b.Text = "Most Expensive: " .. (MostExpensiveOnly and "ON" or "OFF")
     updateToggleColor(b, MostExpensiveOnly)
-end, MostExpensiveOnly); yRow = yRow + 30
+end, MostExpensiveOnly); yRow += 30
 
 local btnAuto = makeBtn(yRow, "Auto Purchase: ON", function(b)
     AutoPurchaseEnabled = not AutoPurchaseEnabled
     b.Text = "Auto Purchase: " .. (AutoPurchaseEnabled and "ON" or "OFF")
     updateToggleColor(b, AutoPurchaseEnabled)
-end, AutoPurchaseEnabled); yRow = yRow + 30
+end, AutoPurchaseEnabled); yRow += 30
 
 -- Threshold dropdown (animals only)
 local thresholdDropdown = makeBtn(yRow, "Threshold: ≥ 20K", function(b)
@@ -287,35 +303,35 @@ local thresholdDropdown = makeBtn(yRow, "Threshold: ≥ 20K", function(b)
     local sel = order[idx]
     PurchaseThreshold = ThresholdOptions[sel]
     b.Text = "Threshold: ≥ " .. sel
-end); yRow = yRow + 30
+end); yRow += 30
 
 -- Show ignore ring toggle
 local btnRing = makeBtn(yRow, "Show Ignore Ring: ON", function(b)
     ShowIgnoreRing = not ShowIgnoreRing
     b.Text = "Show Ignore Ring: " .. (ShowIgnoreRing and "ON" or "OFF")
     updateToggleColor(b, ShowIgnoreRing)
-end, ShowIgnoreRing); yRow = yRow + 30
+end, ShowIgnoreRing); yRow += 30
 
 -- Speed boost
 local btnSpeed = makeBtn(yRow, "Speed Boost: OFF", function(b)
     SpeedBoostEnabled = not SpeedBoostEnabled
     b.Text = "Speed Boost: " .. (SpeedBoostEnabled and "ON" or "OFF")
     updateToggleColor(b, SpeedBoostEnabled)
-end, SpeedBoostEnabled); yRow = yRow + 30
+end, SpeedBoostEnabled); yRow += 30
 
 -- Anti AFK
 local btnAFK = makeBtn(yRow, "Anti AFK: OFF", function(b)
     AutoJumperEnabled = not AutoJumperEnabled
     b.Text = "Anti AFK: " .. (AutoJumperEnabled and "ON" or "OFF")
     updateToggleColor(b, AutoJumperEnabled)
-end, AutoJumperEnabled); yRow = yRow + 30
+end, AutoJumperEnabled); yRow += 30
 
 -- Walk purchase
 local btnWalk = makeBtn(yRow, "Walk Purchase: OFF", function(b)
     WalkPurchaseEnabled = not WalkPurchaseEnabled
     b.Text = "Walk Purchase: " .. (WalkPurchaseEnabled and "ON" or "OFF")
     updateToggleColor(b, WalkPurchaseEnabled)
-end, WalkPurchaseEnabled); yRow = yRow + 30
+end, WalkPurchaseEnabled); yRow += 30
 
 -- Rarity toggles
 local rarityStartY = yRow
@@ -325,7 +341,7 @@ for rarity in pairs(RarityColors) do
         b.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
         updateToggleColor(b, EnabledRarities[rarity])
     end, EnabledRarities[rarity])
-    rarityStartY = rarityStartY + 28
+    rarityStartY += 28
 end
 
 -- =========================
@@ -402,7 +418,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
         return
     end
 
-    -- 2) Lucky Blocks (bypass threshold, still optionally respect rarity toggle)
+    -- 2) Lucky Blocks (BYPASS threshold)
     if isLuckyBlockModel(model) then
         local rarity = getLuckyBlockRarity(model)
         if not rarity or EnabledRarities[rarity] then
@@ -436,12 +452,13 @@ end)
 -- =========================
 --   NO RAGDOLL / BEEHIVE
 -- =========================
-local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
-local Controls = PlayerModule:GetControls()
-
-local NoRagdoll = true
-if RagdollController and RagdollController.ToggleControls then
-    RagdollController.ToggleControls = function(_, _enable) Controls:Enable() end
+do
+    local ok = false
+    if RagdollController and RagdollController.ToggleControls then
+        local wrapped = function(_, _enable) Controls:Enable() end
+        local s, e = pcall(function() RagdollController.ToggleControls = wrapped end)
+        ok = s
+    end
 end
 
 RunService.Heartbeat:Connect(function()
@@ -457,12 +474,10 @@ RunService.Heartbeat:Connect(function()
     end
 
     -- Safety exit ragdoll
-    if NoRagdoll then
-        local char = player.Character
-        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-        if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
-            humanoid:ChangeState(Enum.HumanoidStateType.Running)
-        end
+    local char = player.Character
+    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
     end
 end)
 
@@ -484,9 +499,10 @@ local function getLocalBaseRootAndPos()
             local label = fr and fr:FindFirstChild("TextLabel")
             if label and label.Text and label.Text:match("^(.-)'s Base") == player.Name then
                 baseRootCache = plot:FindFirstChild("MainRoot")
-                local cf = nil
+                local cf
                 if plot:IsA("Model") then
-                    cf = select(1, plot:GetBoundingBox())
+                    local cframe = select(1, plot:GetBoundingBox())
+                    cf = cframe
                 end
                 if not cf then
                     if baseRootCache then
@@ -506,7 +522,7 @@ local function getLocalBaseRootAndPos()
     return baseRootCache, basePosCache
 end
 
--- Blue ring
+-- Blue ring (CylinderHandleAdornment)
 local ringAdornment, ringAnchorPart
 local function destroyIgnoreRing()
     if ringAdornment then ringAdornment:Destroy(); ringAdornment = nil end
@@ -549,15 +565,14 @@ local function ensureIgnoreRing()
         cyl.Radius = IGNORE_RADIUS
         cyl.Adornee = adorneePart
         cyl.CFrame = CFrame.Angles(math.rad(90), 0, 0)
-        -- Parent to camera (safe for adornments)
-        cyl.Parent = Workspace.CurrentCamera
+        cyl.Parent = Workspace -- parent adornments to Workspace for reliability
         ringAdornment = cyl
     else
         ringAdornment.Adornee = adorneePart
         ringAdornment.Radius = IGNORE_RADIUS
         ringAdornment.Height = 0.06
         ringAdornment.CFrame = CFrame.Angles(math.rad(90), 0, 0)
-        ringAdornment.Parent = Workspace.CurrentCamera
+        ringAdornment.Parent = Workspace
     end
 end
 task.spawn(function()
@@ -580,7 +595,7 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
 
-    -- get base center to ignore nearby targets
+    -- base center to ignore nearby targets
     local _, baseCenter = getLocalBaseRootAndPos()
 
     local bestAnimal, bestGen, bestADist = nil, -math.huge, math.huge
@@ -688,9 +703,7 @@ RunService.Heartbeat:Connect(function()
             local rarityLabel = podium:FindFirstChild("Rarity")
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
-                if AvoidInMachine and isInMachine(podium) then
-                    -- skip
-                else
+                if not (AvoidInMachine and isInMachine(podium)) then
                     local gen = parseGenerationText((podium:FindFirstChild("Generation") or {}).Text or "")
                     if MostExpensiveOnly then
                         if gen > maxGen then
