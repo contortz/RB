@@ -45,8 +45,9 @@ local AutoPurchaseEnabled = true
 local BeeHiveImmune = true
 local PurchaseThreshold = 20000 -- default 20K
 local WalkPurchaseEnabled = false
+local ShowIgnoreRing = true  -- NEW: show the 90-stud ring around your base
 
--- IMPORTANT: fixed ignore radius (no UI for it)
+-- IMPORTANT: fixed ignore radius (no UI for value)
 local IGNORE_RADIUS = 90 -- studs (used only to ignore animals near YOUR base for walking)
 
 local ThresholdOptions = {
@@ -116,8 +117,8 @@ slotInfoLabel.Parent = screenGui
 
 -- Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 600)
-frame.Position = UDim2.new(0, 20, 0.5, -250)
+frame.Size = UDim2.new(0, 250, 0, 640)
+frame.Position = UDim2.new(0, 20, 0.5, -270)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -206,12 +207,10 @@ local function makeToggle(y, text, get, set)
     return b
 end
 
-makeToggle(30, "Avoid In Machine", function() return AvoidInMachine end, function(v) AvoidInMachine = v end)
-makeToggle(60, "Player ESP",       function() return PlayerESPEnabled end, function(v) PlayerESPEnabled = v end)
-makeToggle(90, "Most Expensive",   function() return MostExpensiveOnly end, function(v) MostExpensiveOnly = v end)
-
--- Auto Purchase Toggle (hold prompts)
-makeToggle(120, "Auto Purchase",   function() return AutoPurchaseEnabled end, function(v) AutoPurchaseEnabled = v end)
+makeToggle(30,  "Avoid In Machine", function() return AvoidInMachine end, function(v) AvoidInMachine = v end)
+makeToggle(60,  "Player ESP",       function() return PlayerESPEnabled end, function(v) PlayerESPEnabled = v end)
+makeToggle(90,  "Most Expensive",   function() return MostExpensiveOnly end, function(v) MostExpensiveOnly = v end)
+makeToggle(120, "Auto Purchase",    function() return AutoPurchaseEnabled end, function(v) AutoPurchaseEnabled = v end)
 
 -- Purchase Threshold Dropdown
 local thresholdDropdown = Instance.new("TextButton")
@@ -236,7 +235,7 @@ local Controls = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerM
 local NoRagdoll = true
 local originalToggleControls = RagdollController.ToggleControls
 
-local noRagdollBtn = makeToggle(180, "No Ragdoll", function() return NoRagdoll end, function(v)
+makeToggle(180, "No Ragdoll", function() return NoRagdoll end, function(v)
     NoRagdoll = v
     if NoRagdoll then
         RagdollController.ToggleControls = function(_, _enable)
@@ -248,12 +247,12 @@ local noRagdollBtn = makeToggle(180, "No Ragdoll", function() return NoRagdoll e
 end)
 
 -- BeeHive Immune Toggle
-local BeeBtn = makeToggle(210, "BeeHive Immune", function() return BeeHiveImmune end, function(v) BeeHiveImmune = v end)
+makeToggle(210, "BeeHive Immune", function() return BeeHiveImmune end, function(v) BeeHiveImmune = v end)
 
 -- Speed Boost
 local SpeedBoostEnabled = false
 local DesiredWalkSpeed = 70
-local speedBtn = makeToggle(240, "Speed Boost", function() return SpeedBoostEnabled end, function(v) SpeedBoostEnabled = v end)
+makeToggle(240, "Speed Boost", function() return SpeedBoostEnabled end, function(v) SpeedBoostEnabled = v end)
 local CharController = require(ReplicatedStorage.Controllers.CharacterController)
 RunService.Heartbeat:Connect(function()
     if SpeedBoostEnabled then
@@ -266,7 +265,7 @@ end)
 local AutoJumperEnabled = false
 local JumpInterval = 60
 local LastJumpTime = tick()
-local antiAfkBtn = makeToggle(270, "Anti AFK", function() return AutoJumperEnabled end, function(v) AutoJumperEnabled = v end)
+makeToggle(270, "Anti AFK", function() return AutoJumperEnabled end, function(v) AutoJumperEnabled = v end)
 RunService.Heartbeat:Connect(function()
     if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
         game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
@@ -277,7 +276,10 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- Walk Purchase Toggle
-local walkBtn = makeToggle(300, "Walk Purchase", function() return WalkPurchaseEnabled end, function(v) WalkPurchaseEnabled = v end)
+makeToggle(300, "Walk Purchase", function() return WalkPurchaseEnabled end, function(v) WalkPurchaseEnabled = v end)
+
+-- NEW: Show/Hide Ignore Ring toggle
+makeToggle(330, "Show Ignore Ring", function() return ShowIgnoreRing end, function(v) ShowIgnoreRing = v end)
 
 -- ===== Slot counter
 local function updateSlotCountOnly()
@@ -362,13 +364,6 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
         tryHoldPrompt(prompt, 3, 2)
         return
     end
-
-    -- Optional fallback: if the item exists in AnimalsData, also buy
-    -- local data = AnimalsData[model.Name]
-    -- if data then
-    --     task.wait(0.10)
-    --     tryHoldPrompt(prompt, 3, 2)
-    -- end
 end)
 
 -- ===== BeeHive Immune enforcement (lightweight)
@@ -445,11 +440,14 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
--- Find local player's base center (cached)
-local basePosCache, baseCacheAt = nil, 0
-local function getLocalBaseCenter()
-    if os.clock() - baseCacheAt < 2 and basePosCache then return basePosCache end
-    basePosCache = nil
+-- ===== Base center + ring (NEW)
+local basePosCache, baseRootCache, baseCacheAt = nil, nil, 0
+
+local function getLocalBaseRootAndPos()
+    if os.clock() - baseCacheAt < 2 and basePosCache and baseRootCache then
+        return baseRootCache, basePosCache
+    end
+    basePosCache, baseRootCache = nil, nil
     local plots = Workspace:FindFirstChild("Plots")
     if plots then
         for _, plot in ipairs(plots:GetChildren()) do
@@ -461,11 +459,11 @@ local function getLocalBaseCenter()
                 local owner = label.Text:match("^(.-)'s Base")
                 if owner == player.Name then
                     local root = plot:FindFirstChild("MainRoot")
-                    basePosCache = root and root.Position or nil
+                    baseRootCache = root
+                    basePosCache = (root and root.Position) or nil
                     if not basePosCache then
-                        -- fallback: any basepart in plot
                         for _, d in ipairs(plot:GetDescendants()) do
-                            if d:IsA("BasePart") then basePosCache = d.Position break end
+                            if d:IsA("BasePart") then basePosCache = d.Position baseRootCache = d break end
                         end
                     end
                     break
@@ -474,8 +472,82 @@ local function getLocalBaseCenter()
         end
     end
     baseCacheAt = os.clock()
-    return basePosCache
+    return baseRootCache, basePosCache
 end
+
+-- Adornment ring
+local ringAdornment : CylinderHandleAdornment? = nil
+local ringAnchorPart : Part? = nil
+
+local function destroyIgnoreRing()
+    if ringAdornment then ringAdornment:Destroy(); ringAdornment = nil end
+    if ringAnchorPart then ringAnchorPart:Destroy(); ringAnchorPart = nil end
+end
+
+local function ensureIgnoreRing()
+    if not ShowIgnoreRing then
+        destroyIgnoreRing()
+        return
+    end
+
+    local baseRoot, basePos = getLocalBaseRootAndPos()
+    if not baseRoot and not basePos then
+        destroyIgnoreRing()
+        return
+    end
+
+    local adorneePart = baseRoot
+
+    if not adorneePart and basePos then
+        if not ringAnchorPart or not ringAnchorPart.Parent then
+            ringAnchorPart = Instance.new("Part")
+            ringAnchorPart.Name = "IgnoreRingAnchor"
+            ringAnchorPart.Anchored = true
+            ringAnchorPart.CanCollide = false
+            ringAnchorPart.Transparency = 1
+            ringAnchorPart.Size = Vector3.new(1,1,1)
+            ringAnchorPart.CFrame = CFrame.new(basePos)
+            ringAnchorPart.Parent = Workspace
+        else
+            ringAnchorPart.CFrame = CFrame.new(basePos)
+        end
+        adorneePart = ringAnchorPart
+    elseif adorneePart and ringAnchorPart then
+        -- We have a real base root now; drop the temp anchor
+        ringAnchorPart:Destroy()
+        ringAnchorPart = nil
+    end
+
+    if not adorneePart then
+        destroyIgnoreRing()
+        return
+    end
+
+    if not ringAdornment or not ringAdornment.Parent then
+        ringAdornment = Instance.new("CylinderHandleAdornment")
+        ringAdornment.Name = "IgnoreRadiusRing"
+        ringAdornment.AlwaysOnTop = true
+        ringAdornment.Color3 = Color3.fromRGB(0, 255, 0)
+        ringAdornment.Transparency = 0.25
+        ringAdornment.ZIndex = 3
+        ringAdornment.Height = 0.2
+        ringAdornment.Radius = IGNORE_RADIUS
+        ringAdornment.Adornee = adorneePart
+        ringAdornment.Parent = CoreGui
+    else
+        ringAdornment.Adornee = adorneePart
+        ringAdornment.Height = 0.2
+        ringAdornment.Radius = IGNORE_RADIUS
+    end
+end
+
+-- Keep ring fresh (update about twice a second)
+task.spawn(function()
+    while true do
+        ensureIgnoreRing()
+        task.wait(0.5)
+    end
+end)
 
 -- ===== Walk-to-purchase (Animals by Generation), ignore near your base
 local pauseDistance, pauseTime, lastPause = 5, 0.35, 0
@@ -488,7 +560,7 @@ RunService.Heartbeat:Connect(function()
     if not humanoid or not hrp then return end
 
     local bestModel, bestGen, bestDist = nil, -math.huge, math.huge
-    local myBasePos = getLocalBaseCenter()
+    local baseRoot, myBasePos = getLocalBaseRootAndPos()
 
     for _, obj in ipairs(Workspace:GetDescendants()) do
         if obj:IsA("Model") then
@@ -496,7 +568,7 @@ RunService.Heartbeat:Connect(function()
             local genLabel = overhead and overhead:FindFirstChild("Generation")
             if genLabel then
                 if AvoidInMachine and isInMachine(overhead) then
-                    -- skip
+                    -- skip fusing/in-machine
                 else
                     local targetPart = findTargetPart(obj)
                     if targetPart and targetPart:IsA("BasePart") then
@@ -529,7 +601,6 @@ RunService.Heartbeat:Connect(function()
 
     local dist = (hrp.Position - targetPart.Position).Magnitude
     if dist <= pauseDistance and (tick() - lastPause) >= pauseTime then
-        -- short pause
         stopWalking(humanoid, hrp)
         lastPause = tick()
         return
@@ -540,7 +611,7 @@ end)
 
 -- ===== Rarity toggles (ESP)
 do
-    local y = 330
+    local y = 360 -- moved down to make room for "Show Ignore Ring"
     for rarity in pairs(RarityColors) do
         local button = Instance.new("TextButton")
         button.Size = UDim2.new(1, -10, 0, 25)
@@ -558,7 +629,7 @@ do
     end
 end
 
--- ===== ESP loop (unchanged; ignore-radius does NOT affect ESP)
+-- ===== ESP loop (ignore-radius does NOT affect ESP)
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
