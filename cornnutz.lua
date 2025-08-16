@@ -286,7 +286,6 @@ local function updateSlotCountOnly()
         end
     end
 end
-
 task.delay(1, updateSlotCountOnly)
 task.spawn(function()
     while true do
@@ -327,7 +326,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
             return
         end
 
-        -- Lucky Blocks: by price using AnimalsData
+        -- Lucky Blocks: by price using AnimalsData (name contains rarity)
         local rarityHit = getRarityFromName(model.Name)
         if rarityHit then
             local data = AnimalsData[model.Name]
@@ -358,7 +357,6 @@ toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
 end)
 
 local CharController = require(ReplicatedStorage.Controllers.CharacterController)
-
 RunService.Heartbeat:Connect(function()
     if SpeedBoostEnabled then
         local _, humanoid = CharController:GetCharacter()
@@ -424,8 +422,23 @@ local function purchasePromptActive()
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
 
--- Walk helpers: robust target part + movement for both systems
-local function findTargetPart(model)
+-- >>> NEW: prefer a ProximityPrompt's owning BasePart (or a child literally named "Part")
+local function findPromptPart(model)
+    -- 1) ProximityPrompt's parent BasePart
+    for _, d in ipairs(model:GetDescendants()) do
+        if d:IsA("ProximityPrompt") then
+            local p = d.Parent
+            if p and p:IsA("BasePart") then
+                return p
+            end
+        end
+    end
+    -- 2) A BasePart literally named "Part"
+    local p = model:FindFirstChild("Part") or model:FindFirstChild("Part", true)
+    if p and p:IsA("BasePart") then
+        return p
+    end
+    -- 3) Fallbacks
     return model:FindFirstChild("HumanoidRootPart")
         or model:FindFirstChild("RootPart")
         or model:FindFirstChild("FakeRootPart")
@@ -433,6 +446,7 @@ local function findTargetPart(model)
         or model:FindFirstChildWhichIsA("BasePart", true)
 end
 
+-- Walk helpers: robust movement for both systems
 local function setWalkTarget(humanoid, pos)
     if not (humanoid and pos) then return end
     humanoid:MoveTo(pos)
@@ -470,7 +484,7 @@ RunService.Heartbeat:Connect(function()
                 if model:IsA("Model") then
                     local overhead = model:FindFirstChild("AnimalOverhead", true)
                     local genLabel = overhead and overhead:FindFirstChild("Generation")
-                    local targetPart = findTargetPart(model)
+                    local targetPart = findPromptPart(model)
                     if genLabel and targetPart then
                         local genValue = parseGenerationText(genLabel.Text or "")
                         if genValue >= PurchaseThreshold then
@@ -482,13 +496,13 @@ RunService.Heartbeat:Connect(function()
                     end
                 end
             end
-            if bestAnimal then break end -- found something in RenderedMovingAnimals, stop early
+            if bestAnimal then break end -- stop early if found in RenderedMovingAnimals
         end
     end
 
     if not bestAnimal then return end
 
-    local targetPart = findTargetPart(bestAnimal)
+    local targetPart = findPromptPart(bestAnimal)
     if not targetPart then return end
 
     local dist = (hrp.Position - targetPart.Position).Magnitude
@@ -532,7 +546,6 @@ toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 210)
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
-
 toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     BeeHiveImmune = not BeeHiveImmune
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
@@ -565,7 +578,6 @@ toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180)
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: ON"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
-
 toggleNoRagdollBtn.MouseButton1Click:Connect(function()
     NoRagdoll = not NoRagdoll
     toggleNoRagdollBtn.Text = "No Ragdoll: " .. (NoRagdoll and "ON" or "OFF")
