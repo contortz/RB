@@ -1,16 +1,14 @@
 --// Setup
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
-local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ProximityPromptService = game:GetService("ProximityPromptService")
 
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
-
-
 
 -- Rarity colors
 local RarityColors = {
@@ -75,9 +73,6 @@ local BlockRarityBlacklist = {
     Mythic = true,
 }
 
-
-
-
 -- Toggles & Threshold
 local AvoidInMachine = true
 local PlayerESPEnabled = false
@@ -96,10 +91,6 @@ local ThresholdOptions = {
     ["100K"] = 100000,
     ["300K"] = 300000
 }
-
-
-
-
 
 -- Helper for toggle color
 local function updateToggleColor(button, isOn)
@@ -127,20 +118,25 @@ local function parseGenerationText(text)
     return num
 end
 
--- ESP Folders
-local worldESPFolder = Instance.new("Folder", CoreGui)
-worldESPFolder.Name = "WorldRarityESP"
-local playerESPFolder = Instance.new("Folder", CoreGui)
-playerESPFolder.Name = "PlayerESPFolder"
-
 -- UI
-local screenGui = Instance.new("ScreenGui", playerGui)
+local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "ESPMenuUI"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = true
--- Slot Info Display (top-left of screen)
+screenGui.Parent = playerGui
+
+-- ESP Folders (parent to our ScreenGui – not CoreGui)
+local worldESPFolder = Instance.new("Folder")
+worldESPFolder.Name = "WorldRarityESP"
+worldESPFolder.Parent = screenGui
+
+local playerESPFolder = Instance.new("Folder")
+playerESPFolder.Name = "PlayerESPFolder"
+playerESPFolder.Parent = screenGui
+
+-- Slot Info Display (top-center)
 local slotInfoLabel = Instance.new("TextLabel", screenGui)
-slotInfoLabel.Position = UDim2.new(0.5, -100, 0, 10) -- centered horizontally, 10px from top
+slotInfoLabel.Position = UDim2.new(0.5, -100, 0, 10)
 slotInfoLabel.Size = UDim2.new(0, 200, 0, 30)
 slotInfoLabel.BackgroundTransparency = 1
 slotInfoLabel.TextColor3 = Color3.new(1, 1, 1)
@@ -149,9 +145,6 @@ slotInfoLabel.TextScaled = true
 slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.ZIndex = 10
-
-
-
 
 -- Frame
 local frame = Instance.new("Frame", screenGui)
@@ -296,7 +289,6 @@ thresholdDropdown.MouseButton1Click:Connect(function()
     thresholdDropdown.Text = "Threshold: ≥ "..selected
 end)
 
-
 -- Only show filled / total slots
 local function updateSlotCountOnly()
     local playerName = player.Name
@@ -306,42 +298,36 @@ local function updateSlotCountOnly()
     for _, model in ipairs(plots:GetChildren()) do
         local sign = model:FindFirstChild("PlotSign")
         local gui = sign and sign:FindFirstChild("SurfaceGui")
-        local frame = gui and gui:FindFirstChild("Frame")
-        local label = frame and frame:FindFirstChild("TextLabel")
+        local f = gui and gui:FindFirstChild("Frame")
+        local label = f and f:FindFirstChild("TextLabel")
 
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
             if owner == playerName then
                 local animalPodiums = model:FindFirstChild("AnimalPodiums")
                 if animalPodiums then
-                    local filled = 0
-                    local total = 0
-
+                    local filled, total = 0, 0
                     for _, podiumModule in ipairs(animalPodiums:GetChildren()) do
                         if podiumModule:IsA("Model") then
                             local base = podiumModule:FindFirstChild("Base")
                             local spawn = base and base:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
-                                total += 1
+                                total = total + 1
                                 if spawn:FindFirstChild("Attachment") then
-                                    filled += 1
+                                    filled = filled + 1
                                 end
                             end
                         end
                     end
-
                     slotInfoLabel.Text = "Slots: " .. filled .. " / " .. total
                 end
-
                 break
             end
         end
     end
 end
--- Call it once after delay (to catch initial load)
-task.delay(1, updateSlotCountOnly)
 
--- Auto-refresh slot count every 5 seconds
+task.delay(1, updateSlotCountOnly)
 task.spawn(function()
     while true do
         updateSlotCountOnly()
@@ -349,20 +335,14 @@ task.spawn(function()
     end
 end)
 
-
-
 -- Attempt to hold the prompt, retry if still present
 local function tryHoldPrompt(prompt, holdTime, maxRetries)
     maxRetries = maxRetries or 2
-    for attempt = 1, maxRetries do
-        prompt:InputHoldBegin()
+    for _ = 1, maxRetries do
+        ProximityPromptService:InputHoldBegin(prompt)
         task.wait(holdTime)
-        prompt:InputHoldEnd()
-
-        -- Short wait to allow UI to update
+        ProximityPromptService:InputHoldEnd(prompt)
         task.wait(0.25)
-
-        -- If prompt disappeared, success
         if not prompt:IsDescendantOf(game) or not prompt.Enabled then
             break
         end
@@ -370,7 +350,6 @@ local function tryHoldPrompt(prompt, holdTime, maxRetries)
 end
 
 -- Proximity Prompt Auto Purchase Logic
-local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
         local model = prompt:FindFirstAncestorWhichIsA("Model")
@@ -381,34 +360,30 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                 local genValue = parseGenerationText(overhead.Generation.Text)
                 if genValue >= PurchaseThreshold then
                     task.wait(0.10)
-                    tryHoldPrompt(prompt, 3, 8) -- Hold for 3 seconds, retry once if needed
+                    tryHoldPrompt(prompt, 3, 8)
                 end
                 return
             end
--- Lucky Blocks: by name/rarity (not price)
-if isLuckyBlockModel(model) then
-    local rarity = getLuckyBlockRarity(model)
-    if rarity and not BlockRarityBlacklist[rarity] and EnabledRarities[rarity] then
-        task.wait(0.10)
-        tryHoldPrompt(prompt, 3, 2)
-    end
-    return
-end
-
+            -- Lucky Blocks: by name/rarity (not price)
+            if isLuckyBlockModel(model) then
+                local rarity = getLuckyBlockRarity(model)
+                if rarity and not BlockRarityBlacklist[rarity] and EnabledRarities[rarity] then
+                    task.wait(0.10)
+                    tryHoldPrompt(prompt, 3, 2)
+                end
+                return
             end
         end
     end
 end)
 
-
-
 -- Speed Boost Toggle
 local SpeedBoostEnabled = false
-local DesiredWalkSpeed = 70 -- Change this to whatever speed you want
+local DesiredWalkSpeed = 70
 
 local toggleSpeedBoostBtn = Instance.new("TextButton", frame)
 toggleSpeedBoostBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 240) -- Puts it right under Threshold
+toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 240)
 toggleSpeedBoostBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleSpeedBoostBtn.Text = "Speed Boost: OFF"
 updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
@@ -419,25 +394,23 @@ toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
 end)
 
--- Enforce speed ignoring all game logic (including stealing slowdown)
 RunService.Heartbeat:Connect(function()
     if SpeedBoostEnabled then
         local char, humanoid = require(ReplicatedStorage.Controllers.CharacterController):GetCharacter()
         if humanoid then
-            humanoid.WalkSpeed = DesiredWalkSpeed -- No slowdown applied
+            humanoid.WalkSpeed = DesiredWalkSpeed
         end
     end
 end)
 
-
 -- Auto Jumper Toggle
 local AutoJumperEnabled = false
-local JumpInterval = 60 -- seconds between jumps
+local JumpInterval = 60
 local LastJumpTime = tick()
 
 local toggleAutoJumperBtn = Instance.new("TextButton", frame)
 toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 270) -- adjust so it sits under Speed Boost
+toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 270)
 toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAutoJumperBtn.Text = "Anti AFK: OFF"
 updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
@@ -448,7 +421,6 @@ toggleAutoJumperBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
 end)
 
--- Auto Jumper Loop (Simulates Spacebar Press)
 RunService.Heartbeat:Connect(function()
     if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
         game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
@@ -458,11 +430,8 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-
-
 -- Walk Purchase Toggle
 local WalkPurchaseEnabled = false
-
 local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
 toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300)
@@ -485,17 +454,12 @@ local lastPause = 0
 local function purchasePromptActive()
     local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
     if not promptGui then return false end
-    
     local promptFrame = promptGui:FindFirstChild("Prompt", true)
     if not promptFrame then return false end
-    
     local actionText = promptFrame:FindFirstChild("ActionText", true)
     if not actionText then return false end
-
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
-
-
 
 -- Walk helpers: drive both systems and provide a hard stop
 local function setWalkTarget(humanoid, pos)
@@ -513,7 +477,6 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
-
 -- Walk Purchase Logic (Animals first by Generation; Lucky Blocks by rarity fallback)
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
@@ -523,9 +486,7 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
 
-    ----------------------------------------------------------------
     -- PASS 1: Animals (highest Generation >= PurchaseThreshold)
-    ----------------------------------------------------------------
     local bestAnimal, bestGen, bestAnimalDist = nil, -math.huge, math.huge
     local movingAnimals = workspace:FindFirstChild("MovingAnimals")
 
@@ -575,9 +536,7 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
-    ----------------------------------------------------------------
     -- PASS 2: Lucky Blocks (rarity priority; Mythic can be blacklisted)
-    ----------------------------------------------------------------
     local bestBlock, bestPri, bestBlockDist = nil, -math.huge, math.huge
     local containers = {
         workspace:FindFirstChild("MovingAnimals"),
@@ -623,37 +582,14 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-
-
-
-
-
--- Rarity Toggles
-local y = 330
-for rarity in pairs(RarityColors) do
-    local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(1, -10, 0, 25)
-    button.Position = UDim2.new(0, 5, 0, y)
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-    updateToggleColor(button, EnabledRarities[rarity])
-    button.MouseButton1Click:Connect(function()
-        EnabledRarities[rarity] = not EnabledRarities[rarity]
-        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-        updateToggleColor(button, EnabledRarities[rarity])
-    end)
-    y += 28
-end
-
-
--- BeeHive Immune Toggle
+-- BeeHive Immune Toggle (kept)
 local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
 local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
 local Controls = PlayerModule:GetControls()
 
 local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 210) -- ✅ right under No Ragdoll
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 210)
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
@@ -662,93 +598,26 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     BeeHiveImmune = not BeeHiveImmune
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
     updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
-
     if BeeHiveImmune then
-        -- Immediately restore move function when toggled ON
         Controls.moveFunction = CharacterController.originalMoveFunction
     end
 end)
 
--- BeeHive Immune Enforcement
 RunService.Heartbeat:Connect(function()
     if BeeHiveImmune then
-        -- Disable Bee Blur if it exists
         local blur = game:GetService("Lighting"):FindFirstChild("BeeBlur")
-        if blur then
-            blur.Enabled = false
-        end
-        
-        -- Restore FOV instantly
+        if blur then blur.Enabled = false end
         local cam = workspace.CurrentCamera
         if cam and cam.FieldOfView ~= 70 then
             cam.FieldOfView = 70
         end
-
-        -- Ensure movement stays correct (failsafe in case game overrides it mid-Bee attack)
         if Controls.moveFunction ~= CharacterController.originalMoveFunction then
             Controls.moveFunction = CharacterController.originalMoveFunction
         end
     end
 end)
 
-
--- No Ragdoll Toggle
-local NoRagdoll = true
-local CharacterController = require(ReplicatedStorage.Controllers.RagdollController)
-local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
-local Controls = PlayerModule:GetControls()
-
--- Save original ToggleControls
-local originalToggleControls = CharacterController.ToggleControls
-
-local toggleNoRagdollBtn = Instance.new("TextButton", frame)
-toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180)
-toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleNoRagdollBtn.Text = "No Ragdoll: ON"
-
-updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
-
-toggleNoRagdollBtn.MouseButton1Click:Connect(function()
-    NoRagdoll = not NoRagdoll
-    toggleNoRagdollBtn.Text = "No Ragdoll: " .. (NoRagdoll and "ON" or "OFF")
-    updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
-
-    if NoRagdoll then
-        -- Override ToggleControls so it never disables movement
-        CharacterController.ToggleControls = function(_, enable)
-            -- Ignore disable attempts, always enable
-            Controls:Enable()
-        end
-    else
-        -- Restore default behavior when toggled off
-        CharacterController.ToggleControls = originalToggleControls
-    end
-end)
-
--- Safety: Force exit ragdoll if something slips through
-RunService.Heartbeat:Connect(function()
-    if NoRagdoll then
-        local char = player.Character
-        if char then
-            local humanoid = char:FindFirstChild("Humanoid")
-            if humanoid and humanoid:GetState() == Enum.HumanoidStateType.Physics then
-                humanoid:ChangeState(Enum.HumanoidStateType.Running)
-            end
-        end
-    end
-end)
-
-
-
-
--- Check if "IN MACHINE" changed to FUSING
-local function isInMachine(overhead)
-    local stolenLabel = overhead:FindFirstChild("Stolen")
-    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "FUSING"
-end
-
--- World ESP
+-- World ESP helpers
 local function createBillboard(adorn, color, text)
     local billboard = Instance.new("BillboardGui")
     billboard.Adornee = adorn
@@ -770,7 +639,7 @@ local function createBillboard(adorn, color, text)
     return billboard
 end
 
--- Heartbeat Loop
+-- Heartbeat Loop (ESP + MostExpensive option)
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
@@ -783,7 +652,12 @@ RunService.Heartbeat:Connect(function()
             local rarityLabel = podium:FindFirstChild("Rarity")
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
-                if AvoidInMachine and isInMachine(podium) then continue end
+                if AvoidInMachine and (function(overhead)
+                    local stolenLabel = overhead:FindFirstChild("Stolen")
+                    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "FUSING"
+                end)(podium) then
+                    continue
+                end
                 local gen = parseGenerationText((podium:FindFirstChild("Generation") or {}).Text or "")
                 if MostExpensiveOnly then
                     if gen > maxGen then
@@ -854,10 +728,30 @@ RunService.Heartbeat:Connect(function()
     if PlayerESPEnabled then
         for _, plr in ipairs(Players:GetPlayers()) do
             if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
-                local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
-                local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
-                bb.Parent = playerESPFolder
+                local myHRP = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+                if myHRP then
+                    local dist = (myHRP.Position - plr.Character.HumanoidRootPart.Position).Magnitude
+                    local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
+                    bb.Parent = playerESPFolder
+                end
             end
         end
     end
 end)
+
+-- Rarity Toggles
+local y = 330
+for rarity in pairs(RarityColors) do
+    local button = Instance.new("TextButton", frame)
+    button.Size = UDim2.new(1, -10, 0, 25)
+    button.Position = UDim2.new(0, 5, 0, y)
+    button.TextColor3 = Color3.new(1, 1, 1)
+    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+    updateToggleColor(button, EnabledRarities[rarity])
+    button.MouseButton1Click:Connect(function()
+        EnabledRarities[rarity] = not EnabledRarities[rarity]
+        button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+        updateToggleColor(button, EnabledRarities[rarity])
+    end)
+    y = y + 28
+end
