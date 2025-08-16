@@ -21,13 +21,13 @@ local RarityColors = {
     Secret = Color3.fromRGB(0, 255, 255)
 }
 
--- Enabled rarities
+-- Enabled rarities (defaults)
 local EnabledRarities = {}
 for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- Lucky Block helpers (for ESP/filters)
+-- Lucky Block helper
 local function getRarityFromName(objectName)
     for rarity in pairs(RarityColors) do
         if string.find(objectName, rarity) then
@@ -37,13 +37,14 @@ local function getRarityFromName(objectName)
     return nil
 end
 
--- Toggles & Threshold
+-- Toggles & Thresholds
 local AvoidInMachine = true
 local PlayerESPEnabled = false
 local MostExpensiveOnly = false
 local AutoPurchaseEnabled = true
 local BeeHiveImmune = true
 local PurchaseThreshold = 20000 -- default 20K
+local RequirePromptNearTarget = false -- NEW: default OFF (animals usually have no prompt)
 
 local ThresholdOptions = {
     ["0K"] = 0,
@@ -56,12 +57,11 @@ local ThresholdOptions = {
     ["300K"] = 300000
 }
 
--- Helper for toggle color
+-- UI helpers
 local function updateToggleColor(button, isOn)
     button.BackgroundColor3 = isOn and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(70, 70, 70)
 end
 
--- Price formatting
 local function formatPrice(value)
     if value >= 1e9 then
         return string.format("%.1fB", value / 1e9)
@@ -106,10 +106,10 @@ slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.ZIndex = 10
 
--- Frame
+-- Main Frame
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 525)
-frame.Position = UDim2.new(0, 20, 0.5, -200)
+frame.Size = UDim2.new(0, 250, 0, 560)
+frame.Position = UDim2.new(0, 20, 0.5, -230)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -133,37 +133,33 @@ cornIcon.ZIndex = 999
 cornIcon.Visible = false
 
 -- Dragging for Corn Icon
-local dragging, dragInput, dragStart, startPos
-cornIcon.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        dragStart = input.Position
-        startPos = cornIcon.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-            end
-        end)
-    end
-end)
-cornIcon.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement then
-        dragInput = input
-    end
-end)
-game:GetService("UserInputService").InputChanged:Connect(function(input)
-    if dragging and input == dragInput then
-        local delta = input.Position - dragStart
-        cornIcon.Position = UDim2.new(
-            startPos.X.Scale,
-            startPos.X.Offset + delta.X,
-            startPos.Y.Scale,
-            startPos.Y.Offset + delta.Y
-        )
-    end
-end)
+do
+    local dragging, dragInput, dragStart, startPos
+    cornIcon.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = cornIcon.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    cornIcon.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then dragInput = input end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            local delta = input.Position - dragStart
+            cornIcon.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + delta.X,
+                startPos.Y.Scale, startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
 
--- Toggle Minimize
+-- Minimize toggle
 minimizeBtn.MouseButton1Click:Connect(function()
     frame.Visible = false
     cornIcon.Visible = true
@@ -207,7 +203,7 @@ togglePlayerESPBtn.MouseButton1Click:Connect(function()
     updateToggleColor(togglePlayerESPBtn, PlayerESPEnabled)
 end)
 
--- Most Expensive Only Toggle
+-- Most Expensive Only Toggle (for ESP)
 local toggleMostExpBtn = Instance.new("TextButton", frame)
 toggleMostExpBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleMostExpBtn.Position = UDim2.new(0, 5, 0, 90)
@@ -220,7 +216,7 @@ toggleMostExpBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleMostExpBtn, MostExpensiveOnly)
 end)
 
--- Auto Purchase Toggle
+-- Auto Purchase Toggle (hold prompts)
 local toggleAutoPurchaseBtn = Instance.new("TextButton", frame)
 toggleAutoPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleAutoPurchaseBtn.Position = UDim2.new(0, 5, 0, 120)
@@ -249,18 +245,29 @@ thresholdDropdown.MouseButton1Click:Connect(function()
     thresholdDropdown.Text = "Threshold: ≥ "..selected
 end)
 
--- Only show filled / total slots
+-- NEW: Require Prompt Near Target toggle
+local toggleReqPromptBtn = Instance.new("TextButton", frame)
+toggleReqPromptBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleReqPromptBtn.Position = UDim2.new(0, 5, 0, 180)
+toggleReqPromptBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleReqPromptBtn.Text = "Require Prompt Near Target: OFF"
+updateToggleColor(toggleReqPromptBtn, RequirePromptNearTarget)
+toggleReqPromptBtn.MouseButton1Click:Connect(function()
+    RequirePromptNearTarget = not RequirePromptNearTarget
+    toggleReqPromptBtn.Text = "Require Prompt Near Target: " .. (RequirePromptNearTarget and "ON" or "OFF")
+    updateToggleColor(toggleReqPromptBtn, RequirePromptNearTarget)
+end)
+
+-- Slot counter
 local function updateSlotCountOnly()
     local playerName = player.Name
     local plots = Workspace:FindFirstChild("Plots")
     if not plots then return end
-
     for _, model in ipairs(plots:GetChildren()) do
         local sign = model:FindFirstChild("PlotSign")
         local gui = sign and sign:FindFirstChild("SurfaceGui")
         local f = gui and gui:FindFirstChild("Frame")
         local label = f and f:FindFirstChild("TextLabel")
-
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
             if owner == playerName then
@@ -286,7 +293,6 @@ local function updateSlotCountOnly()
         end
     end
 end
-
 task.delay(1, updateSlotCountOnly)
 task.spawn(function()
     while true do
@@ -295,7 +301,7 @@ task.spawn(function()
     end
 end)
 
--- Attempt to hold the prompt, retry if still present
+-- Prompt hold helper
 local function tryHoldPrompt(prompt, holdTime, maxRetries)
     maxRetries = maxRetries or 2
     for _ = 1, maxRetries do
@@ -309,45 +315,45 @@ local function tryHoldPrompt(prompt, holdTime, maxRetries)
     end
 end
 
--- Proximity Prompt Auto Purchase Logic (still useful when UI shows)
+-- Proximity Prompt Auto Purchase
 local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt)
-    if AutoPurchaseEnabled and prompt.ActionText and string.find(prompt.ActionText:lower(), "purchase") then
-        local model = prompt:FindFirstAncestorWhichIsA("Model")
-        if not model then return end
+    if not (AutoPurchaseEnabled and prompt and prompt.ActionText) then return end
+    if not string.find(prompt.ActionText:lower(), "purchase") then return end
 
-        -- Animals: Generation
-        local overhead = model:FindFirstChild("AnimalOverhead", true)
-        if overhead and overhead:FindFirstChild("Generation") then
-            local genValue = parseGenerationText(overhead.Generation.Text)
-            if genValue >= PurchaseThreshold then
-                task.wait(0.10)
-                tryHoldPrompt(prompt, 3, 8)
-            end
-            return
-        end
+    local model = prompt:FindFirstAncestorWhichIsA("Model")
+    if not model then return end
 
-        -- Lucky Blocks: by price using AnimalsData
-        local rarityHit = getRarityFromName(model.Name)
-        if rarityHit then
-            local data = AnimalsData[model.Name]
-            local price = data and data.Price or 0
-            if price >= PurchaseThreshold then
-                task.wait(0.10)
-                tryHoldPrompt(prompt, 3, 2)
-            end
-            return
+    -- Animals by Generation
+    local overhead = model:FindFirstChild("AnimalOverhead", true)
+    if overhead and overhead:FindFirstChild("Generation") then
+        local genValue = parseGenerationText(overhead.Generation.Text)
+        if genValue >= PurchaseThreshold then
+            task.wait(0.10)
+            tryHoldPrompt(prompt, 3, 8)
         end
+        return
+    end
+
+    -- Lucky Blocks by price
+    local rarityHit = getRarityFromName(model.Name)
+    if rarityHit then
+        local data = AnimalsData[model.Name]
+        local price = data and data.Price or 0
+        if price >= PurchaseThreshold then
+            task.wait(0.10)
+            tryHoldPrompt(prompt, 3, 2)
+        end
+        return
     end
 end)
 
--- Speed Boost Toggle
+-- Speed Boost
 local SpeedBoostEnabled = false
 local DesiredWalkSpeed = 70
-
 local toggleSpeedBoostBtn = Instance.new("TextButton", frame)
 toggleSpeedBoostBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 240)
+toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 210)
 toggleSpeedBoostBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleSpeedBoostBtn.Text = "Speed Boost: OFF"
 updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
@@ -358,13 +364,10 @@ toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
 end)
 
 local CharController = require(ReplicatedStorage.Controllers.CharacterController)
-
 RunService.Heartbeat:Connect(function()
     if SpeedBoostEnabled then
         local _, humanoid = CharController:GetCharacter()
-        if humanoid then
-            humanoid.WalkSpeed = DesiredWalkSpeed
-        end
+        if humanoid then humanoid.WalkSpeed = DesiredWalkSpeed end
     end
 end)
 
@@ -372,10 +375,9 @@ end)
 local AutoJumperEnabled = false
 local JumpInterval = 60
 local LastJumpTime = tick()
-
 local toggleAutoJumperBtn = Instance.new("TextButton", frame)
 toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 270)
+toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 240)
 toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleAutoJumperBtn.Text = "Anti AFK: OFF"
 updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
@@ -384,7 +386,6 @@ toggleAutoJumperBtn.MouseButton1Click:Connect(function()
     toggleAutoJumperBtn.Text = "Anti AFK: " .. (AutoJumperEnabled and "ON" or "OFF")
     updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
 end)
-
 RunService.Heartbeat:Connect(function()
     if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
         game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
@@ -398,7 +399,7 @@ end)
 local WalkPurchaseEnabled = false
 local toggleWalkPurchaseBtn = Instance.new("TextButton", frame)
 toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 300)
+toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 270)
 toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
 updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
@@ -413,20 +414,31 @@ local pauseDistance = 5
 local pauseTime = 0.35
 local lastPause = 0
 
--- Walk helpers: robust part finding + both movement systems + local prompt search
+-- Purchase prompt check (for optional gating near target)
+local function purchasePromptActive()
+    local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
+    if not promptGui then return false end
+    local promptFrame = promptGui:FindFirstChild("Prompt", true)
+    if not promptFrame then return false end
+    local actionText = promptFrame:FindFirstChild("ActionText", true)
+    if not actionText then return false end
+    return string.find(actionText.Text:lower(), "purchase") ~= nil
+end
+
+-- Walk helpers: robust target part + movement
 local function findTargetPart(model)
     return model:FindFirstChild("HumanoidRootPart")
         or model:FindFirstChild("RootPart")
         or model:FindFirstChild("FakeRootPart")
-        or model:FindFirstChild("Part", true)
         or model.PrimaryPart
+        or model:FindFirstChild("Part", true) -- recursive "Part"
         or model:FindFirstChildWhichIsA("BasePart", true)
 end
 
 local function setWalkTarget(humanoid, pos)
     if not (humanoid and pos) then return end
-    humanoid:MoveTo(pos)       -- pathfinding
-    humanoid.WalkToPoint = pos -- direct (newer)
+    humanoid:MoveTo(pos)
+    humanoid.WalkToPoint = pos
 end
 
 local function stopWalking(humanoid, hrp)
@@ -438,16 +450,7 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
-local function findAnyPrompt(model)
-    for _, d in ipairs(model:GetDescendants()) do
-        if d:IsA("ProximityPrompt") then
-            return d
-        end
-    end
-    return nil
-end
-
--- UPDATED Walk-to-Purchase: scan RenderedMovingAnimals first (then fallback)
+-- Walk-to-purchase: scan Workspace root (all descendants) for animals
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
 
@@ -456,85 +459,80 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
 
-    local containers = {
-        workspace:FindFirstChild("RenderedMovingAnimals"),
-        workspace:FindFirstChild("MovingAnimals")
-    }
+    local bestModel, bestGen, bestDist = nil, -math.huge, math.huge
 
-    local bestAnimal, bestGen, bestDist = nil, -math.huge, math.huge
-
-    for _, folder in ipairs(containers) do
-        if folder then
-            for _, model in ipairs(folder:GetChildren()) do
-                if model:IsA("Model") then
-                    local overhead = model:FindFirstChild("AnimalOverhead", true)
-                    local genLabel = overhead and overhead:FindFirstChild("Generation")
-                    local targetPart = findTargetPart(model)
-                    if genLabel and targetPart then
-                        local genValue = parseGenerationText(genLabel.Text or "")
-                        if genValue >= PurchaseThreshold then
-                            local dist = (hrp.Position - targetPart.Position).Magnitude
-                            if (genValue > bestGen) or (genValue == bestGen and dist < bestDist) then
-                                bestAnimal, bestGen, bestDist = model, genValue, dist
-                            end
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        if obj:IsA("Model") then
+            local overhead = obj:FindFirstChild("AnimalOverhead", true)
+            local genLabel = overhead and overhead:FindFirstChild("Generation")
+            if genLabel then
+                if AvoidInMachine then
+                    local stolen = overhead:FindFirstChild("Stolen")
+                    local inMachine = stolen and stolen:IsA("TextLabel") and (stolen.Text == "IN MACHINE" or stolen.Text == "FUSING")
+                    if inMachine then
+                        goto continue_model
+                    end
+                end
+                local targetPart = findTargetPart(obj)
+                if targetPart and targetPart:IsA("BasePart") then
+                    local genValue = parseGenerationText(genLabel.Text or "")
+                    if genValue >= PurchaseThreshold then
+                        local dist = (hrp.Position - targetPart.Position).Magnitude
+                        if (genValue > bestGen) or (genValue == bestGen and dist < bestDist) then
+                            bestModel, bestGen, bestDist = obj, genValue, dist
                         end
                     end
                 end
             end
-            if bestAnimal then break end -- found something in RenderedMovingAnimals, stop early
         end
+        ::continue_model::
     end
 
-    if not bestAnimal then return end
+    if not bestModel then return end
 
-    local targetPart = findTargetPart(bestAnimal)
-    if not targetPart then return end
+    local targetPart = findTargetPart(bestModel)
+    if not (targetPart and targetPart:IsA("BasePart")) then return end
 
     local dist = (hrp.Position - targetPart.Position).Magnitude
-    if dist <= pauseDistance then
-        if tick() - lastPause >= pauseTime then
-            -- Try to activate ANY prompt on/under the model when close enough
-            local prompt = findAnyPrompt(bestAnimal)
-            if prompt then
-                task.spawn(function()
-                    tryHoldPrompt(prompt, 3, 2)
-                end)
-            end
-            lastPause = tick()
+    if dist <= pauseDistance and (tick() - lastPause) >= pauseTime then
+        if RequirePromptNearTarget and not purchasePromptActive() then
+            stopWalking(humanoid, hrp)
+            return
         end
+        lastPause = tick()
     end
 
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
--- Rarity Toggles
-local y = 330
-for rarity in pairs(RarityColors) do
-    local button = Instance.new("TextButton", frame)
-    button.Size = UDim2.new(1, -10, 0, 25)
-    button.Position = UDim2.new(0, 5, 0, y)
-    button.TextColor3 = Color3.new(1, 1, 1)
-    button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
-    updateToggleColor(button, EnabledRarities[rarity])
-    button.MouseButton1Click:Connect(function()
-        EnabledRarities[rarity] = not EnabledRarities[rarity]
+-- Rarity Toggles (ESP)
+do
+    local y = 300
+    for rarity in pairs(RarityColors) do
+        local button = Instance.new("TextButton", frame)
+        button.Size = UDim2.new(1, -10, 0, 25)
+        button.Position = UDim2.new(0, 5, 0, y)
+        button.TextColor3 = Color3.new(1, 1, 1)
         button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
         updateToggleColor(button, EnabledRarities[rarity])
-    end)
-    y += 28
+        button.MouseButton1Click:Connect(function()
+            EnabledRarities[rarity] = not EnabledRarities[rarity]
+            button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
+            updateToggleColor(button, EnabledRarities[rarity])
+        end)
+        y += 28
+    end
 end
 
 -- BeeHive Immune Toggle
 local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
 local Controls = PlayerModule:GetControls()
-
 local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 210)
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 300 + (28 * (table.getn(RarityColors) or 7)))
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
-
 toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     BeeHiveImmune = not BeeHiveImmune
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
@@ -543,7 +541,6 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
         Controls.moveFunction = CharController.originalMoveFunction
     end
 end)
-
 RunService.Heartbeat:Connect(function()
     if BeeHiveImmune then
         local blur = game:GetService("Lighting"):FindFirstChild("BeeBlur")
@@ -560,14 +557,12 @@ end)
 local NoRagdoll = true
 local RagdollController = require(ReplicatedStorage.Controllers.RagdollController)
 local originalToggleControls = RagdollController.ToggleControls
-
 local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 180)
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 330 + (28 * (table.getn(RarityColors) or 7)))
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: ON"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
-
 toggleNoRagdollBtn.MouseButton1Click:Connect(function()
     NoRagdoll = not NoRagdoll
     toggleNoRagdollBtn.Text = "No Ragdoll: " .. (NoRagdoll and "ON" or "OFF")
@@ -580,7 +575,6 @@ toggleNoRagdollBtn.MouseButton1Click:Connect(function()
         RagdollController.ToggleControls = originalToggleControls
     end
 end)
-
 RunService.Heartbeat:Connect(function()
     if NoRagdoll then
         local char = player.Character
@@ -593,19 +587,19 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Check if "IN MACHINE" changed to FUSING
+-- Machine state helper (for ESP filtering)
 local function isInMachine(overhead)
     local stolenLabel = overhead:FindFirstChild("Stolen")
-    return stolenLabel and stolenLabel:IsA("TextLabel") and stolenLabel.Text == "FUSING"
+    return stolenLabel and stolenLabel:IsA("TextLabel") and (stolenLabel.Text == "FUSING" or stolenLabel.Text == "IN MACHINE")
 end
 
--- World ESP
+-- Billboard helper
 local function createBillboard(adorn, color, text)
-    local BillboardGui = Instance.new("BillboardGui")
-    BillboardGui.Adornee = adorn
-    BillboardGui.Size = UDim2.new(0, 200, 0, 20)
-    BillboardGui.StudsOffset = Vector3.new(0, 3, 0)
-    BillboardGui.AlwaysOnTop = true
+    local billboard = Instance.new("BillboardGui")
+    billboard.Adornee = adorn
+    billboard.Size = UDim2.new(0, 200, 0, 20)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
     local textLabel = Instance.new("TextLabel")
     textLabel.Size = UDim2.new(1, 0, 1, 0)
     textLabel.BackgroundTransparency = 1
@@ -613,15 +607,15 @@ local function createBillboard(adorn, color, text)
     textLabel.TextScaled = true
     textLabel.Font = Enum.Font.GothamBold
     textLabel.Text = text
-    textLabel.Parent = BillboardGui
+    textLabel.Parent = billboard
     local stroke = Instance.new("UIStroke")
     stroke.Color = Color3.new(0, 0, 0)
     stroke.Thickness = 2
     stroke.Parent = textLabel
-    return BillboardGui
+    return billboard
 end
 
--- ESP Heartbeat
+-- ESP loop
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
@@ -644,9 +638,10 @@ RunService.Heartbeat:Connect(function()
                     if EnabledRarities[rarity] then
                         local displayName = podium:FindFirstChild("DisplayName")
                         if displayName then
-                            local model = podium.Parent and podium.Parent.Parent
-                            if model and model:IsA("BasePart") then
-                                local bb = createBillboard(model, RarityColors[rarity], displayName.Text .. " | " .. (podium.Generation and podium.Generation.Text or ""))
+                            local modelPart = podium.Parent and podium.Parent.Parent
+                            if modelPart and modelPart:IsA("BasePart") then
+                                local genText = (podium:FindFirstChild("Generation") and podium.Generation.Text) or ""
+                                local bb = createBillboard(modelPart, RarityColors[rarity], displayName.Text .. " | " .. genText)
                                 bb.Parent = worldESPFolder
                             end
                         end
@@ -681,7 +676,8 @@ RunService.Heartbeat:Connect(function()
             local displayName = maxAnimal.DisplayName.Text
             local model = maxAnimal.Parent and maxAnimal.Parent.Parent
             if model and model:IsA("BasePart") then
-                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. (maxAnimal:FindFirstChild("Generation") and maxAnimal.Generation.Text or ""))
+                local genText = (maxAnimal:FindFirstChild("Generation") and maxAnimal.Generation.Text) or ""
+                local bb = createBillboard(model, RarityColors[rarity], displayName .. " | " .. genText)
                 bb.Parent = worldESPFolder
             end
         end
