@@ -495,6 +495,25 @@ local function purchasePromptActive()
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
 
+
+
+-- Walk helpers: drive both systems and provide a hard stop
+local function setWalkTarget(humanoid, pos)
+    if not (humanoid and pos) then return end
+    humanoid:MoveTo(pos)           -- pathfinding target
+    humanoid.WalkToPoint = pos     -- direct walk target (newer games use this)
+end
+
+local function stopWalking(humanoid, hrp)
+    if not humanoid then return end
+    humanoid:Move(Vector3.new(), true)  -- clear input
+    if hrp then
+        humanoid:MoveTo(hrp.Position)
+        humanoid.WalkToPoint = hrp.Position
+    end
+end
+
+
 -- Walk Purchase Logic (Animals first by Generation; Lucky Blocks by rarity fallback)
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
