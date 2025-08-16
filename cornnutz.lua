@@ -384,7 +384,7 @@ local quickPurchaseBtn = Instance.new("TextButton")
 quickPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 quickPurchaseBtn.Position = UDim2.new(0, 5, 0, 390)
 quickPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
-quickPurchaseBtn.Text = "Quick Purchase (3296448740)"
+quickPurchaseBtn.Text = "4x Luck"
 updateToggleColor(quickPurchaseBtn, true)
 quickPurchaseBtn.Parent = frame
 
@@ -411,7 +411,7 @@ quickPurchaseBtn.MouseButton1Click:Connect(function()
     else
         quickPurchaseBtn.Text = "Remote not found"
         task.delay(1.2, function()
-            if quickPurchaseBtn then quickPurchaseBtn.Text = "Quick Purchase (3296448922)" end
+            if quickPurchaseBtn then quickPurchaseBtn.Text = "4x Luck" end
         end)
     end
     task.delay(0.5, function() quickPurchaseDebounce = false end)
