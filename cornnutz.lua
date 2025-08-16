@@ -42,7 +42,7 @@ local PurchaseThreshold = 20000
 local WalkPurchaseEnabled = false
 
 -- Only for WALKER: ignore animals **near your base**
-local BaseIgnoreRadiusStuds = 20        -- default ignore radius
+local BaseIgnoreRadiusStuds = 40        -- default ignore radius
 local ShowBaseIgnoreRadius = true       -- draw the circle ring on your base
 
 local ThresholdOptions = {
