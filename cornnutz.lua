@@ -45,8 +45,10 @@ local AutoPurchaseEnabled = true
 local BeeHiveImmune = true
 local PurchaseThreshold = 20000 -- default 20K
 local RequirePromptNearTarget = false -- animals usually have no prompt; leave OFF
-local IgnoreNearMyBase = true        -- NEW: ignore animals near *your* base (walk logic only)
-local IgnoreRadius = 50              -- NEW: distance around your base to ignore (studs)
+
+-- NEW: ignore animals near *your* base (affects WALK ONLY, not ESP)
+local IgnoreNearMyBase = true
+local IgnoreRadius = 70 -- padding around your plot bounds
 local IgnoreRadiusOptions = {20,30,40,50,70,100,150}
 
 local ThresholdOptions = {
@@ -80,10 +82,8 @@ local function parseGenerationText(text)
 end
 
 -- ESP Folders
-local worldESPFolder = Instance.new("Folder", CoreGui)
-worldESPFolder.Name = "WorldRarityESP"
-local playerESPFolder = Instance.new("Folder", CoreGui)
-playerESPFolder.Name = "PlayerESPFolder"
+local worldESPFolder = Instance.new("Folder", CoreGui); worldESPFolder.Name = "WorldRarityESP"
+local playerESPFolder = Instance.new("Folder", CoreGui); playerESPFolder.Name = "PlayerESPFolder"
 
 -- UI
 local screenGui = Instance.new("ScreenGui")
@@ -104,10 +104,10 @@ slotInfoLabel.Font = Enum.Font.GothamBold
 slotInfoLabel.Text = "Slots: ? / ?"
 slotInfoLabel.ZIndex = 10
 
--- Main Frame
+-- Main Frame (taller to fit everything)
 local frame = Instance.new("Frame", screenGui)
-frame.Size = UDim2.new(0, 250, 0, 590)
-frame.Position = UDim2.new(0, 20, 0.5, -250)
+frame.Size = UDim2.new(0, 250, 0, 640)
+frame.Position = UDim2.new(0, 20, 0.5, -280)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -256,7 +256,7 @@ toggleReqPromptBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleReqPromptBtn, RequirePromptNearTarget)
 end)
 
--- NEW: Ignore Near My Base toggle
+-- Ignore Near My Base toggle
 local toggleIgnoreBaseBtn = Instance.new("TextButton", frame)
 toggleIgnoreBaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleIgnoreBaseBtn.Position = UDim2.new(0, 5, 0, 210)
@@ -269,7 +269,7 @@ toggleIgnoreBaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleIgnoreBaseBtn, IgnoreNearMyBase)
 end)
 
--- NEW: Ignore Radius button (cycles)
+-- Ignore Radius button (cycles)
 local ignoreRadiusBtn = Instance.new("TextButton", frame)
 ignoreRadiusBtn.Size = UDim2.new(1, -10, 0, 25)
 ignoreRadiusBtn.Position = UDim2.new(0, 5, 0, 240)
@@ -277,13 +277,13 @@ ignoreRadiusBtn.TextColor3 = Color3.new(1, 1, 1)
 ignoreRadiusBtn.Text = ("Ignore Radius: %dstu"):format(IgnoreRadius)
 updateToggleColor(ignoreRadiusBtn, true)
 ignoreRadiusBtn.MouseButton1Click:Connect(function()
-    local idx = table.find(IgnoreRadiusOptions, IgnoreRadius) or 4
+    local idx = table.find(IgnoreRadiusOptions, IgnoreRadius) or 5
     idx = idx % #IgnoreRadiusOptions + 1
     IgnoreRadius = IgnoreRadiusOptions[idx]
     ignoreRadiusBtn.Text = ("Ignore Radius: %dstu"):format(IgnoreRadius)
 end)
 
--- Slot counter (unchanged)
+-- Slot counter
 local function updateSlotCountOnly()
     local playerName = player.Name
     local plots = Workspace:FindFirstChild("Plots")
@@ -450,12 +450,12 @@ local function purchasePromptActive()
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
 
--- Find your base center (cached every few seconds)
-local myBaseCenter : Vector3? = nil
-local function computeMyBaseCenter()
-    myBaseCenter = nil
+-- === MY BASE BOUNDS (for ignore) ===
+local myBaseCF, myBaseSize -- updated periodically
+
+local function myPlot()
     local plots = Workspace:FindFirstChild("Plots")
-    if not plots then return end
+    if not plots then return nil end
     for _, plot in ipairs(plots:GetChildren()) do
         local sign = plot:FindFirstChild("PlotSign")
         local gui = sign and sign:FindFirstChild("SurfaceGui")
@@ -464,28 +464,35 @@ local function computeMyBaseCenter()
         if label and label.Text then
             local owner = label.Text:match("^(.-)'s Base")
             if owner == player.Name then
-                local mainRoot = plot:FindFirstChild("MainRoot")
-                if mainRoot and mainRoot:IsA("BasePart") then
-                    myBaseCenter = mainRoot.Position
-                    return
-                end
-                if plot.PrimaryPart then
-                    myBaseCenter = plot.PrimaryPart.Position
-                    return
-                end
-                for _, d in ipairs(plot:GetDescendants()) do
-                    if d:IsA("BasePart") then
-                        myBaseCenter = d.Position
-                        return
-                    end
-                end
+                return plot
             end
         end
     end
+    return nil
 end
+
+local function refreshMyBaseBounds()
+    myBaseCF, myBaseSize = nil, nil
+    local plot = myPlot()
+    if not plot then return end
+    local ok, cf, size = pcall(function() return plot:GetBoundingBox() end)
+    if ok and cf and size then
+        myBaseCF, myBaseSize = cf, size
+    end
+end
+
+local function isInsideOrNearMyBase(pos: Vector3)
+    if not (IgnoreNearMyBase and myBaseCF and myBaseSize) then return false end
+    -- Transform point into plot space & compare against extents + padding
+    local p = myBaseCF:PointToObjectSpace(pos)
+    local pad = IgnoreRadius
+    return math.abs(p.X) <= (myBaseSize.X * 0.5 + pad)
+        and math.abs(p.Z) <= (myBaseSize.Z * 0.5 + pad)
+end
+
 task.spawn(function()
     while true do
-        computeMyBaseCenter()
+        refreshMyBaseBounds()
         task.wait(3)
     end
 end)
@@ -515,7 +522,7 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
--- Walk-to-purchase: scan Workspace for animals (ESP unchanged)
+-- Walk-to-purchase (Workspace scan). ESP remains unchanged.
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
 
@@ -542,11 +549,9 @@ RunService.Heartbeat:Connect(function()
 
                 local targetPart = findTargetPart(obj)
                 if targetPart and targetPart:IsA("BasePart") then
-                    -- NEW: ignore animals near *your* base
-                    if IgnoreNearMyBase and myBaseCenter then
-                        if (targetPart.Position - myBaseCenter).Magnitude <= IgnoreRadius then
-                            goto continue_model
-                        end
+                    -- HARD IGNORE anything inside/near my base bounds
+                    if isInsideOrNearMyBase(targetPart.Position) then
+                        goto continue_model
                     end
 
                     local genValue = parseGenerationText(genLabel.Text or "")
@@ -598,12 +603,12 @@ do
     end
 end
 
--- BeeHive Immune Toggle
+-- BeeHive Immune Toggle (after rarity list)
 local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
 local Controls = PlayerModule:GetControls()
 local toggleBeeHiveBtn = Instance.new("TextButton", frame)
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 330)
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 560)
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
@@ -635,7 +640,7 @@ local RagdollController = require(ReplicatedStorage.Controllers.RagdollControlle
 local originalToggleControls = RagdollController.ToggleControls
 local toggleNoRagdollBtn = Instance.new("TextButton", frame)
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 630) -- placed after rarity buttons section height
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 590)
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: ON"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
@@ -691,7 +696,7 @@ local function createBillboard(adorn, color, text)
     return billboard
 end
 
--- ESP loop (UNCHANGED by ignore-base logic)
+-- ESP loop (unchanged by ignore-base)
 RunService.Heartbeat:Connect(function()
     worldESPFolder:ClearAllChildren()
     playerESPFolder:ClearAllChildren()
