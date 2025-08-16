@@ -10,8 +10,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- Animal data (for Lucky Blocks)
 local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
 
-
-
 -- Rarity colors
 local RarityColors = {
     Common = Color3.fromRGB(150, 150, 150),
@@ -28,55 +26,6 @@ local EnabledRarities = {}
 for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
-
--- Lucky Block helpers (name/rarity based)
-local function findAdorneeForModel(model)
-    return model.PrimaryPart
-        or model:FindFirstChild("HumanoidRootPart", true)
-        or model:FindFirstChild("RootPart", true)
-        or model:FindFirstChild("FakeRootPart", true)
-        or model:FindFirstChildWhichIsA("BasePart", true)
-end
-
-local function getRarityFromName(objectName)
-    for rarity in pairs(RarityColors) do
-        if string.find(objectName, rarity) then
-            return rarity
-        end
-    end
-    return nil
-end
-
-local function isLuckyBlockModel(model)
-    if not model or not model:IsA("Model") then return false end
-    if model.Name:find("Lucky Block") or model.Name:find("LuckyBlock") then return true end
-    local rec = AnimalsData[model.Name]
-    return rec and (rec.LuckyBlock or rec.DisplayName == "Lucky Block") or false
-end
-
-local function getLuckyBlockRarity(model)
-    local rec = AnimalsData[model.Name]
-    return (rec and rec.Rarity) or getRarityFromName(model.Name)
-end
-
--- Rarity priority for blocks (used by walker fallback)
-local RarityPriority = {
-    ["Secret"] = 7,
-    ["Brainrot God"] = 6,
-    ["Mythic"] = 5,
-    ["Legendary"] = 4,
-    ["Epic"] = 3,
-    ["Rare"] = 2,
-    ["Common"] = 1,
-}
-
--- Exclude certain block rarities entirely (default: skip Mythic)
-local BlockRarityBlacklist = {
-    Mythic = true,
-}
-
-
-
 
 -- Toggles & Threshold
 local AvoidInMachine = true
@@ -385,16 +334,17 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
                 end
                 return
             end
--- Lucky Blocks: by name/rarity (not price)
-if isLuckyBlockModel(model) then
-    local rarity = getLuckyBlockRarity(model)
-    if rarity and not BlockRarityBlacklist[rarity] and EnabledRarities[rarity] then
-        task.wait(0.10)
-        tryHoldPrompt(prompt, 3, 2)
-    end
-    return
-end
-
+            -- Lucky Blocks: Price
+            for rarity in pairs(RarityColors) do
+                if model.Name:find(rarity) then
+                    local data = AnimalsData[model.Name]
+                    local price = data and data.Price or 0
+                    if price >= PurchaseThreshold then
+                        task.wait(0.10)
+                        tryHoldPrompt(prompt, 3, 2) -- Hold for 3 seconds, retry once if needed
+                    end
+                    return
+                end
             end
         end
     end
@@ -495,120 +445,62 @@ local function purchasePromptActive()
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
 
--- Walk Purchase Logic (Animals first by Generation; Lucky Blocks by rarity fallback)
+-- Walk Purchase Logic with pause + prompt check
 RunService.Heartbeat:Connect(function()
-    if not WalkPurchaseEnabled then return end
+    if WalkPurchaseEnabled then
+        local char = workspace:FindFirstChild(player.Name)
+        local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if not humanoid or not hrp then return end
 
-    local char = workspace:FindFirstChild(player.Name)
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not humanoid or not hrp then return end
+        local highestGen = -math.huge
+        local bestAnimal = nil
+        local closestDistance = math.huge
 
-    ----------------------------------------------------------------
-    -- PASS 1: Animals (highest Generation >= PurchaseThreshold)
-    ----------------------------------------------------------------
-    local bestAnimal, bestGen, bestAnimalDist = nil, -math.huge, math.huge
-    local movingAnimals = workspace:FindFirstChild("MovingAnimals")
-
-    if movingAnimals then
-        for _, model in ipairs(movingAnimals:GetChildren()) do
+        -- Select highest generation target (closest if tie)
+        for _, model in ipairs(workspace.MovingAnimals:GetChildren()) do
             local overhead = model:FindFirstChild("AnimalOverhead", true)
             local genLabel = overhead and overhead:FindFirstChild("Generation")
-            local targetPart = model:FindFirstChild("HumanoidRootPart")
-                or model:FindFirstChild("RootPart")
-                or model:FindFirstChild("FakeRootPart")
-                or model.PrimaryPart
-                or model:FindFirstChildWhichIsA("BasePart", true)
+            local hrpAnimal = model:FindFirstChild("HumanoidRootPart")
 
-            if genLabel and targetPart then
+            if genLabel and hrpAnimal then
                 local genValue = parseGenerationText(genLabel.Text or "")
                 if genValue >= PurchaseThreshold then
-                    local dist = (hrp.Position - targetPart.Position).Magnitude
-                    if (genValue > bestGen) or (genValue == bestGen and dist < bestAnimalDist) then
-                        bestAnimal, bestGen, bestAnimalDist = model, genValue, dist
-                    end
-                end
-            end
-        end
-    end
-
-    -- If we found a qualifying animal, walk to it (with your pause + prompt check)
-    if bestAnimal then
-        local hrpTarget = bestAnimal:FindFirstChild("HumanoidRootPart")
-            or bestAnimal:FindFirstChild("RootPart")
-            or bestAnimal:FindFirstChild("FakeRootPart")
-            or bestAnimal.PrimaryPart
-            or bestAnimal:FindFirstChildWhichIsA("BasePart", true)
-
-        if hrpTarget then
-            local dist = (hrp.Position - hrpTarget.Position).Magnitude
-            if dist <= pauseDistance then
-                if tick() - lastPause >= pauseTime then
-                    -- ✅ same pause + prompt check you already had
-                    if not purchasePromptActive() then
-                        humanoid.WalkToPoint = hrp.Position
-                        return
-                    end
-                    lastPause = tick()
-                end
-            end
-            humanoid.WalkToPoint = hrpTarget.Position
-        end
-        return
-    end
-
-    ----------------------------------------------------------------
-    -- PASS 2: Lucky Blocks (rarity priority; Mythic can be blacklisted)
-    -- Requires helpers you added earlier:
-    --   isLuckyBlockModel(), getLuckyBlockRarity(), findAdorneeForModel(),
-    --   RarityPriority, BlockRarityBlacklist, EnabledRarities
-    ----------------------------------------------------------------
-    local bestBlock, bestPri, bestBlockDist = nil, -math.huge, math.huge
-    local containers = {
-        workspace:FindFirstChild("MovingAnimals"),
-        workspace:FindFirstChild("RenderedMovingAnimals"),
-    }
-
-    for _, folder in ipairs(containers) do
-        if folder then
-            for _, mdl in ipairs(folder:GetChildren()) do
-                if mdl:IsA("Model") and isLuckyBlockModel(mdl) then
-                    local rarity = getLuckyBlockRarity(mdl)
-                    if rarity and not (BlockRarityBlacklist and BlockRarityBlacklist[rarity]) and EnabledRarities[rarity] then
-                        local adorn = findAdorneeForModel(mdl)
-                        if adorn then
-                            local pri = (RarityPriority and RarityPriority[rarity]) or 0
-                            local dist = (hrp.Position - adorn.Position).Magnitude
-                            if (pri > bestPri) or (pri == bestPri and dist < bestBlockDist) then
-                                bestBlock, bestPri, bestBlockDist = mdl, pri, dist
-                            end
+                    if genValue > highestGen then
+                        highestGen = genValue
+                        bestAnimal = model
+                        closestDistance = (hrp.Position - hrpAnimal.Position).Magnitude
+                    elseif genValue == highestGen then
+                        local dist = (hrp.Position - hrpAnimal.Position).Magnitude
+                        if dist < closestDistance then
+                            bestAnimal = model
+                            closestDistance = dist
                         end
                     end
                 end
             end
         end
-    end
 
-    -- Walk to the chosen Lucky Block (same pause + prompt check)
-    if bestBlock then
-        local targetPart = findAdorneeForModel(bestBlock)
-        if targetPart then
-            local dist = (hrp.Position - targetPart.Position).Magnitude
+        -- Walk & pause
+        if bestAnimal and bestAnimal:FindFirstChild("HumanoidRootPart") then
+            local hrpTarget = bestAnimal.HumanoidRootPart
+            local dist = (hrp.Position - hrpTarget.Position).Magnitude
+
             if dist <= pauseDistance then
                 if tick() - lastPause >= pauseTime then
-                    -- ✅ same pause + prompt check here too
+                    -- ✅ Check prompt after pause
                     if not purchasePromptActive() then
-                        humanoid.WalkToPoint = hrp.Position
+                        humanoid.WalkToPoint = hrp.Position -- stop if no prompt visible
                         return
                     end
                     lastPause = tick()
                 end
             end
-            humanoid.WalkToPoint = targetPart.Position
+
+            humanoid.WalkToPoint = hrpTarget.Position
         end
     end
 end)
-
 
 
 
