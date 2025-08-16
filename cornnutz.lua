@@ -32,7 +32,7 @@ for rarity in pairs(RarityColors) do
     EnabledRarities[rarity] = (rarity == "Brainrot God" or rarity == "Secret")
 end
 
--- Lucky Block helper
+-- Lucky Block helper (rarity from name)
 local function getRarityFromName(objectName)
     for rarity in pairs(RarityColors) do
         if string.find(objectName, rarity) then
@@ -40,6 +40,13 @@ local function getRarityFromName(objectName)
         end
     end
     return nil
+end
+
+-- EZ Lucky detection by name
+local function isLuckyModel(model)
+    if not (model and model.Name) then return false end
+    local n = string.lower(model.Name)
+    return (n:find("lucky") ~= nil) and (n:find("block") ~= nil)
 end
 
 -- Toggles & Thresholds
@@ -303,7 +310,7 @@ ignoreRadiusBtn.Text = ("Ignore Radius: %dstu"):format(IgnoreRadius)
 updateToggleColor(ignoreRadiusBtn, true)
 ignoreRadiusBtn.Parent = frame
 ignoreRadiusBtn.MouseButton1Click:Connect(function()
-    local idx = table.find(IgnoreRadiusOptions, IgnoreRadius) or 2
+    local idx = table.find(IgnoreRadiusOptions, IgnoreRadius) or 1
     idx = idx % #IgnoreRadiusOptions + 1
     IgnoreRadius = IgnoreRadiusOptions[idx]
     ignoreRadiusBtn.Text = ("Ignore Radius: %dstu"):format(IgnoreRadius)
@@ -379,7 +386,7 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- NEW: Quick Purchase button (fires RE/ShopService/Purchase with 3296448740)
+-- NEW: Quick Purchase button (fires RE/ShopService/Purchase with 3296448922)
 local quickPurchaseBtn = Instance.new("TextButton")
 quickPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 quickPurchaseBtn.Position = UDim2.new(0, 5, 0, 390)
@@ -392,7 +399,6 @@ local quickPurchaseDebounce = false
 quickPurchaseBtn.MouseButton1Click:Connect(function()
     if quickPurchaseDebounce then return end
     quickPurchaseDebounce = true
-    -- resolve remote safely
     local ok, remote = pcall(function()
         return ReplicatedStorage
             :WaitForChild("Packages")
@@ -422,15 +428,15 @@ local pauseDistance = 5
 local pauseTime = 0.35
 local lastPause = 0
 
--- Purchase prompt check (optional gating near target)
+-- Purchase prompt check (tolerant verbs)
 local function purchasePromptActive()
     local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
     if not promptGui then return false end
     local promptFrame = promptGui:FindFirstChild("Prompt", true)
     if not promptFrame then return false end
     local actionText = promptFrame:FindFirstChild("ActionText", true)
-    if not actionText then return false end
-    return string.find(actionText.Text:lower(), "purchase") ~= nil
+    local t = string.lower(actionText and actionText.Text or "")
+    return (t:find("purchase") or t:find("buy") or t:find("open") or t:find("unlock")) ~= nil
 end
 
 -- Slot counter
@@ -489,58 +495,6 @@ local function tryHoldPrompt(prompt, holdTime, maxRetries)
         end
     end
 end
-
--- Proximity Prompt Auto Purchase (Lucky Blocks bypass threshold)
-local ProximityPromptService = game:GetService("ProximityPromptService")
-ProximityPromptService.PromptShown:Connect(function(prompt)
-    if not (AutoPurchaseEnabled and prompt and prompt.ActionText) then return end
-    if not string.find(prompt.ActionText:lower(), "purchase") then return end
-
-    local model = prompt:FindFirstAncestorWhichIsA("Model")
-    if not model then return end
-
-    -- Animals by Generation (uses threshold)
-    local overhead = model:FindFirstChild("AnimalOverhead", true)
-    if overhead and overhead:FindFirstChild("Generation") then
-        local genValue = parseGenerationText(overhead.Generation.Text)
-        if genValue >= PurchaseThreshold then
-            task.wait(0.10)
-            tryHoldPrompt(prompt, 3, 8)
-        end
-        return
-    end
-
-    -- Lucky Blocks: BYPASS threshold
-    local rarityHit = getRarityFromName(model.Name)
-    if rarityHit then
-        if EnabledRarities[rarityHit] then
-            task.wait(0.10)
-            tryHoldPrompt(prompt, 3, 3)
-        end
-        return
-    else
-        local data = AnimalsData[model.Name]
-        if data and (data.Rarity or data.LuckyBlock or tostring(model.Name):find("Lucky")) then
-            task.wait(0.10)
-            tryHoldPrompt(prompt, 3, 3)
-            return
-        end
-    end
-end)
-
--- Speed-boost (CharacterController)
-local CharController do
-    local ok, mod = pcall(function()
-        return require(ReplicatedStorage.Controllers.CharacterController)
-    end)
-    CharController = ok and mod or nil
-end
-RunService.Heartbeat:Connect(function()
-    if SpeedBoostEnabled and CharController and CharController.GetCharacter then
-        local _, humanoid = CharController:GetCharacter()
-        if humanoid then humanoid.WalkSpeed = DesiredWalkSpeed end
-    end
-end)
 
 -- === MY BASE BOUNDS (for ignore) ===
 local myBaseCF, myBaseSize -- updated periodically
@@ -676,7 +630,7 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
--- Walk-to-purchase (Workspace scan). (Animals only; ESP unchanged)
+-- Walk-to-purchase (Animals only; Lucky Blocks handled via prompt)
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
 
@@ -735,6 +689,65 @@ RunService.Heartbeat:Connect(function()
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
+-- Proximity Prompt Auto Purchase (Lucky Blocks by name; bypass threshold)
+local ProximityPromptService = game:GetService("ProximityPromptService")
+ProximityPromptService.PromptShown:Connect(function(prompt)
+    if not (AutoPurchaseEnabled and prompt) then return end
+
+    local model = prompt:FindFirstAncestorWhichIsA("Model")
+    if not model then return end
+
+    local targetPart = findTargetPart(model)
+
+    -- If it's a Lucky Block by name, we open it unless it's ignored.
+    if isLuckyModel(model) then
+        -- Optional rarity gate (respect the toggles)
+        local r = getRarityFromName(model.Name)
+        if r and EnabledRarities[r] == false then return end
+
+        -- Respect ignore near my base
+        if targetPart and isInsideOrNearMyBase(targetPart.Position) then return end
+
+        task.wait(0.10)
+        tryHoldPrompt(prompt, 3, 3)
+        return
+    end
+
+    -- For non-lucky, accept common verbs and keep animal threshold logic
+    local action = string.lower(prompt.ActionText or "")
+    local allowedVerb = (action:find("purchase") or action:find("buy") or action:find("open") or action:find("unlock"))
+    if not allowedVerb then return end
+
+    -- Animals by Generation (uses threshold)
+    local overhead = model:FindFirstChild("AnimalOverhead", true)
+    if overhead and overhead:FindFirstChild("Generation") then
+        local genValue = parseGenerationText(overhead.Generation.Text)
+        if genValue >= PurchaseThreshold then
+            task.wait(0.10)
+            tryHoldPrompt(prompt, 3, 8)
+        end
+        return
+    end
+end)
+
+-- Speed-boost (CharacterController)
+local CharController do
+    local ok, mod = pcall(function()
+        return require(ReplicatedStorage.Controllers.CharacterController)
+    end)
+    CharController = ok and mod or nil
+end
+RunService.Heartbeat:Connect(function()
+    if SpeedBoostEnabled and CharController and CharController.GetCharacter then
+        local _, humanoid = CharController:GetCharacter()
+        if humanoid then humanoid.WalkSpeed = DesiredWalkSpeed end
+    end
+end)
+
+-- BeeHive Immune Toggle (after rarity list)
+local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
+local Controls = PlayerModule:GetControls()
+
 -- Rarity Toggles (ESP)  << moved down to make room for quick-purchase
 do
     local y = 420
@@ -754,10 +767,6 @@ do
         y += 28
     end
 end
-
--- BeeHive Immune Toggle (after rarity list)
-local PlayerModule = require(Players.LocalPlayer.PlayerScripts:WaitForChild("PlayerModule"))
-local Controls = PlayerModule:GetControls()
 
 local toggleBeeHiveBtn = Instance.new("TextButton")
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
@@ -783,9 +792,9 @@ RunService.Heartbeat:Connect(function()
         if blur then blur.Enabled = false end
         local cam = workspace.CurrentCamera
         if cam and cam.FieldOfView ~= 70 then cam.FieldOfView = 70 end
-        local ok, CharController = pcall(function() return require(ReplicatedStorage.Controllers.CharacterController) end)
-        if ok and CharController and CharController.originalMoveFunction and Controls.moveFunction ~= CharController.originalMoveFunction then
-            Controls.moveFunction = CharController.originalMoveFunction
+        local ok, CharController2 = pcall(function() return require(ReplicatedStorage.Controllers.CharacterController) end)
+        if ok and CharController2 and CharController2.originalMoveFunction and Controls.moveFunction ~= CharController2.originalMoveFunction then
+            Controls.moveFunction = CharController2.originalMoveFunction
         end
     end
 end)
@@ -895,9 +904,11 @@ RunService.Heartbeat:Connect(function()
                     end
                 end
             end
-        elseif podium.Name:find("Lucky Block") then
+        elseif podium.Name:lower():find("lucky") and podium.Name:lower():find("block") then
             local rarity = getRarityFromName(podium.Name)
-            if rarity then
+            if rarity and EnabledRarities[rarity] == false then
+                -- respect rarity ignore
+            else
                 local data = AnimalsData[podium.Name]
                 local price = data and data.Price or 0
                 if MostExpensiveOnly then
@@ -905,12 +916,12 @@ RunService.Heartbeat:Connect(function()
                         maxPrice, maxBlock = price, podium
                     end
                 else
-                    if EnabledRarities[rarity] then
-                        local model = podium.PrimaryPart
-                        if model then
-                            local bb = createBillboard(model, RarityColors[rarity], podium.Name .. " | $" .. formatPrice(price))
-                            bb.Parent = worldESPFolder
-                        end
+                    local model = podium.PrimaryPart
+                    if model then
+                        local tag = rarity and (rarity .. " Lucky Block") or podium.Name
+                        local label = (price > 0) and (tag .. " | $" .. formatPrice(price)) or tag
+                        local bb = createBillboard(model, rarity and RarityColors[rarity] or Color3.new(0,1,1), label)
+                        bb.Parent = worldESPFolder
                     end
                 end
             end
@@ -933,7 +944,9 @@ RunService.Heartbeat:Connect(function()
             local data = AnimalsData[maxBlock.Name]
             local price = data and data.Price or 0
             if maxBlock.PrimaryPart then
-                local bb = createBillboard(maxBlock.PrimaryPart, RarityColors[rarity], maxBlock.Name .. " | $" .. formatPrice(price))
+                local tag = rarity and (rarity .. " Lucky Block") or maxBlock.Name
+                local label = (price > 0) and (tag .. " | $" .. formatPrice(price)) or tag
+                local bb = createBillboard(maxBlock.PrimaryPart, rarity and RarityColors[rarity] or Color3.new(0,1,1), label)
                 bb.Parent = worldESPFolder
             end
         end
