@@ -23,7 +23,7 @@ local ProductIds = {
 
 -- ===== Proximity auto-select config =====
 local AUTO_SELECT_INTERVAL = 0.25      -- seconds between checks
-local BASE_SELECT_RADIUS   = 50        -- studs; set to math.huge to always pick nearest
+local BASE_SELECT_RADIUS   = 80        -- studs; set to math.huge to always pick nearest
 local lastAutoSelectCheck  = 0
 local autoSelectBaseOwner  = true     -- toggled by "AUTO" button
 
