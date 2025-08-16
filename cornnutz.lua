@@ -66,11 +66,11 @@ local function formatPrice(v)
 end
 local function parseGenerationText(t)
     local n = tonumber((t or ""):match("[%d%.]+")) or 0
-    if (t or ""):find("K") then n *= 1000 end
-    if (t or ""):find("M") then n *= 1000000 end
+    if (t or ""):find("K") then n = n * 1000 end
+    if (t or ""):find("M") then n = n * 1000000 end
     return n
 end
-local function countKeys(t) local c=0; for _ in pairs(t) do c+=1 end; return c end
+local function countKeys(t) local c=0; for _ in pairs(t) do c = c + 1 end; return c end
 
 --// ESP folders
 local worldESPFolder = Instance.new("Folder", CoreGui) ; worldESPFolder.Name = "WorldRarityESP"
@@ -264,7 +264,7 @@ for r in pairs(RarityColors) do
         b.Text = r .. ": " .. (EnabledRarities[r] and "ON" or "OFF")
         updateToggleColor(b, EnabledRarities[r])
     end)
-    y += 28
+    y = y + 28
 end
 
 -- After rarity buttons: BeeHive & NoRagdoll
@@ -318,8 +318,8 @@ local function updateSlotCountOnly()
                             local base = podium:FindFirstChild("Base")
                             local spawn = base and base:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
-                                total+=1
-                                if spawn:FindFirstChild("Attachment") then filled+=1 end
+                                total = total + 1
+                                if spawn:FindFirstChild("Attachment") then filled = filled + 1 end
                             end
                         end
                     end
@@ -348,7 +348,7 @@ end
 local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if not (AutoPurchaseEnabled and prompt and prompt.ActionText) then return end
-    if not string.find(prompt.ActionText:lower(), "purchase") then return end
+    if not string.find(string.lower(prompt.ActionText), "purchase") then return end
 
     local model = prompt:FindFirstAncestorWhichIsA("Model"); if not model then return end
 
@@ -449,7 +449,11 @@ local function ensureRadiusRing()
         local p = Instance.new("Part")
         p.Name = "BaseIgnoreRadiusRing"
         p.Shape = Enum.PartType.Cylinder
-        p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.Locked = true,false,false,false,true
+        p.Anchored = true
+        p.CanCollide = false
+        p.CanQuery = false
+        p.CanTouch = true
+        p.Locked = true
         p.Material = Enum.Material.ForceField
         p.Color = Color3.fromRGB(0,170,255)
         p.Transparency = 0.65
@@ -483,15 +487,15 @@ local function stopWalking(humanoid, hrp)
     if hrp then humanoid:MoveTo(hrp.Position); humanoid.WalkToPoint = hrp.Position end
 end
 
--- purchase prompt check (optional gate near target; we do NOT require it by default)
+-- purchase prompt check (informational pause only)
 local function purchasePromptActive()
     local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts"); if not promptGui then return false end
     local promptFrame = promptGui:FindFirstChild("Prompt", true); if not promptFrame then return false end
     local actionText = promptFrame:FindFirstChild("ActionText", true); if not actionText then return false end
-    return string.find((actionText.Text or ""):lower(), "purchase") ~= nil
+    return string.find(string.lower(actionText.Text or ""), "purchase") ~= nil
 end
 
--- Walker: only ignore near YOUR base; ESP unaffected
+-- Walker: ignore near YOUR base; ESP unaffected
 local pauseDistance, pauseTime, lastPause = 5, 0.35, 0
 RunService.Heartbeat:Connect(function()
     if not WalkPurchaseEnabled then return end
@@ -501,7 +505,6 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
 
-    -- find best animal by Generation across Workspace
     local baseAnchor = findMyBaseAnchorPos()
     local bestModel, bestGen, bestDist = nil, -math.huge, math.huge
 
@@ -510,29 +513,31 @@ RunService.Heartbeat:Connect(function()
             local overhead = m:FindFirstChild("AnimalOverhead", true)
             local genLabel = overhead and overhead:FindFirstChild("Generation")
             if genLabel then
-                -- optional: skip "in machine"
+                local skip = false
                 if AvoidInMachine then
                     local s = overhead:FindFirstChild("Stolen")
-                    local inMachine = s and s:IsA("TextLabel") and (s.Text=="IN MACHINE" or s.Text=="FUSING")
-                    if inMachine then goto continue end
-                end
-                local tpart = findTargetPart(m)
-                if tpart and tpart:IsA("BasePart") then
-                    -- IGNORE near my base (only for walking)
-                    if baseAnchor and (tpart.Position - baseAnchor).Magnitude <= BaseIgnoreRadiusStuds then
-                        goto continue
+                    if s and s:IsA("TextLabel") and (s.Text=="IN MACHINE" or s.Text=="FUSING") then
+                        skip = true
                     end
-                    local genVal = parseGenerationText(genLabel.Text or "")
-                    if genVal >= PurchaseThreshold then
-                        local d = (hrp.Position - tpart.Position).Magnitude
-                        if (genVal > bestGen) or (genVal == bestGen and d < bestDist) then
-                            bestModel, bestGen, bestDist = m, genVal, d
+                end
+                if not skip then
+                    local tpart = findTargetPart(m)
+                    if tpart and tpart:IsA("BasePart") then
+                        if baseAnchor and (tpart.Position - baseAnchor).Magnitude <= BaseIgnoreRadiusStuds then
+                            -- ignore ones near my base
+                        else
+                            local genVal = parseGenerationText(genLabel.Text or "")
+                            if genVal >= PurchaseThreshold then
+                                local d = (hrp.Position - tpart.Position).Magnitude
+                                if (genVal > bestGen) or (genVal == bestGen and d < bestDist) then
+                                    bestModel, bestGen, bestDist = m, genVal, d
+                                end
+                            end
                         end
                     end
                 end
             end
         end
-        ::continue::
     end
 
     if not bestModel then return end
@@ -540,14 +545,13 @@ RunService.Heartbeat:Connect(function()
 
     local dist = (hrp.Position - targetPart.Position).Magnitude
     if dist <= pauseDistance and (tick()-lastPause) >= pauseTime then
-        -- We DO NOT require prompt; just pause one frame to help prompt appear if it's going to
         if not purchasePromptActive() then stopWalking(humanoid, hrp); return end
         lastPause = tick()
     end
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
---// ESP only (unchanged; shows everything regardless of base radius)
+--// ESP (unchanged logic; shows all)
 local function isInMachine(overhead)
     local s = overhead:FindFirstChild("Stolen")
     return s and s:IsA("TextLabel") and (s.Text=="FUSING" or s.Text=="IN MACHINE")
@@ -583,18 +587,19 @@ RunService.Heartbeat:Connect(function()
             local rarityLabel = d:FindFirstChild("Rarity")
             local rarity = rarityLabel and rarityLabel.Text
             if rarity and RarityColors[rarity] then
-                if AvoidInMachine and isInMachine(d) then continue end
-                local gen = parseGenerationText((d:FindFirstChild("Generation") or {}).Text or "")
-                if MostExpensiveOnly then
-                    if gen > maxGen then maxGen, maxAnimal = gen, d end
-                else
-                    if EnabledRarities[rarity] then
-                        local displayName = d:FindFirstChild("DisplayName")
-                        local modelPart = d.Parent and d.Parent.Parent
-                        if displayName and modelPart and modelPart:IsA("BasePart") then
-                            local genText = (d:FindFirstChild("Generation") and d.Generation.Text) or ""
-                            local bb = createBillboard(modelPart, RarityColors[rarity], displayName.Text .. " | " .. genText)
-                            bb.Parent = worldESPFolder
+                if not (AvoidInMachine and isInMachine(d)) then
+                    local gen = parseGenerationText((d:FindFirstChild("Generation") or {}).Text or "")
+                    if MostExpensiveOnly then
+                        if gen > maxGen then maxGen, maxAnimal = gen, d end
+                    else
+                        if EnabledRarities[rarity] then
+                            local displayName = d:FindFirstChild("DisplayName")
+                            local modelPart = d.Parent and d.Parent.Parent
+                            if displayName and modelPart and modelPart:IsA("BasePart") then
+                                local genText = (d:FindFirstChild("Generation") and d.Generation.Text) or ""
+                                local bb = createBillboard(modelPart, RarityColors[rarity], displayName.Text .. " | " .. genText)
+                                bb.Parent = worldESPFolder
+                            end
                         end
                     end
                 end
