@@ -53,7 +53,7 @@ local RequirePromptNearTarget = false -- animals usually have no prompt; leave O
 
 -- Ignore animals near *your* base (walk logic only)
 local IgnoreNearMyBase = true
-local IgnoreRadius = 85 -- padding around your plot bounds
+local IgnoreRadius = 70 -- padding around your plot bounds
 local IgnoreRadiusOptions = {70,85,90}
 
 -- Show the blue ignore ring around your base
@@ -379,7 +379,7 @@ toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
 end)
 
--- NEW: Quick Purchase button (fires RE/ShopService/Purchase with 3296448740)
+-- NEW: Quick Purchase button (fires RE/ShopService/Purchase with 3296448922)
 local quickPurchaseBtn = Instance.new("TextButton")
 quickPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
 quickPurchaseBtn.Position = UDim2.new(0, 5, 0, 390)
@@ -392,7 +392,6 @@ local quickPurchaseDebounce = false
 quickPurchaseBtn.MouseButton1Click:Connect(function()
     if quickPurchaseDebounce then return end
     quickPurchaseDebounce = true
-    -- resolve remote safely
     local ok, remote = pcall(function()
         return ReplicatedStorage
             :WaitForChild("Packages")
@@ -588,7 +587,7 @@ task.spawn(function()
     end
 end)
 
--- ===== Blue ignore-radius ring (flat cylinder) =====
+-- ===== Blue ignore-radius ring (Option A: circumscribe bbox + padding) =====
 local ringAdornment, ringAnchorPart
 local function destroyIgnoreRing()
     if ringAdornment then ringAdornment:Destroy(); ringAdornment = nil end
@@ -596,34 +595,34 @@ local function destroyIgnoreRing()
 end
 
 local function ensureIgnoreRing()
-    if not ShowIgnoreRing then destroyIgnoreRing(); return end
-    if not (myBaseCF and myBaseSize) then destroyIgnoreRing(); return end
-
-    local plot = myPlot()
-    local baseRoot = plot and plot:FindFirstChild("MainRoot")
-    local adornee = baseRoot
-
-    if not adornee then
-        local center = myBaseCF.Position
-        if not ringAnchorPart or not ringAnchorPart.Parent then
-            ringAnchorPart = Instance.new("Part")
-            ringAnchorPart.Name = "IgnoreRingAnchor"
-            ringAnchorPart.Anchored = true
-            ringAnchorPart.CanCollide = false
-            ringAnchorPart.Transparency = 1
-            ringAnchorPart.Size = Vector3.new(1,1,1)
-            ringAnchorPart.CFrame = CFrame.new(center)
-            ringAnchorPart.Parent = Workspace
-        else
-            ringAnchorPart.CFrame = CFrame.new(center)
-        end
-        adornee = ringAnchorPart
-    elseif ringAnchorPart then
-        ringAnchorPart:Destroy()
-        ringAnchorPart = nil
+    if not ShowIgnoreRing or not (myBaseCF and myBaseSize) then
+        destroyIgnoreRing()
+        return
     end
 
-    if not ringAdornment or not ringAdornment.Parent then
+    -- Always anchor at the bounding-box center (accurate center)
+    local center = myBaseCF.Position
+    if not ringAnchorPart or not ringAnchorPart.Parent then
+        ringAnchorPart = Instance.new("Part")
+        ringAnchorPart.Name = "IgnoreRingAnchor"
+        ringAnchorPart.Anchored = true
+        ringAnchorPart.CanCollide = false
+        ringAnchorPart.Transparency = 1
+        ringAnchorPart.Size = Vector3.new(1,1,1)
+        ringAnchorPart.CFrame = CFrame.new(center)
+        ringAnchorPart.Parent = Workspace
+    else
+        ringAnchorPart.CFrame = CFrame.new(center)
+    end
+
+    -- Circle radius that fully covers rectangle (bbox + padding)
+    local halfX = myBaseSize.X * 0.5
+    local halfZ = myBaseSize.Z * 0.5
+    local displayRadius = math.sqrt((halfX + IgnoreRadius)^2 + (halfZ + IgnoreRadius)^2)
+
+    -- Create/update the cylinder ring
+    if not ringAdornment or not ringAdornment.Parent or not ringAdornment:IsA("CylinderHandleAdornment") then
+        if ringAdornment then ringAdornment:Destroy() end
         local cyl = Instance.new("CylinderHandleAdornment")
         cyl.Name = "IgnoreRadiusRing"
         cyl.AlwaysOnTop = true
@@ -631,17 +630,14 @@ local function ensureIgnoreRing()
         cyl.Transparency = 0.2
         cyl.Color3 = Color3.fromRGB(0, 155, 255) -- blue
         cyl.Height = 0.06
-        cyl.Radius = IgnoreRadius
-        cyl.Adornee = adornee
-        cyl.CFrame = CFrame.Angles(math.rad(90), 0, 0)
+        cyl.Adornee = ringAnchorPart
         cyl.Parent = Workspace
         ringAdornment = cyl
-    else
-        ringAdornment.Adornee = adornee
-        ringAdornment.Radius = IgnoreRadius
-        ringAdornment.Height = 0.06
-        ringAdornment.CFrame = CFrame.Angles(math.rad(90), 0, 0)
     end
+
+    ringAdornment.Radius = displayRadius
+    ringAdornment.Height = 0.06
+    ringAdornment.CFrame = CFrame.Angles(math.rad(90), 0, 0) -- lay flat
 end
 
 task.spawn(function()
