@@ -461,20 +461,18 @@ local function purchasePromptActive()
     return string.find(actionText.Text:lower(), "purchase") ~= nil
 end
 
--- Walk helpers: drive both systems and provide a hard stop
+-- Walk helpers: use ONLY WalkToPoint for this game
 local function setWalkTarget(humanoid, pos)
-    if not (humanoid and pos) then return end
-    humanoid:MoveTo(pos)           -- pathfinding target
-    humanoid.WalkToPoint = pos     -- direct walk target (newer games use this)
+    if humanoid and pos then
+        humanoid.WalkToPoint = pos
+    end
 end
 
 local function stopWalking(humanoid, hrp)
     if not humanoid then return end
-    humanoid:Move(Vector3.new(), true)  -- clear input
-    if hrp then
-        humanoid:MoveTo(hrp.Position)
-        humanoid.WalkToPoint = hrp.Position
-    end
+    -- parking on current position reliably cancels the walk
+    local stopPos = hrp and hrp.Position or Vector3.new()
+    humanoid.WalkToPoint = stopPos
 end
 
 -- Walk Purchase Logic (Animals first by Generation; Lucky Blocks by rarity fallback)
@@ -486,7 +484,9 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
 
+    ----------------------------------------------------------------
     -- PASS 1: Animals (highest Generation >= PurchaseThreshold)
+    ----------------------------------------------------------------
     local bestAnimal, bestGen, bestAnimalDist = nil, -math.huge, math.huge
     local movingAnimals = workspace:FindFirstChild("MovingAnimals")
 
@@ -524,6 +524,7 @@ RunService.Heartbeat:Connect(function()
             local dist = (hrp.Position - hrpTarget.Position).Magnitude
             if dist <= pauseDistance then
                 if tick() - lastPause >= pauseTime then
+                    -- pause to let the purchase prompt appear; if not visible, stop briefly
                     if not purchasePromptActive() then
                         stopWalking(humanoid, hrp)
                         return
@@ -536,7 +537,9 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
+    ----------------------------------------------------------------
     -- PASS 2: Lucky Blocks (rarity priority; Mythic can be blacklisted)
+    ----------------------------------------------------------------
     local bestBlock, bestPri, bestBlockDist = nil, -math.huge, math.huge
     local containers = {
         workspace:FindFirstChild("MovingAnimals"),
@@ -581,6 +584,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
 
 -- BeeHive Immune Toggle (kept)
 local CharacterController = require(ReplicatedStorage.Controllers.CharacterController)
