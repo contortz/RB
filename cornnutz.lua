@@ -53,8 +53,8 @@ local RequirePromptNearTarget = false -- animals usually have no prompt; leave O
 
 -- Ignore animals near *your* base (walk logic only)
 local IgnoreNearMyBase = true
-local IgnoreRadius = 50 -- padding around your plot bounds
-local IgnoreRadiusOptions = {40,50,60,70}
+local IgnoreRadius = 85 -- padding around your plot bounds
+local IgnoreRadiusOptions = {70,85,90}
 
 -- Show the blue ignore ring around your base
 local ShowIgnoreRing = true
@@ -120,8 +120,8 @@ slotInfoLabel.Parent = screenGui
 
 -- Main Frame
 local frame = Instance.new("Frame")
-frame.Size = UDim2.new(0, 250, 0, 670)
-frame.Position = UDim2.new(0, 20, 0.5, -300)
+frame.Size = UDim2.new(0, 250, 0, 700)
+frame.Position = UDim2.new(0, 20, 0.5, -315)
 frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 frame.Active = true
 frame.Draggable = true
@@ -323,6 +323,116 @@ toggleRingBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleRingBtn, ShowIgnoreRing)
 end)
 
+-- Speed Boost
+local SpeedBoostEnabled = false
+local DesiredWalkSpeed = 70
+local toggleSpeedBoostBtn = Instance.new("TextButton")
+toggleSpeedBoostBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 300)
+toggleSpeedBoostBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleSpeedBoostBtn.Text = "Speed Boost: OFF"
+updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
+toggleSpeedBoostBtn.Parent = frame
+toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
+    SpeedBoostEnabled = not SpeedBoostEnabled
+    toggleSpeedBoostBtn.Text = "Speed Boost: " .. (SpeedBoostEnabled and "ON" or "OFF")
+    updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
+end)
+
+-- Anti AFK
+local AutoJumperEnabled = false
+local JumpInterval = 60
+local LastJumpTime = tick()
+local toggleAutoJumperBtn = Instance.new("TextButton")
+toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 330)
+toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleAutoJumperBtn.Text = "Anti AFK: OFF"
+updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
+toggleAutoJumperBtn.Parent = frame
+toggleAutoJumperBtn.MouseButton1Click:Connect(function()
+    AutoJumperEnabled = not AutoJumperEnabled
+    toggleAutoJumperBtn.Text = "Anti AFK: " .. (AutoJumperEnabled and "ON" or "OFF")
+    updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
+end)
+RunService.Heartbeat:Connect(function()
+    if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
+        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
+        task.wait(0.05)
+        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Space, false, game)
+        LastJumpTime = tick()
+    end
+end)
+
+-- Walk Purchase Toggle
+local WalkPurchaseEnabled = false
+local toggleWalkPurchaseBtn = Instance.new("TextButton")
+toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
+toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 360)
+toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
+toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
+updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
+toggleWalkPurchaseBtn.Parent = frame
+toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
+    WalkPurchaseEnabled = not WalkPurchaseEnabled
+    toggleWalkPurchaseBtn.Text = "Walk Purchase: " .. (WalkPurchaseEnabled and "ON" or "OFF")
+    updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
+end)
+
+-- NEW: Quick Purchase button (fires RE/ShopService/Purchase with 3296448740)
+local quickPurchaseBtn = Instance.new("TextButton")
+quickPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
+quickPurchaseBtn.Position = UDim2.new(0, 5, 0, 390)
+quickPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
+quickPurchaseBtn.Text = "Quick Purchase (3296448740)"
+updateToggleColor(quickPurchaseBtn, true)
+quickPurchaseBtn.Parent = frame
+
+local quickPurchaseDebounce = false
+quickPurchaseBtn.MouseButton1Click:Connect(function()
+    if quickPurchaseDebounce then return end
+    quickPurchaseDebounce = true
+    -- resolve remote safely
+    local ok, remote = pcall(function()
+        return ReplicatedStorage
+            :WaitForChild("Packages")
+            :WaitForChild("Net")
+            :WaitForChild("RE/ShopService/Purchase")
+    end)
+    if ok and remote and remote.FireServer then
+        pcall(function()
+            remote:FireServer(3296448922)
+        end)
+        local old = quickPurchaseBtn.Text
+        quickPurchaseBtn.Text = "Sent!"
+        task.delay(0.6, function()
+            if quickPurchaseBtn then quickPurchaseBtn.Text = old end
+        end)
+    else
+        quickPurchaseBtn.Text = "Remote not found"
+        task.delay(1.2, function()
+            if quickPurchaseBtn then quickPurchaseBtn.Text = "Quick Purchase (3296448922)" end
+        end)
+    end
+    task.delay(0.5, function() quickPurchaseDebounce = false end)
+end)
+
+-- Pause settings
+local pauseDistance = 5
+local pauseTime = 0.35
+local lastPause = 0
+
+-- Purchase prompt check (optional gating near target)
+local function purchasePromptActive()
+    local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
+    if not promptGui then return false end
+    local promptFrame = promptGui:FindFirstChild("Prompt", true)
+    if not promptFrame then return false end
+    local actionText = promptFrame:FindFirstChild("ActionText", true)
+    if not actionText then return false end
+    return string.find(actionText.Text:lower(), "purchase") ~= nil
+end
+
 -- Slot counter
 local function updateSlotCountOnly()
     local playerName = player.Name
@@ -380,7 +490,7 @@ local function tryHoldPrompt(prompt, holdTime, maxRetries)
     end
 end
 
--- Proximity Prompt Auto Purchase
+-- Proximity Prompt Auto Purchase (Lucky Blocks bypass threshold)
 local ProximityPromptService = game:GetService("ProximityPromptService")
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if not (AutoPurchaseEnabled and prompt and prompt.ActionText) then return end
@@ -400,7 +510,7 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
         return
     end
 
-    -- Lucky Blocks: BYPASS threshold (just rarity gate if we know it)
+    -- Lucky Blocks: BYPASS threshold
     local rarityHit = getRarityFromName(model.Name)
     if rarityHit then
         if EnabledRarities[rarityHit] then
@@ -409,7 +519,6 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
         end
         return
     else
-        -- unknown name but still a Lucky Block in AnimalsData?
         local data = AnimalsData[model.Name]
         if data and (data.Rarity or data.LuckyBlock or tostring(model.Name):find("Lucky")) then
             task.wait(0.10)
@@ -419,91 +528,19 @@ ProximityPromptService.PromptShown:Connect(function(prompt)
     end
 end)
 
--- Speed Boost
-local SpeedBoostEnabled = false
-local DesiredWalkSpeed = 70
-local toggleSpeedBoostBtn = Instance.new("TextButton")
-toggleSpeedBoostBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleSpeedBoostBtn.Position = UDim2.new(0, 5, 0, 300)
-toggleSpeedBoostBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleSpeedBoostBtn.Text = "Speed Boost: OFF"
-updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
-toggleSpeedBoostBtn.Parent = frame
-toggleSpeedBoostBtn.MouseButton1Click:Connect(function()
-    SpeedBoostEnabled = not SpeedBoostEnabled
-    toggleSpeedBoostBtn.Text = "Speed Boost: " .. (SpeedBoostEnabled and "ON" or "OFF")
-    updateToggleColor(toggleSpeedBoostBtn, SpeedBoostEnabled)
-end)
-
+-- Speed-boost (CharacterController)
 local CharController do
     local ok, mod = pcall(function()
         return require(ReplicatedStorage.Controllers.CharacterController)
     end)
     CharController = ok and mod or nil
 end
-
 RunService.Heartbeat:Connect(function()
     if SpeedBoostEnabled and CharController and CharController.GetCharacter then
         local _, humanoid = CharController:GetCharacter()
         if humanoid then humanoid.WalkSpeed = DesiredWalkSpeed end
     end
 end)
-
--- Anti AFK
-local AutoJumperEnabled = false
-local JumpInterval = 60
-local LastJumpTime = tick()
-local toggleAutoJumperBtn = Instance.new("TextButton")
-toggleAutoJumperBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleAutoJumperBtn.Position = UDim2.new(0, 5, 0, 330)
-toggleAutoJumperBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleAutoJumperBtn.Text = "Anti AFK: OFF"
-updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
-toggleAutoJumperBtn.Parent = frame
-toggleAutoJumperBtn.MouseButton1Click:Connect(function()
-    AutoJumperEnabled = not AutoJumperEnabled
-    toggleAutoJumperBtn.Text = "Anti AFK: " .. (AutoJumperEnabled and "ON" or "OFF")
-    updateToggleColor(toggleAutoJumperBtn, AutoJumperEnabled)
-end)
-RunService.Heartbeat:Connect(function()
-    if AutoJumperEnabled and tick() - LastJumpTime >= JumpInterval then
-        game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-        task.wait(0.05)
-        game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-        LastJumpTime = tick()
-    end
-end)
-
--- Walk Purchase Toggle
-local WalkPurchaseEnabled = false
-local toggleWalkPurchaseBtn = Instance.new("TextButton")
-toggleWalkPurchaseBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleWalkPurchaseBtn.Position = UDim2.new(0, 5, 0, 360)
-toggleWalkPurchaseBtn.TextColor3 = Color3.new(1, 1, 1)
-toggleWalkPurchaseBtn.Text = "Walk Purchase: OFF"
-updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
-toggleWalkPurchaseBtn.Parent = frame
-toggleWalkPurchaseBtn.MouseButton1Click:Connect(function()
-    WalkPurchaseEnabled = not WalkPurchaseEnabled
-    toggleWalkPurchaseBtn.Text = "Walk Purchase: " .. (WalkPurchaseEnabled and "ON" or "OFF")
-    updateToggleColor(toggleWalkPurchaseBtn, WalkPurchaseEnabled)
-end)
-
--- Pause settings
-local pauseDistance = 5
-local pauseTime = 0.35
-local lastPause = 0
-
--- Purchase prompt check (optional gating near target)
-local function purchasePromptActive()
-    local promptGui = player.PlayerGui:FindFirstChild("ProximityPrompts")
-    if not promptGui then return false end
-    local promptFrame = promptGui:FindFirstChild("Prompt", true)
-    if not promptFrame then return false end
-    local actionText = promptFrame:FindFirstChild("ActionText", true)
-    if not actionText then return false end
-    return string.find(actionText.Text:lower(), "purchase") ~= nil
-end
 
 -- === MY BASE BOUNDS (for ignore) ===
 local myBaseCF, myBaseSize -- updated periodically
@@ -562,7 +599,6 @@ local function ensureIgnoreRing()
     if not ShowIgnoreRing then destroyIgnoreRing(); return end
     if not (myBaseCF and myBaseSize) then destroyIgnoreRing(); return end
 
-    -- Prefer an existing base part (MainRoot); else anchor an invisible part
     local plot = myPlot()
     local baseRoot = plot and plot:FindFirstChild("MainRoot")
     local adornee = baseRoot
@@ -699,9 +735,9 @@ RunService.Heartbeat:Connect(function()
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
--- Rarity Toggles (ESP)
+-- Rarity Toggles (ESP)  << moved down to make room for quick-purchase
 do
-    local y = 390
+    local y = 420
     for rarity in pairs(RarityColors) do
         local button = Instance.new("TextButton")
         button.Size = UDim2.new(1, -10, 0, 25)
@@ -725,7 +761,7 @@ local Controls = PlayerModule:GetControls()
 
 local toggleBeeHiveBtn = Instance.new("TextButton")
 toggleBeeHiveBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 590)
+toggleBeeHiveBtn.Position = UDim2.new(0, 5, 0, 620)
 toggleBeeHiveBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleBeeHiveBtn.Text = "BeeHive Immune: ON"
 updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
@@ -734,7 +770,9 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     BeeHiveImmune = not BeeHiveImmune
     toggleBeeHiveBtn.Text = "BeeHive Immune: " .. (BeeHiveImmune and "ON" or "OFF")
     updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
-    if BeeHiveImmune and CharController and CharController.originalMoveFunction then
+    -- restore movement if something hijacked it
+    local ok, CharController = pcall(function() return require(ReplicatedStorage.Controllers.CharacterController) end)
+    if BeeHiveImmune and ok and CharController and CharController.originalMoveFunction then
         Controls.moveFunction = CharController.originalMoveFunction
     end
 end)
@@ -745,7 +783,8 @@ RunService.Heartbeat:Connect(function()
         if blur then blur.Enabled = false end
         local cam = workspace.CurrentCamera
         if cam and cam.FieldOfView ~= 70 then cam.FieldOfView = 70 end
-        if CharController and CharController.originalMoveFunction and Controls.moveFunction ~= CharController.originalMoveFunction then
+        local ok, CharController = pcall(function() return require(ReplicatedStorage.Controllers.CharacterController) end)
+        if ok and CharController and CharController.originalMoveFunction and Controls.moveFunction ~= CharController.originalMoveFunction then
             Controls.moveFunction = CharController.originalMoveFunction
         end
     end
@@ -763,7 +802,7 @@ local originalToggleControls = RagdollController and RagdollController.ToggleCon
 
 local toggleNoRagdollBtn = Instance.new("TextButton")
 toggleNoRagdollBtn.Size = UDim2.new(1, -10, 0, 25)
-toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 620)
+toggleNoRagdollBtn.Position = UDim2.new(0, 5, 0, 650)
 toggleNoRagdollBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleNoRagdollBtn.Text = "No Ragdoll: ON"
 updateToggleColor(toggleNoRagdollBtn, NoRagdoll)
