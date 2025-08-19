@@ -32,7 +32,7 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 420) -- increased height
+    MainFrame.Size = UDim2.new(0, 200, 0, 420)
     MainFrame.Position = UDim2.new(0.5, -100, 0.5, -210)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
@@ -73,7 +73,7 @@ local function createGui()
     createButton("Salon Punch Test", "SalonPunchTest", 250)
     createButton("Give Dinero Test", "GiveDinero", 285)
 
-    -- Teleport to next ATM (moved lower to avoid overlap)
+    -- Teleport to next ATM
     local tpATMButton = Instance.new("TextButton")
     tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
     tpATMButton.Position = UDim2.new(0.05, 0, 0, 320)
@@ -228,14 +228,9 @@ local function simulateKeyPress(key)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
---// Stay-Behind constants (tweak if needed)
-local BEHIND_DISTANCE = 3.5       -- how far behind the target to sit
-local VERTICAL_OFFSET = 1.5       -- slight lift to avoid feet clipping
-local CATCHUP_DISTANCE = 25       -- if farther than this, snap behind
-local CATCHUP_TP_DELAY = 0.08     -- small wait after a snap
-local MOVE_TO_REFRESH = 0.12      -- how often to refresh MoveTo target
-
-local lastMoveToTime = 0
+--// Stay-Behind constants (every-frame CFrame)
+local BEHIND_DISTANCE = 3.5   -- studs behind target
+local VERTICAL_OFFSET = 1.5   -- small lift to avoid clipping
 
 --// Main loop
 RunService.Heartbeat:Connect(function()
@@ -334,7 +329,7 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- NEW: Stay Behind Closest
+        -- NEW: Stay Behind Closest (EVERY FRAME hard CFrame)
         if Toggles.StayBehind then
             local targetPlayer = nil
             local closestDist = nil
@@ -347,23 +342,9 @@ RunService.Heartbeat:Connect(function()
                 local tHum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
                 local tHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if tHum and tHRP and tHum.Health > 0 then
-                    -- compute desired position behind their back
+                    -- compute a point directly behind target, and face same direction
                     local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
-
-                    -- catch-up teleport if we fall too far behind (short hop)
-                    if closestDist and closestDist > CATCHUP_DISTANCE then
-                        myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
-                        task.wait(CATCHUP_TP_DELAY)
-                    else
-                        -- smooth follow using MoveTo
-                        if now - lastMoveToTime >= MOVE_TO_REFRESH then
-                            myHum:MoveTo(desiredPos)
-                            lastMoveToTime = now
-                        end
-                        -- align our facing to their back (keeps camera behind them)
-                        local faceDir = tHRP.CFrame.LookVector
-                        myHRP.CFrame = CFrame.new(myHRP.Position, myHRP.Position + faceDir)
-                    end
+                    myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
                 end
             end
         end
