@@ -14,7 +14,10 @@ local Toggles = {
     AutoPunch = false,
     AutoSwing = false,
     PlayerESP = false,
-    ATMESP = false
+    ATMESP = false,
+    SalonPunchTest = false,
+    GiveDinero = false,
+    StayBehind = false, -- NEW
 }
 
 --// GUI Setup
@@ -29,8 +32,8 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 280)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -140)
+    MainFrame.Size = UDim2.new(0, 200, 0, 420) -- increased height
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -210)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -66,20 +69,20 @@ local function createGui()
     createButton("Auto Swing", "AutoSwing", 110)
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
-        createButton("Salon Punch Test", "SalonPunchTest", 250)
+    createButton("Stay Behind Closest", "StayBehind", 215) -- NEW
+    createButton("Salon Punch Test", "SalonPunchTest", 250)
     createButton("Give Dinero Test", "GiveDinero", 285)
 
-
-    -- Teleport to next ATM
-    local atmIndex = 1
+    -- Teleport to next ATM (moved lower to avoid overlap)
     local tpATMButton = Instance.new("TextButton")
     tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
-    tpATMButton.Position = UDim2.new(0.05, 0, 0, 215)
+    tpATMButton.Position = UDim2.new(0.05, 0, 0, 320)
     tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
     tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     tpATMButton.Text = "Teleport Next ATM"
     tpATMButton.Parent = MainFrame
 
+    local atmIndex = 1
     tpATMButton.MouseButton1Click:Connect(function()
         local myChar = player.Character
         if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
@@ -101,13 +104,32 @@ local function createGui()
                 if part then
                     myHRP.CFrame = part.CFrame + Vector3.new(0, 4, 0)
                 end
-                atmIndex += 1
+                atmIndex = atmIndex + 1
             end
         end
     end)
 end
 
 createGui()
+
+--// Helpers
+local function getClosestAliveOtherPlayer(myHRP)
+    local closest, closestDist = nil, math.huge
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= player and p.Character then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 then
+                local d = (myHRP.Position - hrp.Position).Magnitude
+                if d < closestDist then
+                    closest = p
+                    closestDist = d
+                end
+            end
+        end
+    end
+    return closest, closestDist
+end
 
 --// ESP Functions
 local function updatePlayerESP()
@@ -206,13 +228,24 @@ local function simulateKeyPress(key)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
+--// Stay-Behind constants (tweak if needed)
+local BEHIND_DISTANCE = 3.5       -- how far behind the target to sit
+local VERTICAL_OFFSET = 1.5       -- slight lift to avoid feet clipping
+local CATCHUP_DISTANCE = 25       -- if farther than this, snap behind
+local CATCHUP_TP_DELAY = 0.08     -- small wait after a snap
+local MOVE_TO_REFRESH = 0.12      -- how often to refresh MoveTo target
+
+local lastMoveToTime = 0
+
 --// Main loop
 RunService.Heartbeat:Connect(function()
     pcall(function()
         local now = tick()
         local myChar = player.Character
-        if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
-        local myHRP = myChar.HumanoidRootPart
+        if not myChar then return end
+        local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+        local myHum = myChar:FindFirstChildOfClass("Humanoid")
+        if not myHRP or not myHum then return end
 
         -- Auto Pick Cash
         if Toggles.AutoPickCash and now - lastTeleport >= teleportCooldown then
@@ -232,10 +265,10 @@ RunService.Heartbeat:Connect(function()
                         myHRP.CFrame = targetCash.CFrame + Vector3.new(0, 3, 0)
                         task.wait(0.05)
                         if purchasePromptActive() then
-                            simulateKeyPress("E")
+                            simulateKeyPress(Enum.KeyCode.E)
                         end
                     end
-                    currentCashIndex += 1
+                    currentCashIndex = currentCashIndex + 1
                     lastTeleport = now
                 end
             end
@@ -263,46 +296,77 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-                -- Test giveDinero
-if Toggles.GiveDinero then
-    local events = ReplicatedStorage:FindFirstChild("events")
-    if events then
-        local commandEvents = events:FindFirstChild("customer_command_events")
-        if commandEvents then
-            local giveDinero = commandEvents:FindFirstChild("giveDinero")
-            if giveDinero and giveDinero:IsA("RemoteEvent") then
-                giveDinero:FireServer(999999) -- try sending an amount
+        -- Give Dinero (test)
+        if Toggles.GiveDinero then
+            local events = ReplicatedStorage:FindFirstChild("events")
+            if events then
+                local commandEvents = events:FindFirstChild("customer_command_events")
+                if commandEvents then
+                    local giveDinero = commandEvents:FindFirstChild("giveDinero")
+                    if giveDinero and giveDinero:IsA("RemoteEvent") then
+                        giveDinero:FireServer(999999)
+                    end
+                end
             end
         end
-    end
-end
 
-
-                        -- Salon Punch Test
-if Toggles.SalonPunchTest then
-    local remote = ReplicatedStorage:FindFirstChild("Roles")
-    if remote then
-        local tools = remote:FindFirstChild("Tools")
-        if tools then
-            local default = tools:FindFirstChild("Default")
-            if default then
-                local remotes = default:FindFirstChild("Remotes")
-                if remotes then
-                    local weapons = remotes:FindFirstChild("Weapons")
-                    if weapons then
-                        local salonPunch = weapons:FindFirstChild("SalonPunches")
-                        if salonPunch and salonPunch:IsA("RemoteFunction") then
-                            local result = salonPunch:InvokeServer(1)
-                            print("🧪 SalonPunch result:", result)
+        -- Salon Punch Test
+        if Toggles.SalonPunchTest then
+            local remote = ReplicatedStorage:FindFirstChild("Roles")
+            if remote then
+                local tools = remote:FindFirstChild("Tools")
+                if tools then
+                    local default = tools:FindFirstChild("Default")
+                    if default then
+                        local remotes = default:FindFirstChild("Remotes")
+                        if remotes then
+                            local weapons = remotes:FindFirstChild("Weapons")
+                            if weapons then
+                                local salonPunch = weapons:FindFirstChild("SalonPunches")
+                                if salonPunch and salonPunch:IsA("RemoteFunction") then
+                                    local result = salonPunch:InvokeServer(1)
+                                    print("🧪 SalonPunch result:", result)
+                                end
+                            end
                         end
                     end
                 end
             end
         end
-    end
-end
 
+        -- NEW: Stay Behind Closest
+        if Toggles.StayBehind then
+            local targetPlayer = nil
+            local closestDist = nil
+            do
+                local p, d = getClosestAliveOtherPlayer(myHRP)
+                targetPlayer, closestDist = p, d
+            end
 
+            if targetPlayer and targetPlayer.Character then
+                local tHum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+                local tHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if tHum and tHRP and tHum.Health > 0 then
+                    -- compute desired position behind their back
+                    local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
+
+                    -- catch-up teleport if we fall too far behind (short hop)
+                    if closestDist and closestDist > CATCHUP_DISTANCE then
+                        myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
+                        task.wait(CATCHUP_TP_DELAY)
+                    else
+                        -- smooth follow using MoveTo
+                        if now - lastMoveToTime >= MOVE_TO_REFRESH then
+                            myHum:MoveTo(desiredPos)
+                            lastMoveToTime = now
+                        end
+                        -- align our facing to their back (keeps camera behind them)
+                        local faceDir = tHRP.CFrame.LookVector
+                        myHRP.CFrame = CFrame.new(myHRP.Position, myHRP.Position + faceDir)
+                    end
+                end
+            end
+        end
 
         -- ESP
         if Toggles.PlayerESP then updatePlayerESP() end
