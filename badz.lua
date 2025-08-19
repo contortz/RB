@@ -119,17 +119,23 @@ local function getClosestAliveOtherPlayer(myHRP)
         if p ~= player and p.Character then
             local hum = p.Character:FindFirstChildOfClass("Humanoid")
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hrp and hum.Health > 0 then
-                local d = (myHRP.Position - hrp.Position).Magnitude
-                if d < closestDist then
-                    closest = p
-                    closestDist = d
+
+            -- check attribute
+            local pvpEnabled = p:GetAttribute("PVP_ENABLED")
+            if pvpEnabled == nil or pvpEnabled == true then
+                if hum and hrp and hum.Health > 0 then
+                    local d = (myHRP.Position - hrp.Position).Magnitude
+                    if d < closestDist then
+                        closest = p
+                        closestDist = d
+                    end
                 end
             end
         end
     end
     return closest, closestDist
 end
+
 
 --// ESP Functions
 local function updatePlayerESP()
