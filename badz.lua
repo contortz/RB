@@ -8,7 +8,7 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 
--- Remote
+-- Remote (optional)
 local STOMPEVENT = ReplicatedStorage:FindFirstChild("STOMPEVENT") -- RemoteEvent (may be nil)
 
 --// Toggles
@@ -20,8 +20,8 @@ local Toggles = {
     ATMESP = false,
     SalonPunchTest = false,
     GiveDinero = false,
-    StayBehind = false,      -- existing
-    AutoStomper = false,     -- NEW
+    StayBehind = false,     -- follow closest valid player (every frame CFrame)
+    AutoStomper = false,    -- NEW: sweep map for low-HP players and stomp
 }
 
 --// GUI Setup
@@ -36,8 +36,8 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 460) -- extra height
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -230)
+    MainFrame.Size = UDim2.new(0, 200, 0, 490)
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -245)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -74,9 +74,9 @@ local function createGui()
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
     createButton("Stay Behind Closest", "StayBehind", 215)
-    createButton("Salon Punch Test", "SalonPunchTest", 250)
-    createButton("Give Dinero Test", "GiveDinero", 285)
-    createButton("Auto Stomper", "AutoStomper", 320) -- NEW
+    createButton("Auto Stomper", "AutoStomper", 250) -- NEW
+    createButton("Salon Punch Test", "SalonPunchTest", 285)
+    createButton("Give Dinero Test", "GiveDinero", 320)
 
     -- Teleport to next ATM
     local tpATMButton = Instance.new("TextButton")
@@ -119,10 +119,9 @@ createGui()
 
 --// Helpers
 local function isPvpOn(p)
-    -- Treat nil as ON? If you want explicit true only, change first return.
+    -- require explicit true; extend if the game sets it on Character/Humanoid instead
     local v = p:GetAttribute("PVP_ENABLED")
     if v ~= nil then return v == true end
-    -- fallbacks if game stores on Character/Humanoid
     local c = p.Character
     if not c then return false end
     local cv = c:GetAttribute("PVP_ENABLED")
@@ -153,25 +152,7 @@ local function getClosestAliveOtherPlayer(myHRP)
     return closest, closestDist
 end
 
-local function getBestStompTarget(myHRP, threshold)
-    local best, bestDist = nil, math.huge
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character and isPvpOn(p) then
-            local hum = p.Character:FindFirstChildOfClass("Humanoid")
-            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-            if hum and hrp and hum.Health > 0 and hum.Health <= threshold then
-                local d = (myHRP.Position - hrp.Position).Magnitude
-                if d < bestDist then
-                    best = p
-                    bestDist = d
-                end
-            end
-        end
-    end
-    return best, bestDist
-end
-
---// ESP Functions (unchanged)
+--// ESP Functions
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
@@ -269,14 +250,16 @@ local function simulateKeyPress(key)
 end
 
 --// Stay-Behind constants (every-frame CFrame)
-local BEHIND_DISTANCE = 3.5
-local VERTICAL_OFFSET = 1.5
+local BEHIND_DISTANCE = 3.5    -- studs behind target
+local VERTICAL_OFFSET = 1.5    -- small lift to avoid clipping
 
 --// AutoStomper constants
-local STOMP_THRESHOLD = 3                    -- HP ≤ 3
+local STOMP_THRESHOLD = 3               -- HP ≤ 3
 local STOMP_TP_OFFSET = Vector3.new(0, 2.5, 0)
-local STOMP_COOLDOWN = 0.5                   -- seconds between stomps
-local lastStompTime = 0
+local STOMP_SPAM_COUNT = 5              -- spam times per target
+local STOMP_SPAM_DELAY = 0.05
+local STOMP_COOLDOWN = 1                -- seconds between full sweeps
+local lastStompSweep = 0
 
 --// Main loop
 RunService.Heartbeat:Connect(function()
@@ -375,27 +358,45 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- NEW: Auto Stomper (priority action)
-        local didStompThisFrame = false
-        if Toggles.AutoStomper and (now - lastStompTime) >= STOMP_COOLDOWN then
-            local target, dist = getBestStompTarget(myHRP, STOMP_THRESHOLD)
-            if target and target.Character then
-                local tHum = target.Character:FindFirstChildOfClass("Humanoid")
-                local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
-                if tHum and tHRP and tHum.Health > 0 and tHum.Health <= STOMP_THRESHOLD then
-                    -- teleport slightly above, then stomp
-                    myHRP.CFrame = tHRP.CFrame + STOMP_TP_OFFSET
-                    if STOMPEVENT and STOMPEVENT:IsA("RemoteEvent") then
-                        STOMPEVENT:FireServer()
+        -- === Auto Stomper (priority) ===
+        local didStompThisSweep = false
+        if Toggles.AutoStomper and (now - lastStompSweep) >= STOMP_COOLDOWN then
+            -- collect all valid low HP targets
+            local candidates = {}
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= player and p.Character and isPvpOn(p) then
+                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                    local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                    if hum and hrp and hum.Health > 0 and hum.Health <= STOMP_THRESHOLD then
+                        table.insert(candidates, {hrp = hrp, hum = hum})
                     end
-                    lastStompTime = now
-                    didStompThisFrame = true
                 end
             end
+
+            if #candidates > 0 then
+                -- sort by distance from us (closest first)
+                table.sort(candidates, function(a, b)
+                    return (myHRP.Position - a.hrp.Position).Magnitude < (myHRP.Position - b.hrp.Position).Magnitude
+                end)
+
+                -- visit each and stomp (spam)
+                for _, t in ipairs(candidates) do
+                    myHRP.CFrame = t.hrp.CFrame + STOMP_TP_OFFSET
+                    if STOMPEVENT and STOMPEVENT:IsA("RemoteEvent") then
+                        for i = 1, STOMP_SPAM_COUNT do
+                            STOMPEVENT:FireServer()
+                            task.wait(STOMP_SPAM_DELAY)
+                        end
+                    end
+                    didStompThisSweep = true
+                end
+            end
+
+            lastStompSweep = now
         end
 
-        -- Stay Behind Closest (skip this frame if we just stomped)
-        if Toggles.StayBehind and not didStompThisFrame then
+        -- === Stay Behind Closest (every-frame CFrame), skip if stomping this sweep ===
+        if Toggles.StayBehind and not didStompThisSweep then
             local targetPlayer = nil
             local closestDist = nil
             do
