@@ -5,35 +5,30 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
--- Ensure we are client-side and game is ready
-if not game:IsLoaded() then game.Loaded:Wait() end
+-- Make sure we're client
 local player = Players.LocalPlayer
 if not player then return end
 
--- Wait for PlayerGui + first character (your working pattern)
-local PlayerGui = player:WaitForChild("PlayerGui")
-player.CharacterAdded:Wait()
-
--- Simple logger
-local function log(msg) warn("[MiniHub] " .. tostring(msg)) end
-log("Init")
+-- (Optional) try to wait briefly for our Workspace model to appear once
+Workspace:WaitForChild(player.Name, 5)
 
 --// Toggles (exactly 3)
 local Toggles = {
     PlayerESP    = false,
     StayBehind   = false,
-    ShootClosest = false, -- visual-only: mark & aim
+    ShootClosest = false, -- visual-only: mark & aim (no attacking)
 }
 
 --// GUI
 local function createGui()
-    local old = PlayerGui:FindFirstChild("StreetFightGui")
+    local pg = player:WaitForChild("PlayerGui")
+    local old = pg:FindFirstChild("StreetFightGui")
     if old then old:Destroy() end
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StreetFightGui"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = PlayerGui
+    ScreenGui.Parent = pg
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 210, 0, 200)
@@ -64,27 +59,17 @@ local function createGui()
             Toggles[key] = not Toggles[key]
             b.Text = label .. ": " .. (Toggles[key] and "ON" or "OFF")
             b.BackgroundColor3 = Toggles[key] and Color3.fromRGB(0,200,0) or Color3.fromRGB(50,50,50)
-            log(label .. " -> " .. tostring(Toggles[key]))
         end)
     end
 
     makeToggle("Player ESP", "PlayerESP", 40)
     makeToggle("Stay Behind Closest", "StayBehind", 75)
     makeToggle("Shoot Closest Players", "ShootClosest", 110) -- visual-only
-
-    log("GUI created")
 end
 
 createGui()
 
--- Re-attach on respawn (UI persists because ResetOnSpawn=false)
-player.CharacterAdded:Connect(function()
-    log("CharacterAdded")
-end)
-
---// Target resolution (Workspace twin or Character)
-local CONTAINER_CANDIDATES = { "Characters", "Players", "Alive", "Entities", "PlayerModels" }
-
+--// ===== Workspace-only actor access =====
 local function validateModel(model)
     if not model or not model:IsA("Model") then return end
     local hrp = model:FindFirstChild("HumanoidRootPart")
@@ -94,37 +79,22 @@ local function validateModel(model)
     end
 end
 
-local function resolveActor(plr)
-    -- Direct child with same name
-    local twin = Workspace:FindFirstChild(plr.Name)
-    if twin then
-        local m, hrp, hum = validateModel(twin)
-        if m then return m, hrp, hum end
-    end
-    -- Common containers
-    for _, bucket in ipairs(CONTAINER_CANDIDATES) do
-        local container = Workspace:FindFirstChild(bucket)
-        if container then
-            local inBucket = container:FindFirstChild(plr.Name)
-            if inBucket then
-                local m, hrp, hum = validateModel(inBucket)
-                if m then return m, hrp, hum end
-            end
-        end
-    end
-    -- Fallback to Character
-    local char = plr.Character
-    if char then
-        return validateModel(char)
-    end
-    return nil, nil, nil
+local function getWorkspaceActorByPlayer(plr)
+    -- All player models are in Workspace root and named exactly the same as the Player
+    local model = Workspace:FindFirstChild(plr.Name)
+    if not model then return nil, nil, nil end
+    return validateModel(model)
+end
+
+local function getSelf()
+    return getWorkspaceActorByPlayer(player)
 end
 
 local function getClosestAliveOtherPlayer(myHRP)
     local bestPlr, bestModel, bestHRP, bestHum, bestDist = nil, nil, nil, nil, math.huge
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
-            local model, hrp, hum = resolveActor(p)
+            local model, hrp, hum = getWorkspaceActorByPlayer(p)
             if model and hrp and hum then
                 local d = (myHRP.Position - hrp.Position).Magnitude
                 if d < bestDist then
@@ -136,16 +106,14 @@ local function getClosestAliveOtherPlayer(myHRP)
     return bestPlr, bestModel, bestHRP, bestHum, bestDist
 end
 
---// ESP
+--// ===== ESP =====
 local function updatePlayerESP()
-    local myChar = player.Character
-    if not myChar then return end
-    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    local _, myHRP = getSelf()
     if not myHRP then return end
 
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player then
-            local model, hrp, hum = resolveActor(p)
+            local model, hrp, hum = getWorkspaceActorByPlayer(p)
             if model and hrp and hum then
                 if Toggles.PlayerESP then
                     if not hrp:FindFirstChild("Player_ESP") then
@@ -157,8 +125,7 @@ local function updatePlayerESP()
                         billboard.Parent = hrp
 
                         local label = Instance.new("TextLabel")
-                        label.Size = UDim2(new(1, 0, 1, 0))
-                        -- ^ Fix typo if you paste manually: should be UDim2.new(1, 0, 1, 0)
+                        label.Size = UDim2.new(1, 0, 1, 0)
                         label.BackgroundTransparency = 1
                         label.TextColor3 = Color3.fromRGB(255, 0, 0)
                         label.TextStrokeTransparency = 0
@@ -183,86 +150,65 @@ local function updatePlayerESP()
     end
 end
 
---// Behavior constants
-local BEHIND_DISTANCE = 3.5  -- studs
-local VERTICAL_OFFSET = 1.5  -- studs
+--// ===== Behavior constants =====
+local BEHIND_DISTANCE = 3.5  -- studs behind target
+local VERTICAL_OFFSET = 1.5  -- small lift
 
 -- Visual “shoot/aim”
-local SHOOT_RADIUS = 30
-local SHOOT_RATE = 0.15
+local SHOOT_RADIUS = 30      -- studs
+local SHOOT_RATE = 0.15      -- seconds between sweeps
 local lastShootSweep = 0
 
--- Highlight with fallback
 local function flashHighlight(model, color)
     if not model then return end
-    local ok, err = pcall(function()
-        local hl = Instance.new("Highlight")
-        hl.Adornee = model
-        hl.FillColor = color or Color3.fromRGB(255, 255, 0)
-        hl.FillTransparency = 0.6
-        hl.OutlineColor = hl.FillColor
-        hl.OutlineTransparency = 0
-        hl.Parent = model
-        task.delay(0.15, function() if hl then hl:Destroy() end end)
-    end)
-    if not ok then
-        -- Fallback to SelectionBox if Highlight fails
-        local sb = Instance.new("SelectionBox")
-        sb.Adornee = model
-        sb.LineThickness = 0.05
-        sb.Color3 = color or Color3.fromRGB(255, 255, 0)
-        sb.Parent = model
-        task.delay(0.15, function() if sb then sb:Destroy() end end)
-    end
+    local hl = Instance.new("Highlight")
+    hl.Adornee = model
+    hl.FillColor = color or Color3.fromRGB(255, 230, 0)
+    hl.FillTransparency = 0.6
+    hl.OutlineColor = hl.FillColor
+    hl.OutlineTransparency = 0
+    hl.Parent = model
+    task.delay(0.15, function() if hl then hl:Destroy() end end)
 end
 
---// Main
+--// ===== Main =====
 RunService.Heartbeat:Connect(function()
-    local ok, err = pcall(function()
-        local myChar = player.Character
-        if not myChar then return end
-        local myHRP = myChar:FindFirstChild("HumanoidRootPart")
-        local myHum = myChar:FindFirstChildOfClass("Humanoid")
-        if not myHRP or not myHum then return end
+    -- get our own Workspace model + parts each frame (no Character reliance)
+    local myModel, myHRP, myHum = getSelf()
+    if not myModel or not myHRP or not myHum then return end
 
-        -- Player ESP
-        if Toggles.PlayerESP then updatePlayerESP() end
+    -- Player ESP
+    if Toggles.PlayerESP then updatePlayerESP() end
 
-        -- Stay Behind Closest (every-frame CFrame)
-        if Toggles.StayBehind then
-            local tp, model, tHRP, tHum = getClosestAliveOtherPlayer(myHRP)
-            if tp and tHRP and tHum then
-                local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
-                myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
-            end
+    -- Stay Behind Closest (every-frame CFrame)
+    if Toggles.StayBehind then
+        local tp, model, tHRP, tHum = getClosestAliveOtherPlayer(myHRP)
+        if tp and tHRP and tHum then
+            local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
+            myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
         end
+    end
 
-        -- Shoot Closest Players (visual-only)
-        local now = tick()
-        if Toggles.ShootClosest and (now - lastShootSweep) >= SHOOT_RATE then
-            local near = {}
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= player then
-                    local model, tHRP, tHum = resolveActor(p)
-                    if model and tHRP and tHum then
-                        local d = (myHRP.Position - tHRP.Position).Magnitude
-                        if d <= SHOOT_RADIUS then
-                            table.insert(near, {model = model, hrp = tHRP, hum = tHum, dist = d})
-                        end
+    -- Shoot Closest Players (visual-only: aim & flash)
+    local now = tick()
+    if Toggles.ShootClosest and (now - lastShootSweep) >= SHOOT_RATE then
+        local near = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                local model, tHRP, tHum = getWorkspaceActorByPlayer(p)
+                if model and tHRP and tHum then
+                    local d = (myHRP.Position - tHRP.Position).Magnitude
+                    if d <= SHOOT_RADIUS then
+                        table.insert(near, {model = model, hrp = tHRP, hum = tHum, dist = d})
                     end
                 end
             end
-            table.sort(near, function(a,b) return a.dist < b.dist end)
-            for _, t in ipairs(near) do
-                myHRP.CFrame = CFrame.new(myHRP.Position, t.hrp.Position) -- aim at target
-                flashHighlight(t.model, Color3.fromRGB(255, 230, 0))
-            end
-            lastShootSweep = now
         end
-    end)
-    if not ok then
-        log("Heartbeat error: " .. tostring(err))
+        table.sort(near, function(a,b) return a.dist < b.dist end)
+        for _, t in ipairs(near) do
+            myHRP.CFrame = CFrame.new(myHRP.Position, t.hrp.Position) -- aim only
+            flashHighlight(t.model)
+        end
+        lastShootSweep = now
     end
 end)
-
-log("Running")
