@@ -2,7 +2,6 @@
 
 --// Services
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
@@ -11,9 +10,9 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local player = Players.LocalPlayer
 if not player then return end
 
--- Wait for PlayerGui + first character
+-- Wait for PlayerGui + character (use non-blocking pattern if already spawned)
 local PlayerGui = player:WaitForChild("PlayerGui")
-player.CharacterAdded:Wait() -- ensures HRP/Humanoid exist soon after
+local character = player.Character or player.CharacterAdded:Wait()
 
 --// Toggles (exactly 3)
 local Toggles = {
@@ -71,25 +70,56 @@ end
 
 createGui()
 
---// Target resolution (Workspace twin or Character)
+-- Recreate minimal state after respawn (UI persists because ResetOnSpawn=false)
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+end)
+
+--// ===== Target resolution (Workspace twin or Character) =====
+
+local CONTAINER_CANDIDATES = { "Characters", "Players", "Alive", "Entities", "PlayerModels" }
+
+local function validateModel(model)
+    if not model or not model:IsA("Model") then return end
+    local hrp = model:FindFirstChild("HumanoidRootPart")
+    local hum = model:FindFirstChildOfClass("Humanoid")
+    if hrp and hum and hum.Health > 0 then
+        return model, hrp, hum
+    end
+end
+
 local function resolveActor(plr)
-    -- Prefer Workspace model with same name
+    -- 1) Direct child on Workspace with same name
     local twin = Workspace:FindFirstChild(plr.Name)
-    if twin and twin:IsA("Model") then
-        local hrp = twin:FindFirstChild("HumanoidRootPart")
-        local hum = twin:FindFirstChildOfClass("Humanoid")
-        if hrp and hum and hum.Health > 0 then
-            return twin, hrp, hum
+    if twin then
+        local m, hrp, hum = validateModel(twin)
+        if m then return m, hrp, hum end
+    end
+
+    -- 2) Common containers (Characters, Players, Alive, Entities, PlayerModels)
+    for _, bucket in ipairs(CONTAINER_CANDIDATES) do
+        local container = Workspace:FindFirstChild(bucket)
+        if container then
+            local inBucket = container:FindFirstChild(plr.Name)
+            if inBucket then
+                local m, hrp, hum = validateModel(inBucket)
+                if m then return m, hrp, hum end
+            end
         end
     end
-    -- Fallback to Character
+
+    -- 3) Fallback: scan Workspace immediate children for a model with this name
+    for _, child in ipairs(Workspace:GetChildren()) do
+        if child:IsA("Model") and child.Name == plr.Name then
+            local m, hrp, hum = validateModel(child)
+            if m then return m, hrp, hum end
+        end
+    end
+
+    -- 4) Final fallback: their Character
     local char = plr.Character
     if char then
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hrp and hum and hum.Health > 0 then
-            return char, hrp, hum
-        end
+        return validateModel(char)
     end
     return nil, nil, nil
 end
@@ -110,7 +140,7 @@ local function getClosestAliveOtherPlayer(myHRP)
     return bestPlr, bestModel, bestHRP, bestHum, bestDist
 end
 
---// ESP
+--// ===== ESP =====
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar then return end
@@ -156,7 +186,7 @@ local function updatePlayerESP()
     end
 end
 
---// Behavior constants
+--// ===== Behavior constants =====
 local BEHIND_DISTANCE = 3.5  -- studs
 local VERTICAL_OFFSET = 1.5  -- studs
 
@@ -177,7 +207,7 @@ local function flashHighlight(model, color)
     task.delay(0.15, function() if hl then hl:Destroy() end end)
 end
 
---// Main
+--// ===== Main =====
 RunService.Heartbeat:Connect(function()
     local myChar = player.Character
     if not myChar then return end
