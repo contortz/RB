@@ -1,29 +1,36 @@
+-- Place as a LocalScript (StarterPlayerScripts or client executor)
+
 --// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local CoreGui = game:GetService("CoreGui")
 local Workspace = game:GetService("Workspace")
 
+-- Ensure we are client-side and game is ready
+if not game:IsLoaded() then game.Loaded:Wait() end
 local player = Players.LocalPlayer
+if not player then return end
+
+-- Wait for PlayerGui + first character
+local PlayerGui = player:WaitForChild("PlayerGui")
+player.CharacterAdded:Wait() -- ensures HRP/Humanoid exist soon after
 
 --// Toggles (exactly 3)
 local Toggles = {
     PlayerESP    = false,
     StayBehind   = false,
-    ShootClosest = false, -- visual-only: marks/aims closest players in radius
+    ShootClosest = false, -- visual-only: mark & aim
 }
 
 --// GUI
 local function createGui()
-    if CoreGui:FindFirstChild("StreetFightGui") then
-        CoreGui.StreetFightGui:Destroy()
-    end
+    local old = PlayerGui:FindFirstChild("StreetFightGui")
+    if old then old:Destroy() end
 
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "StreetFightGui"
     ScreenGui.ResetOnSpawn = false
-    ScreenGui.Parent = CoreGui
+    ScreenGui.Parent = PlayerGui
 
     local MainFrame = Instance.new("Frame")
     MainFrame.Size = UDim2.new(0, 210, 0, 200)
@@ -64,7 +71,7 @@ end
 
 createGui()
 
---// ===== Target resolution (Workspace twin or Character) =====
+--// Target resolution (Workspace twin or Character)
 local function resolveActor(plr)
     -- Prefer Workspace model with same name
     local twin = Workspace:FindFirstChild(plr.Name)
@@ -103,7 +110,7 @@ local function getClosestAliveOtherPlayer(myHRP)
     return bestPlr, bestModel, bestHRP, bestHum, bestDist
 end
 
---// ===== ESP =====
+--// ESP
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar then return end
@@ -149,16 +156,15 @@ local function updatePlayerESP()
     end
 end
 
---// ===== Behavior constants =====
+--// Behavior constants
 local BEHIND_DISTANCE = 3.5  -- studs
 local VERTICAL_OFFSET = 1.5  -- studs
 
--- Visual “shoot/aim” params
-local SHOOT_RADIUS = 30          -- studs
-local SHOOT_RATE = 0.15          -- seconds between sweeps
+-- Visual “shoot/aim”
+local SHOOT_RADIUS = 30
+local SHOOT_RATE = 0.15
 local lastShootSweep = 0
 
--- Keep a transient highlight on "shot" targets
 local function flashHighlight(model, color)
     if not model then return end
     local hl = Instance.new("Highlight")
@@ -171,60 +177,46 @@ local function flashHighlight(model, color)
     task.delay(0.15, function() if hl then hl:Destroy() end end)
 end
 
--- Stub for your **own game’s** server-validated combat call:
--- local ShootRemote = ReplicatedStorage:FindFirstChild("RequestShoot") -- example
--- local function serverShoot(targetModel) ShootRemote:FireServer(targetModel) end
-
---// ===== Main =====
+--// Main
 RunService.Heartbeat:Connect(function()
-    pcall(function()
-        local myChar = player.Character
-        if not myChar then return end
-        local myHRP = myChar:FindFirstChild("HumanoidRootPart")
-        local myHum = myChar:FindFirstChildOfClass("Humanoid")
-        if not myHRP or not myHum then return end
+    local myChar = player.Character
+    if not myChar then return end
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    local myHum = myChar:FindFirstChildOfClass("Humanoid")
+    if not myHRP or not myHum then return end
 
-        -- Player ESP
-        if Toggles.PlayerESP then updatePlayerESP() end
+    -- Player ESP
+    if Toggles.PlayerESP then updatePlayerESP() end
 
-        -- Stay Behind Closest (every-frame CFrame)
-        if Toggles.StayBehind then
-            local tp, model, tHRP, tHum = getClosestAliveOtherPlayer(myHRP)
-            if tp and tHRP and tHum then
-                local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
-                myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
-            end
+    -- Stay Behind Closest (every-frame CFrame)
+    if Toggles.StayBehind then
+        local tp, model, tHRP, tHum = getClosestAliveOtherPlayer(myHRP)
+        if tp and tHRP and tHum then
+            local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
+            myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
         end
+    end
 
-        -- Shoot Closest Players (visual-only: highlight & aim at nearby targets)
-        local now = tick()
-        if Toggles.ShootClosest and (now - lastShootSweep) >= SHOOT_RATE then
-            -- collect candidates in radius
-            local candidates = {}
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= player then
-                    local model, tHRP, tHum = resolveActor(p)
-                    if model and tHRP and tHum then
-                        local d = (myHRP.Position - tHRP.Position).Magnitude
-                        if d <= SHOOT_RADIUS then
-                            table.insert(candidates, {model = model, hrp = tHRP, hum = tHum, dist = d})
-                        end
+    -- Shoot Closest Players (visual-only)
+    local now = tick()
+    if Toggles.ShootClosest and (now - lastShootSweep) >= SHOOT_RATE then
+        local near = {}
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= player then
+                local model, tHRP, tHum = resolveActor(p)
+                if model and tHRP and tHum then
+                    local d = (myHRP.Position - tHRP.Position).Magnitude
+                    if d <= SHOOT_RADIUS then
+                        table.insert(near, {model = model, hrp = tHRP, hum = tHum, dist = d})
                     end
                 end
             end
-
-            table.sort(candidates, function(a,b) return a.dist < b.dist end)
-
-            -- visually "shoot": face each target & flash a highlight
-            for _, c in ipairs(candidates) do
-                -- aim facing (no teleport/attack)
-                myHRP.CFrame = CFrame.new(myHRP.Position, c.hrp.Position)
-                flashHighlight(c.model, Color3.fromRGB(255, 230, 0))
-                -- If this is YOUR place, call your server-validated ability here:
-                -- serverShoot(c.model)
-            end
-
-            lastShootSweep = now
         end
-    end)
+        table.sort(near, function(a,b) return a.dist < b.dist end)
+        for _, t in ipairs(near) do
+            myHRP.CFrame = CFrame.new(myHRP.Position, t.hrp.Position) -- aim at target
+            flashHighlight(t.model, Color3.fromRGB(255, 230, 0))
+        end
+        lastShootSweep = now
+    end
 end)
