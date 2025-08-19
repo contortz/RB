@@ -8,6 +8,9 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local player = Players.LocalPlayer
 
+-- Remote
+local STOMPEVENT = ReplicatedStorage:FindFirstChild("STOMPEVENT") -- RemoteEvent (may be nil)
+
 --// Toggles
 local Toggles = {
     AutoPickCash = false,
@@ -17,7 +20,8 @@ local Toggles = {
     ATMESP = false,
     SalonPunchTest = false,
     GiveDinero = false,
-    StayBehind = false, -- NEW
+    StayBehind = false,      -- existing
+    AutoStomper = false,     -- NEW
 }
 
 --// GUI Setup
@@ -32,8 +36,8 @@ local function createGui()
     ScreenGui.Parent = CoreGui
 
     local MainFrame = Instance.new("Frame")
-    MainFrame.Size = UDim2.new(0, 200, 0, 420)
-    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -210)
+    MainFrame.Size = UDim2.new(0, 200, 0, 460) -- extra height
+    MainFrame.Position = UDim2.new(0.5, -100, 0.5, -230)
     MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
     MainFrame.Active = true
     MainFrame.Draggable = true
@@ -69,14 +73,15 @@ local function createGui()
     createButton("Auto Swing", "AutoSwing", 110)
     createButton("Player ESP", "PlayerESP", 145)
     createButton("ATM ESP", "ATMESP", 180)
-    createButton("Stay Behind Closest", "StayBehind", 215) -- NEW
+    createButton("Stay Behind Closest", "StayBehind", 215)
     createButton("Salon Punch Test", "SalonPunchTest", 250)
     createButton("Give Dinero Test", "GiveDinero", 285)
+    createButton("Auto Stomper", "AutoStomper", 320) -- NEW
 
     -- Teleport to next ATM
     local tpATMButton = Instance.new("TextButton")
     tpATMButton.Size = UDim2.new(0.9, 0, 0, 30)
-    tpATMButton.Position = UDim2.new(0.05, 0, 0, 320)
+    tpATMButton.Position = UDim2.new(0.05, 0, 0, 355)
     tpATMButton.BackgroundColor3 = Color3.fromRGB(100, 100, 255)
     tpATMButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     tpATMButton.Text = "Teleport Next ATM"
@@ -113,22 +118,34 @@ end
 createGui()
 
 --// Helpers
+local function isPvpOn(p)
+    -- Treat nil as ON? If you want explicit true only, change first return.
+    local v = p:GetAttribute("PVP_ENABLED")
+    if v ~= nil then return v == true end
+    -- fallbacks if game stores on Character/Humanoid
+    local c = p.Character
+    if not c then return false end
+    local cv = c:GetAttribute("PVP_ENABLED")
+    if cv ~= nil then return cv == true end
+    local h = c:FindFirstChildOfClass("Humanoid")
+    if h then
+        local hv = h:GetAttribute("PVP_ENABLED")
+        if hv ~= nil then return hv == true end
+    end
+    return false
+end
+
 local function getClosestAliveOtherPlayer(myHRP)
     local closest, closestDist = nil, math.huge
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and isPvpOn(p) then
             local hum = p.Character:FindFirstChildOfClass("Humanoid")
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-
-            -- check attribute
-            local pvpEnabled = p:GetAttribute("PVP_ENABLED")
-            if pvpEnabled == nil or pvpEnabled == true then
-                if hum and hrp and hum.Health > 0 then
-                    local d = (myHRP.Position - hrp.Position).Magnitude
-                    if d < closestDist then
-                        closest = p
-                        closestDist = d
-                    end
+            if hum and hrp and hum.Health > 0 then
+                local d = (myHRP.Position - hrp.Position).Magnitude
+                if d < closestDist then
+                    closest = p
+                    closestDist = d
                 end
             end
         end
@@ -136,8 +153,25 @@ local function getClosestAliveOtherPlayer(myHRP)
     return closest, closestDist
 end
 
+local function getBestStompTarget(myHRP, threshold)
+    local best, bestDist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player and p.Character and isPvpOn(p) then
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hrp and hum.Health > 0 and hum.Health <= threshold then
+                local d = (myHRP.Position - hrp.Position).Magnitude
+                if d < bestDist then
+                    best = p
+                    bestDist = d
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
 
---// ESP Functions
+--// ESP Functions (unchanged)
 local function updatePlayerESP()
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return end
@@ -235,8 +269,14 @@ local function simulateKeyPress(key)
 end
 
 --// Stay-Behind constants (every-frame CFrame)
-local BEHIND_DISTANCE = 3.5   -- studs behind target
-local VERTICAL_OFFSET = 1.5   -- small lift to avoid clipping
+local BEHIND_DISTANCE = 3.5
+local VERTICAL_OFFSET = 1.5
+
+--// AutoStomper constants
+local STOMP_THRESHOLD = 3                    -- HP ≤ 3
+local STOMP_TP_OFFSET = Vector3.new(0, 2.5, 0)
+local STOMP_COOLDOWN = 0.5                   -- seconds between stomps
+local lastStompTime = 0
 
 --// Main loop
 RunService.Heartbeat:Connect(function()
@@ -335,8 +375,27 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- NEW: Stay Behind Closest (EVERY FRAME hard CFrame)
-        if Toggles.StayBehind then
+        -- NEW: Auto Stomper (priority action)
+        local didStompThisFrame = false
+        if Toggles.AutoStomper and (now - lastStompTime) >= STOMP_COOLDOWN then
+            local target, dist = getBestStompTarget(myHRP, STOMP_THRESHOLD)
+            if target and target.Character then
+                local tHum = target.Character:FindFirstChildOfClass("Humanoid")
+                local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+                if tHum and tHRP and tHum.Health > 0 and tHum.Health <= STOMP_THRESHOLD then
+                    -- teleport slightly above, then stomp
+                    myHRP.CFrame = tHRP.CFrame + STOMP_TP_OFFSET
+                    if STOMPEVENT and STOMPEVENT:IsA("RemoteEvent") then
+                        STOMPEVENT:FireServer()
+                    end
+                    lastStompTime = now
+                    didStompThisFrame = true
+                end
+            end
+        end
+
+        -- Stay Behind Closest (skip this frame if we just stomped)
+        if Toggles.StayBehind and not didStompThisFrame then
             local targetPlayer = nil
             local closestDist = nil
             do
@@ -348,7 +407,6 @@ RunService.Heartbeat:Connect(function()
                 local tHum = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
                 local tHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if tHum and tHRP and tHum.Health > 0 then
-                    -- compute a point directly behind target, and face same direction
                     local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
                     myHRP.CFrame = CFrame.new(desiredPos, desiredPos + tHRP.CFrame.LookVector)
                 end
