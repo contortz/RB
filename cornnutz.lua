@@ -196,7 +196,7 @@ local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, 0, 0, 25)
 title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 title.TextColor3 = Color3.new(1, 1, 1)
-title.Text = "BrainRotz by Dreamz"
+title.Text = "-----"
 title.TextSize = 10
 title.Parent = frame
 
