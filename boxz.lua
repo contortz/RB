@@ -15,12 +15,14 @@ local lastAutoSelectCheck  = 0
 
 -- ========= TOGGLES =========
 local Toggles = {
-    PlayerESP             = false,
-    StayBehind            = false,
-    AutoTargetBase        = false,  -- auto choose target by nearest base owner
-    FallbackClosest       = true,   -- if no target, follow closest alive player
-    AutoEquipRainbowrath  = false,  -- keep Rainbowrath equipped
-    AutoActivateRainbowrath = false -- repeatedly :Activate() Rainbowrath
+    PlayerESP        = false,
+    StayBehind       = false,
+    AutoTargetBase   = false,  -- auto choose target by nearest base owner
+    FallbackClosest  = true,   -- if no target, follow closest alive player
+    AutoEquipRS      = false,  -- Rainbowrath: keep equipped
+    AutoActivateRS   = false,  -- Rainbowrath: loop :Activate()
+    AutoEquipLS      = false,  -- Lava Slap: keep equipped
+    AutoActivateLS   = false,  -- Lava Slap: loop :Activate()
 }
 
 -- ========= UI (robust parent + watchdog) =========
@@ -60,8 +62,8 @@ local function createGui()
     ScreenGui.Parent = parentRoot
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 450) -- taller to fit new toggle
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -225)
+    Frame.Size = UDim2.new(0, 260, 0, 460) -- taller to fit mini pairs
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -230)
     Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     Frame.BorderSizePixel = 0
     Frame.Active = true
@@ -77,8 +79,14 @@ local function createGui()
     Title.Text = "MiniHub – ESP / Follow"
     Title.Parent = Frame
 
+    local function paintBtn(btn, on)
+        btn.Text = btn.Name .. ": " .. (on and "ON" or "OFF")
+        btn.BackgroundColor3 = on and Color3.fromRGB(0,170,0) or Color3.fromRGB(60,60,60)
+    end
+
     local function makeToggle(y, label, key)
         local b = Instance.new("TextButton")
+        b.Name = label
         b.Size = UDim2.new(0.92, 0, 0, 28)
         b.Position = UDim2.new(0.04, 0, 0, y)
         b.BackgroundColor3 = Color3.fromRGB(60,60,60)
@@ -86,18 +94,12 @@ local function createGui()
         b.TextColor3 = Color3.new(1,1,1)
         b.Font = Enum.Font.SourceSansBold
         b.TextSize = 14
-        b.Text = ("%s: %s"):format(label, Toggles[key] and "ON" or "OFF")
         b.Parent = Frame
-
-        local function paint()
-            b.Text = ("%s: %s"):format(label, Toggles[key] and "ON" or "OFF")
-            b.BackgroundColor3 = Toggles[key] and Color3.fromRGB(0,170,0) or Color3.fromRGB(60,60,60)
-        end
-        paint()
+        paintBtn(b, Toggles[key])
 
         b.MouseButton1Click:Connect(function()
             Toggles[key] = not Toggles[key]
-            paint()
+            paintBtn(b, Toggles[key])
             if key == "PlayerESP" and not Toggles.PlayerESP then
                 -- clear labels
                 for _, p in ipairs(Players:GetPlayers()) do
@@ -112,19 +114,58 @@ local function createGui()
         end)
     end
 
-    -- 6 toggles
-    makeToggle(36,  "Player ESP",            "PlayerESP")
-    makeToggle(68,  "Stay Behind",           "StayBehind")
-    makeToggle(100, "Auto Target Base",      "AutoTargetBase")
-    makeToggle(132, "Fallback Closest",      "FallbackClosest")
-    makeToggle(164, "Loop Equip Rainbowrath","AutoEquipRainbowrath")
-    makeToggle(196, "Loop Activate Rainbowrath","AutoActivateRainbowrath") -- NEW
+    local function makeMiniPair(y, leftLabel, leftKey, rightLabel, rightKey)
+        local left = Instance.new("TextButton")
+        left.Name = leftLabel
+        left.Size = UDim2.new(0.44, 0, 0, 24)
+        left.Position = UDim2.new(0.04, 0, 0, y)
+        left.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        left.BorderSizePixel = 0
+        left.TextColor3 = Color3.new(1,1,1)
+        left.Font = Enum.Font.SourceSansBold
+        left.TextSize = 13
+        left.Parent = Frame
+        left.Text = leftLabel
+        paintBtn(left, Toggles[leftKey])
 
-    -- Target label shifted down
+        local right = Instance.new("TextButton")
+        right.Name = rightLabel
+        right.Size = UDim2.new(0.44, 0, 0, 24)
+        right.Position = UDim2.new(0.52, 0, 0, y)
+        right.BackgroundColor3 = Color3.fromRGB(60,60,60)
+        right.BorderSizePixel = 0
+        right.TextColor3 = Color3.new(1,1,1)
+        right.Font = Enum.Font.SourceSansBold
+        right.TextSize = 13
+        right.Parent = Frame
+        right.Text = rightLabel
+        paintBtn(right, Toggles[rightKey])
+
+        left.MouseButton1Click:Connect(function()
+            Toggles[leftKey] = not Toggles[leftKey]
+            paintBtn(left, Toggles[leftKey])
+        end)
+        right.MouseButton1Click:Connect(function()
+            Toggles[rightKey] = not Toggles[rightKey]
+            paintBtn(right, Toggles[rightKey])
+        end)
+    end
+
+    -- Full-width toggles
+    makeToggle(36,  "Player ESP",       "PlayerESP")
+    makeToggle(68,  "Stay Behind",      "StayBehind")
+    makeToggle(100, "Auto Target Base", "AutoTargetBase")
+    makeToggle(132, "Fallback Closest", "FallbackClosest")
+
+    -- Mini pairs (side-by-side)
+    makeMiniPair(164, "Equip RS", "AutoEquipRS", "Loop RS", "AutoActivateRS")
+    makeMiniPair(196, "Equip LS", "AutoEquipLS", "Loop LS", "AutoActivateLS")
+
+    -- Target label
     local targetLabel = Instance.new("TextLabel")
     targetLabel.Name = "TargetLabel"
     targetLabel.Size = UDim2.new(0.92, 0, 0, 22)
-    targetLabel.Position = UDim2.new(0.04, 0, 0, 230)
+    targetLabel.Position = UDim2.new(0.04, 0, 0, 232)
     targetLabel.BackgroundTransparency = 1
     targetLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
     targetLabel.Font = Enum.Font.SourceSansSemibold
@@ -136,7 +177,7 @@ local function createGui()
     -- Player list header
     local hdr = Instance.new("TextLabel")
     hdr.Size = UDim2.new(0.92, 0, 0, 20)
-    hdr.Position = UDim2.new(0.04, 0, 0, 256)
+    hdr.Position = UDim2.new(0.04, 0, 0, 258)
     hdr.BackgroundTransparency = 1
     hdr.TextColor3 = Color3.fromRGB(220,220,220)
     hdr.Font = Enum.Font.SourceSansBold
@@ -148,8 +189,8 @@ local function createGui()
     -- Player list
     local list = Instance.new("ScrollingFrame")
     list.Name = "PlayerList"
-    list.Size = UDim2.new(0.92, 0, 0, 170)
-    list.Position = UDim2.new(0.04, 0, 0, 280)
+    list.Size = UDim2.new(0.92, 0, 0, 180)
+    list.Position = UDim2.new(0.04, 0, 0, 282)
     list.BackgroundColor3 = Color3.fromRGB(40,40,40)
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 6
@@ -443,12 +484,9 @@ local function doStayBehind(myHRP)
     myHRP.CFrame = CFrame.new(desiredPos, lookAt)
 end
 
--- ========= Tool Helpers (Rainbowrath) =========
-local RainbowrathNames = {
-    "Rainbowrath Sword",
-    "Rainbowrath",
-    "RainbowrathSword",
-}
+-- ========= Tool Helpers =========
+local RainbowrathNames = { "Rainbowrath Sword", "Rainbowrath", "RainbowrathSword" }
+local LavaSlapNames    = { "Lava Slap", "LavaSlap", "Lava Slap Glove" }
 
 local function findToolByNames(container, names)
     if not container then return nil end
@@ -470,38 +508,33 @@ local function findToolByNames(container, names)
     return nil
 end
 
-local function keepRainbowrathEquipped()
-    if not Toggles.AutoEquipRainbowrath then return end
+local function keepEquipped(names, enabled)
+    if not enabled then return end
     local char = player.Character
     local backpack = player:FindFirstChild("Backpack")
     if not char or not backpack then return end
-
-    -- Already holding it?
-    local equipped = findToolByNames(char, RainbowrathNames)
-    if equipped then return end
-
-    -- Move from Backpack -> Character
-    local tool = findToolByNames(backpack, RainbowrathNames)
+    if findToolByNames(char, names) then return end
+    local tool = findToolByNames(backpack, names)
     if tool then tool.Parent = char end
 end
 
--- Throttled activation so we don't spam absurdly
-local lastRainbowActivate = 0
-local RAINBOW_ACTIVATE_INTERVAL = 0.12 -- seconds
+local lastRSActivate, lastLSActivate = 0, 0
+local ACTIVATE_INTERVAL = 0.12
 
-local function activateRainbowrath()
-    if not Toggles.AutoActivateRainbowrath then return end
+local function activateTool(names, enabled, lastRefName)
+    if not enabled then return end
     local now = os.clock()
-    if now - lastRainbowActivate < RAINBOW_ACTIVATE_INTERVAL then return end
-
+    if now - _G[lastRefName] < ACTIVATE_INTERVAL then return end
     local char = player.Character
     if not char then return end
-    local tool = findToolByNames(char, RainbowrathNames)
+    local tool = findToolByNames(char, names)
     if tool then
-        lastRainbowActivate = now
+        _G[lastRefName] = now
         pcall(function() tool:Activate() end)
     end
 end
+_G._lastRS = lastRSActivate
+_G._lastLS = lastLSActivate
 
 -- ========= Main loop =========
 RunService.Heartbeat:Connect(function()
@@ -512,9 +545,11 @@ RunService.Heartbeat:Connect(function()
     -- Auto-target by base proximity (runs on its own cadence)
     autoSelectOwnerByProximity()
 
-    -- Keep Rainbowrath equipped / activate if requested
-    keepRainbowrathEquipped()
-    activateRainbowrath()
+    -- Keep tools equipped / activate if requested
+    keepEquipped(RainbowrathNames, Toggles.AutoEquipRS)
+    keepEquipped(LavaSlapNames,    Toggles.AutoEquipLS)
+    activateTool(RainbowrathNames, Toggles.AutoActivateRS, "_lastRS")
+    activateTool(LavaSlapNames,    Toggles.AutoActivateLS, "_lastLS")
 
     if Toggles.PlayerESP then
         updateESP(myHRP)
