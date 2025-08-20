@@ -1,31 +1,79 @@
---=== SAFE UI ROOT ===--
-local Players   = game:GetService("Players")
-local CoreGui   = game:GetService("CoreGui")
-local RunService= game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
+--[[  BrainRotz – Tools (UI Hard-Mode)
+     - Uses hidden UI root (gethui / get_hidden_gui) if available
+     - Falls back to CoreGui, then PlayerGui
+     - Protects GUI (syn.protect_gui / protect_gui) when possible
+     - Watchdog re-parents if the game deletes it
+--]]
+
+--// Services
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace  = game:GetService("Workspace")
 
 if not game:IsLoaded() then game.Loaded:Wait() end
-local localPlayer = Players.LocalPlayer
-while not localPlayer do task.wait() localPlayer = Players.LocalPlayer end
+local me = Players.LocalPlayer
+while not me do task.wait() me = Players.LocalPlayer end
 
--- UI constants
-local UI_NAME        = "BrainRotzToggleUI"
-local ESP_TAG_NAME   = "__BR_ESP__"
+--// === UI ROOT RESOLUTION ===
+local function getHiddenUi()
+    return (gethui and gethui())
+        or (get_hidden_gui and get_hidden_gui())
+        or (gethiddengui and gethiddengui())
+        or nil
+end
 
--- Kill any previous instance so we don't stack UIs
-local old = CoreGui:FindFirstChild(UI_NAME)
-if old then old:Destroy() end
+local function protectGui(gui)
+    pcall(function()
+        if syn and syn.protect_gui then syn.protect_gui(gui) end
+    end)
+    pcall(function()
+        if protect_gui then protect_gui(gui) end
+    end)
+end
 
--- Build UI in CoreGui (most reliable)
+local function getUiRoot()
+    local hidden = getHiddenUi()
+    if hidden then return hidden end
+    local core = game:GetService("CoreGui")
+    if core then return core end
+    return me:WaitForChild("PlayerGui") -- last resort
+end
+
+local UI_NAME      = "BrainRotzToggleUI"
+local ESP_TAG_NAME = "__BR_ESP__"
+
+-- nuke any old copies (from any parent)
+for _, where in ipairs({getHiddenUi(), game:GetService("CoreGui"), me:FindFirstChild("PlayerGui")}) do
+    if where and where:FindFirstChild(UI_NAME) then
+        where[UI_NAME]:Destroy()
+    end
+end
+
+local uiRoot = getUiRoot()
+
+-- Build ScreenGui
 local gui = Instance.new("ScreenGui")
 gui.Name = UI_NAME
-gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 gui.IgnoreGuiInset = true
 gui.ResetOnSpawn = false
-gui.DisplayOrder = 99999
-gui.Parent = CoreGui
+gui.DisplayOrder = 999999
 
--- Frame
+protectGui(gui)
+gui.Parent = uiRoot
+
+-- watchdog: if someone deletes/moves it, put it back
+task.spawn(function()
+    while task.wait(0.25) do
+        if not gui or not gui.Parent then
+            local newRoot = getUiRoot()
+            if not gui then break end
+            gui.Parent = newRoot
+        end
+    end
+end)
+
+--// ===== GUI =====
 local frame = Instance.new("Frame")
 frame.Size = UDim2.new(0, 260, 0, 140)
 frame.Position = UDim2.new(0, 20, 0, 140)
@@ -36,7 +84,6 @@ frame.Draggable = true
 frame.Visible = true
 frame.Parent = gui
 
--- Title bar
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -40, 0, 28)
 title.Position = UDim2.new(0, 10, 0, 0)
@@ -48,7 +95,6 @@ title.TextColor3 = Color3.new(1,1,1)
 title.TextXAlignment = Enum.TextXAlignment.Left
 title.Parent = frame
 
--- Minimize button
 local mini = Instance.new("TextButton")
 mini.Size = UDim2.new(0, 28, 0, 24)
 mini.Position = UDim2.new(1, -34, 0, 2)
@@ -60,8 +106,8 @@ mini.TextSize = 20
 mini.Parent = frame
 
 local miniIcon = Instance.new("TextButton")
-miniIcon.Size = UDim2.new(0, 140, 0, 34)
-miniIcon.Position = UDim2.new(0, 20, 0, 100)
+miniIcon.Size = UDim2.new(0, 160, 0, 34)
+miniIcon.Position = UDim2.new(0, 20, 0, 100) -- always on-screen
 miniIcon.BackgroundColor3 = Color3.fromRGB(60,60,60)
 miniIcon.TextColor3 = Color3.new(1,1,1)
 miniIcon.Text = "Open BrainRotz"
@@ -79,7 +125,6 @@ miniIcon.MouseButton1Click:Connect(function()
     miniIcon.Visible = false
 end)
 
--- Toggle button factory
 local function makeToggle(parent, y, label, initial, onChanged)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1, -20, 0, 32)
@@ -106,31 +151,31 @@ local function makeToggle(parent, y, label, initial, onChanged)
         onChanged(state)
     end)
 
-    return function(setTo)
-        state = setTo and true or false
+    return function(v)
+        state = v and true or false
         render()
         onChanged(state)
     end
 end
 
---================ LOGIC ================--
-
+--// ===== Logic =====
 local Toggles = {
     LockPunchMeter = false,
     PlayerESP      = false,
 }
 
--- Find player models (Workspace.<Name>, BrookMap.<Name>, or ring containers)
 local function findModelByName(name)
     local w = Workspace
+    -- direct
     local direct = w:FindFirstChild(name)
     if direct and direct:IsA("Model") then return direct end
+    -- BrookMap
     local brook = w:FindFirstChild("BrookMap")
     if brook then
         local m = brook:FindFirstChild(name)
         if m and m:IsA("Model") then return m end
     end
-    -- scan ring “Players” folders or Player1/Player2 containers
+    -- ring “Players” folders or Player1/Player2
     for _, d in ipairs(w:GetDescendants()) do
         if d:IsA("Folder") and d.Name == "Players" then
             local m = d:FindFirstChild(name)
@@ -146,7 +191,9 @@ end
 local function getPrimary(model)
     if not model then return nil end
     if model.PrimaryPart then return model.PrimaryPart end
-    return model:FindFirstChild("HumanoidRootPart") or model:FindFirstChild("RootPart") or model:FindFirstChild("FakeRootPart")
+    return model:FindFirstChild("HumanoidRootPart")
+        or model:FindFirstChild("RootPart")
+        or model:FindFirstChild("FakeRootPart")
 end
 
 local function getHealth(model)
@@ -160,9 +207,9 @@ local function getHealth(model)
     return nil
 end
 
--- Lock PunchMeter to 100 for local player
+-- Lock PunchMeter to 100 (local player only)
 local function lockPunch()
-    local my = findModelByName(Players.LocalPlayer.Name)
+    local my = findModelByName(me.Name)
     if not my then return end
     local pm = my:FindFirstChild("PunchMeter")
     if pm and pm:IsA("NumberValue") and pm.Value ~= 100 then
@@ -183,7 +230,6 @@ local function addESP(model, ownerName)
     local head = getPrimary(model)
     if not head then return end
 
-    -- delete stale
     for _, c in ipairs(model:GetChildren()) do
         if c:IsA("BillboardGui") and c.Name == ESP_TAG_NAME then c:Destroy() end
     end
@@ -219,8 +265,8 @@ local function addESP(model, ownerName)
         local dist = (cam.CFrame.Position - head.Position).Magnitude
         local hp = getHealth(model)
         local hpStr = hp and (" | HP: "..math.floor(hp)) or ""
-        local me = (ownerName == Players.LocalPlayer.Name) and " (YOU)" or ""
-        lbl.Text = string.format("%s%s | %.1fm%s", ownerName, me, dist, hpStr)
+        local meTag = (ownerName == me.Name) and " (YOU)" or ""
+        lbl.Text = string.format("%s%s | %.1fm%s", ownerName, meTag, dist, hpStr)
     end)
 
     bb:GetPropertyChangedSignal("Parent"):Connect(function()
@@ -236,12 +282,12 @@ local function refreshESP()
     end
 end
 
--- Toggle wires
-local setPunch = makeToggle(frame, 36, "Lock PunchMeter = 100", false, function(v)
+-- Toggles UI
+makeToggle(frame, 36, "Lock PunchMeter = 100", false, function(v)
     Toggles.LockPunchMeter = v
 end)
 
-local setESP = makeToggle(frame, 72, "Player ESP", false, function(v)
+makeToggle(frame, 72, "Player ESP", false, function(v)
     Toggles.PlayerESP = v
     if v then refreshESP() else clearAllESP() end
 end)
@@ -263,3 +309,5 @@ RunService.Heartbeat:Connect(function()
         lockPunch()
     end
 end)
+
+print("[BrainRotz UI] loaded. Parent =", gui.Parent and gui.Parent:GetFullName() or "nil")
