@@ -9,10 +9,11 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local player = Players.LocalPlayer
 while not player do task.wait() player = Players.LocalPlayer end
 
---// Toggles (only the two you want)
+--// Toggles
 local Toggles = {
-    PlayerESP  = false,
-    StayBehind = false,
+    PlayerESP        = false,
+    StayBehind       = false,
+    NoSentryCollision= false,  -- NEW
 }
 
 -- =========================
@@ -59,8 +60,8 @@ local function createGui()
     ScreenGui.Parent = parentRoot
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 200, 0, 120)
-    Frame.Position = UDim2.new(0.5, -100, 0.5, -60) -- center
+    Frame.Size = UDim2.new(0, 200, 0, 155) -- taller for 3rd toggle
+    Frame.Position = UDim2.new(0.5, -100, 0.5, -77)
     Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     Frame.BorderSizePixel = 0
     Frame.Active = true
@@ -102,11 +103,23 @@ local function createGui()
                     end
                 end
             end
+            if key == "NoSentryCollision" then
+                if Toggles.NoSentryCollision then
+                    -- apply to any bullets already present
+                    task.spawn(function()
+                        task.wait(0.05)
+                        ApplyNoCollisionAllBullets()
+                    end)
+                else
+                    ClearAllBulletConstraints()
+                end
+            end
         end)
     end
 
-    makeToggle(40, "Player ESP", "PlayerESP")
-    makeToggle(75, "Stay Behind", "StayBehind")
+    makeToggle(40,  "Player ESP",         "PlayerESP")
+    makeToggle(75,  "Stay Behind",        "StayBehind")
+    makeToggle(110, "No Sentry Collision","NoSentryCollision") -- NEW
 
     -- watchdog: re-parent if nuked
     task.spawn(function()
@@ -121,7 +134,9 @@ local function createGui()
     return ScreenGui
 end
 
-local ScreenGui = createGui()
+-- forward-declare helpers used in GUI callbacks
+local ScreenGui -- set after createGui
+local constraintsByBullet = {} -- [bulletPart] -> {NoCollisionConstraint,...}
 
 -- =========================
 -- Health fetch (character carries it)
@@ -191,8 +206,7 @@ end
 -- =========================
 -- Stay Behind Closest (no PvP check)
 -- =========================
--- bumped distance "a bit more": from 3.5 -> 5.0
-local BEHIND_DISTANCE, VERTICAL_OFFSET = 5.0, 1.5
+local BEHIND_DISTANCE, VERTICAL_OFFSET = 5.0, 1.5  -- bumped back a bit
 
 local function getClosestAliveOtherPlayer(myHRP)
     local closest, best = nil, math.huge
@@ -211,7 +225,7 @@ local function getClosestAliveOtherPlayer(myHRP)
 end
 
 local function doStayBehind(myHRP)
-    local target, dist = getClosestAliveOtherPlayer(myHRP)
+    local target, _ = getClosestAliveOtherPlayer(myHRP)
     if not target or not target.Character then return end
     local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
     if not tHRP then return end
@@ -220,6 +234,72 @@ local function doStayBehind(myHRP)
     local lookAt = desiredPos + tHRP.CFrame.LookVector
     myHRP.CFrame = CFrame.new(desiredPos, lookAt)
 end
+
+-- =========================
+-- No-collide with SentryBullet (client-side)
+-- =========================
+local function ClearConstraintsForBullet(bullet)
+    local list = constraintsByBullet[bullet]
+    if list then
+        for _, c in ipairs(list) do pcall(function() c:Destroy() end) end
+        constraintsByBullet[bullet] = nil
+    end
+end
+
+local function ClearAllBulletConstraints()
+    for bullet, _ in pairs(constraintsByBullet) do
+        ClearConstraintsForBullet(bullet)
+    end
+end
+
+local function ApplyNoCollisionToBullet(bullet)
+    if not Toggles.NoSentryCollision then return end
+    if not bullet or not bullet:IsA("BasePart") then return end
+    local myChar = player.Character
+    if not myChar then return end
+
+    ClearConstraintsForBullet(bullet) -- rebuild cleanly
+    local list = {}
+    for _, part in ipairs(myChar:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local ncc = Instance.new("NoCollisionConstraint")
+            ncc.Part0 = bullet
+            ncc.Part1 = part
+            ncc.Parent = bullet   -- parent anywhere; bullet is tidy
+            table.insert(list, ncc)
+        end
+    end
+    constraintsByBullet[bullet] = list
+
+    -- auto-clean when bullet leaves workspace
+    bullet.AncestryChanged:Connect(function(_, parent)
+        if not parent then ClearConstraintsForBullet(bullet) end
+    end)
+end
+
+function ApplyNoCollisionAllBullets()
+    if not Toggles.NoSentryCollision then return end
+    for _, inst in ipairs(Workspace:GetChildren()) do
+        if inst:IsA("BasePart") and inst.Name == "SentryBullet" then
+            ApplyNoCollisionToBullet(inst)
+        end
+    end
+end
+
+-- Watch for new bullets
+Workspace.ChildAdded:Connect(function(inst)
+    if Toggles.NoSentryCollision and inst:IsA("BasePart") and inst.Name == "SentryBullet" then
+        ApplyNoCollisionToBullet(inst)
+    end
+end)
+
+-- Re-apply after respawn (your parts changed)
+Players.LocalPlayer.CharacterAdded:Connect(function()
+    if Toggles.NoSentryCollision then
+        task.wait(0.15)
+        ApplyNoCollisionAllBullets()
+    end
+end)
 
 -- =========================
 -- Q keybind to toggle StayBehind
@@ -235,6 +315,8 @@ end)
 -- =========================
 -- Main loop
 -- =========================
+ScreenGui = createGui()
+
 RunService.Heartbeat:Connect(function()
     local myChar = player.Character
     if not myChar then return end
