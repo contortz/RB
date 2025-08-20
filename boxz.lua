@@ -31,12 +31,14 @@ local Toggles = {
 -- UI PARENT (robust)
 -- =========================
 local UI_NAME = "StreetFightGui"
+
 local function getHiddenUi()
     return (gethui and gethui())
         or (get_hidden_gui and get_hidden_gui())
         or (gethiddengui and gethiddengui())
         or nil
 end
+
 local function protectGui(gui)
     pcall(function() if syn and syn.protect_gui then syn.protect_gui(gui) end end)
     pcall(function() if protect_gui then protect_gui(gui) end end)
@@ -47,7 +49,10 @@ for _, root in ipairs({getHiddenUi(), CoreGui, player:FindFirstChild("PlayerGui"
     if root and root:FindFirstChild(UI_NAME) then root[UI_NAME]:Destroy() end
 end
 
--- build UI
+-- forward decls (wired to buttons)
+local teleportNextATM, refreshPlayerESP, clearPlayerESP, updateATMESP, clearATMESP
+
+-- build UI (same style, more reliable parent + watchdog)
 local function createGui()
     local parentRoot = getHiddenUi() or CoreGui or player:WaitForChild("PlayerGui")
 
@@ -92,10 +97,10 @@ local function createGui()
             Toggles[toggleKey] = not Toggles[toggleKey]
             button.Text = name .. ": " .. (Toggles[toggleKey] and "ON" or "OFF")
             button.BackgroundColor3 = Toggles[toggleKey] and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(50, 50, 50)
+
             if toggleKey == "PlayerESP" then
                 if Toggles.PlayerESP then refreshPlayerESP() else clearPlayerESP() end
-            end
-            if toggleKey == "ATMESP" then
+            elseif toggleKey == "ATMESP" then
                 if Toggles.ATMESP then updateATMESP() else clearATMESP() end
             end
         end)
@@ -121,7 +126,9 @@ local function createGui()
     tpATMButton.TextSize = 14
     tpATMButton.Text = "Teleport Next ATM"
     tpATMButton.Parent = MainFrame
-    tpATMButton.MouseButton1Click:Connect(teleportNextATM)
+    tpATMButton.MouseButton1Click:Connect(function()
+        if teleportNextATM then teleportNextATM() end
+    end)
 
     -- watchdog: if UI is nuked, reparent back
     task.spawn(function()
@@ -136,69 +143,13 @@ local function createGui()
     return ScreenGui
 end
 
--- Forward declarations for button wires
-function teleportNextATM() end
-function refreshPlayerESP() end
-function clearPlayerESP() end
-function updateATMESP() end
-function clearATMESP() end
-
 local ScreenGui = createGui()
 
 -- =========================
--- Player model finding (root/BrookMap/boxing ring) + correct HP source
+-- Helpers
 -- =========================
-local function findWorkspaceModelId(id)
-    if not id or id == "" then return nil end
-    -- 1) root
-    local m = Workspace:FindFirstChild(id)
-    if m and m:IsA("Model") then return m end
-    -- 2) BrookMap
-    local brook = Workspace:FindFirstChild("BrookMap")
-    if brook then
-        local mb = brook:FindFirstChild(id)
-        if mb and mb:IsA("Model") then return mb end
-    end
-    -- 3) boxing ring paths
-    for _, d in ipairs(Workspace:GetDescendants()) do
-        if d:IsA("Folder") and d.Name == "Players" then
-            local c = d:FindFirstChild(id)
-            if c and c:IsA("Model") then return c end
-        elseif d:IsA("Model") and (d.Name == "Player1" or d.Name == "Player2") then
-            local c2 = d:FindFirstChild(id)
-            if c2 and c2:IsA("Model") then return c2 end
-        end
-    end
-    return nil
-end
-
-local function findWorkspaceModelForPlayer(plr)
-    -- Try Name first (most common), then DisplayName
-    return findWorkspaceModelId(plr.Name) or findWorkspaceModelId(plr.DisplayName)
-end
-
-local function getHPFromWorkspaceModel(plr)
-    local mdl = findWorkspaceModelForPlayer(plr)
-    if not mdl then return nil end
-    -- Preferred: Attribute
-    local attr = mdl:GetAttribute("Health")
-    if attr ~= nil then
-        local n = tonumber(attr)
-        if n then return n end
-    end
-    -- NumberValue child
-    local nv = mdl:FindFirstChild("Health")
-    if nv and nv.Value ~= nil then
-        local n = tonumber(nv.Value)
-        if n then return n end
-    end
-    -- fallback (not requested, but harmless)
-    local hum = mdl:FindFirstChildOfClass("Humanoid")
-    if hum then return hum.Health end
-    return nil
-end
-
 local function isPvpOn(p)
+    -- Require explicit true (checks Player, Character, or Humanoid attributes)
     local v = p:GetAttribute("PVP_ENABLED")
     if v ~= nil then return v == true end
     local c = p.Character
@@ -228,8 +179,33 @@ local function getClosestAliveOtherPlayer(myHRP)
     return closest, closestDist
 end
 
+-- Correct health: read from the **character model itself**
+local function getHealthFromCharacter(char)
+    if not char then return nil end
+
+    -- Attribute first (your game stores it here)
+    local attr = char:GetAttribute("Health")
+    if attr ~= nil then
+        local n = tonumber(attr)
+        if n then return n end
+    end
+
+    -- NumberValue child named "Health"
+    local nv = char:FindFirstChild("Health")
+    if nv and nv:IsA("NumberValue") then
+        local n = tonumber(nv.Value)
+        if n then return n end
+    end
+
+    -- Fallback: Humanoid health
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then return hum.Health end
+
+    return nil
+end
+
 -- =========================
--- ESP (uses Character HRP for position, Workspace model for correct HP)
+-- ESP (uses Character HRP for position, Character for Health)
 -- =========================
 local function ensureBillboard(parentPart, name)
     local bb = parentPart:FindFirstChild("Player_ESP")
@@ -262,9 +238,10 @@ function refreshPlayerESP()
 
     for _, other in ipairs(Players:GetPlayers()) do
         if other ~= player and other.Character then
-            local hrp = other.Character:FindFirstChild("HumanoidRootPart")
+            local char = other.Character
+            local hrp = char:FindFirstChild("HumanoidRootPart")
             if hrp then
-                local hp = getHPFromWorkspaceModel(other) -- <<< CORRECT HP SOURCE
+                local hp = getHealthFromCharacter(char) -- <<< HEALTH FROM CHARACTER MODEL
                 local dist = math.floor((myHRP.Position - hrp.Position).Magnitude)
                 if Toggles.PlayerESP then
                     local bb = ensureBillboard(hrp, other.Name)
@@ -355,7 +332,7 @@ local function simulateKeyPress(key)
     VirtualInputManager:SendKeyEvent(false, key, false, game)
 end
 
-function teleportNextATM() -- wired to the button
+function teleportNextATM()
     local myChar = player.Character
     if not myChar then return end
     local myHRP = myChar:FindFirstChild("HumanoidRootPart")
@@ -472,23 +449,23 @@ RunService.Heartbeat:Connect(function()
             end
         end
 
-        -- Auto Stomper
+        -- Auto Stomper (uses character HP from attribute/NumberValue)
         local didStompThisSweep = false
         if Toggles.AutoStomper and (now - lastStompSweep) >= STOMP_COOLDOWN then
             local candidates = {}
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= player and p.Character and isPvpOn(p) then
-                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
                     local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-                    local hp = getHPFromWorkspaceModel(p)
-                    if hum and hrp and (hp and hp > 0 and hp <= STOMP_THRESHOLD) then
+                    local hp = getHealthFromCharacter(p.Character)
+                    if hrp and hp and hp > 0 and hp <= STOMP_THRESHOLD then
                         table.insert(candidates, {hrp = hrp, hp = hp})
                     end
                 end
             end
             if #candidates > 0 then
                 table.sort(candidates, function(a,b)
-                    return (myHRP.Position - a.hrp.Position).Magnitude < (myHRP.Position - b.hrp.Position).Magnitude
+                    local myPos = myHRP.Position
+                    return (myPos - a.hrp.Position).Magnitude < (myPos - b.hrp.Position).Magnitude
                 end)
                 for _, t in ipairs(candidates) do
                     myHRP.CFrame = t.hrp.CFrame + STOMP_TP_OFFSET
@@ -505,8 +482,7 @@ RunService.Heartbeat:Connect(function()
 
         -- Stay Behind Closest (skip if stomping)
         if Toggles.StayBehind and not didStompThisSweep then
-            local targetPlayer = nil
-            local closestDist = nil
+            local targetPlayer, closestDist = nil, nil
             do
                 local p, d = getClosestAliveOtherPlayer(myHRP)
                 targetPlayer, closestDist = p, d
