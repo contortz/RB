@@ -519,7 +519,7 @@ local function keepEquipped(names, enabled)
 end
 
 local lastRSActivate, lastLSActivate = 0, 0
-local ACTIVATE_INTERVAL = 0.46
+local ACTIVATE_INTERVAL = 0.66
 
 local function activateTool(names, enabled, lastRefName)
     if not enabled then return end
