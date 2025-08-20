@@ -1,7 +1,8 @@
---[[ BrainRotz – Workspace Player UI (hardened)
-     - UI parents: gethui -> CoreGui -> PlayerGui (with protect & watchdog)
-     - If all fail, show Drawing overlay + hotkeys (P=PunchLock, O=ESP)
-     - Finds player models in Workspace root / BrookMap / BoxingRing Players
+--[[ BrainRotz – Dual Name/DisplayName Support + Hardened UI
+     - Finds player models by Player.Name or Player.DisplayName
+     - Searches Workspace root, BrookMap, and BoxingRing Players containers
+     - UI parents: gethui -> CoreGui -> PlayerGui (watchdog & protect)
+     - Drawing overlay fallback with hotkeys (P=Punch, O=ESP)
 --]]
 
 --// Services
@@ -13,7 +14,6 @@ local Workspace  = game:GetService("Workspace")
 if not game:IsLoaded() then game.Loaded:Wait() end
 local me = Players.LocalPlayer
 while not me do task.wait() me = Players.LocalPlayer end
-local localName = me.Name
 
 --// Toggles
 local Toggles = {
@@ -21,33 +21,45 @@ local Toggles = {
     PlayerESP      = false,
 }
 
---// --- Model discovery (root, BrookMap, BoxingRing) ---
-local function findModelByName(name)
+--// ===== Model discovery (supports Name or DisplayName) =====
+local function modelNamed(root, id)
+    if not root or not id or id == "" then return nil end
+    local m = root:FindFirstChild(id)
+    return (m and m:IsA("Model")) and m or nil
+end
+
+local function findModelById(id)
+    if not id or id == "" then return nil end
     local w = Workspace
 
-    -- 1) Directly under Workspace (you said it's usually here at first)
-    local direct = w:FindFirstChild(name)
-    if direct and direct:IsA("Model") then return direct end
+    -- 1) Workspace root
+    local m = modelNamed(w, id)
+    if m then return m end
 
-    -- 2) Under BrookMap
+    -- 2) Workspace.BrookMap
     local brook = w:FindFirstChild("BrookMap")
     if brook then
-        local m = brook:FindFirstChild(name)
-        if m and m:IsA("Model") then return m end
+        m = modelNamed(brook, id)
+        if m then return m end
     end
 
-    -- 3) Any BoxingRing-style container
+    -- 3) Any .../BoxingRing/.../Players/<id> or Player1/Player2/<id>
     for _, d in ipairs(w:GetDescendants()) do
         if d:IsA("Folder") and d.Name == "Players" then
-            local m = d:FindFirstChild(name)
-            if m and m:IsA("Model") then return m end
+            local c = d:FindFirstChild(id)
+            if c and c:IsA("Model") then return c end
         elseif d:IsA("Model") and (d.Name == "Player1" or d.Name == "Player2") then
-            local m2 = d:FindFirstChild(name)
-            if m2 and m2:IsA("Model") then return m2 end
+            local c2 = d:FindFirstChild(id)
+            if c2 and c2:IsA("Model") then return c2 end
         end
     end
 
     return nil
+end
+
+local function findPlayerModel(plr)
+    -- Try username first (most common), then display name
+    return findModelById(plr.Name) or findModelById(plr.DisplayName)
 end
 
 local function getPrimary(model)
@@ -69,18 +81,19 @@ local function getHealth(model)
     return nil
 end
 
---// PunchMeter lock
+--// ===== PunchMeter lock (local player only) =====
 local function lockPunch()
-    local my = findModelByName(localName)
-    if not my then return end
-    local pm = my:FindFirstChild("PunchMeter")
+    local myModel = findPlayerModel(me)
+    if not myModel then return end
+    local pm = myModel:FindFirstChild("PunchMeter")
     if pm and pm:IsA("NumberValue") and pm.Value ~= 100 then
         pm.Value = 100
     end
 end
 
---// ESP
+--// ===== ESP =====
 local ESP_TAG = "__WS_PLAYER_ESP__"
+
 local function clearESP()
     for _, d in ipairs(Workspace:GetDescendants()) do
         if d:IsA("BillboardGui") and d.Name == ESP_TAG then
@@ -89,11 +102,11 @@ local function clearESP()
     end
 end
 
-local function addESPFor(name, model)
+local function addESPFor(plr, model)
     local head = getPrimary(model)
     if not head then return end
 
-    -- delete old for this model
+    -- remove stale from this model
     for _, c in ipairs(model:GetChildren()) do
         if c:IsA("BillboardGui") and c.Name == ESP_TAG then c:Destroy() end
     end
@@ -108,14 +121,14 @@ local function addESPFor(name, model)
 
     local lbl = Instance.new("TextLabel")
     lbl.BackgroundTransparency = 1
-    lbl.Size = UDim2.new(0, 220, 0, 28)
+    lbl.Size = UDim2.new(0, 260, 0, 28)
     lbl.AnchorPoint = Vector2.new(0.5, 0.5)
     lbl.Position = UDim2.new(0.5, 0, 0.5, 0)
     lbl.Font = Enum.Font.SourceSansBold
     lbl.TextSize = 16
     lbl.TextColor3 = Color3.new(1, 1, 1)
     lbl.TextStrokeTransparency = 0.5
-    lbl.Text = name
+    lbl.Text = plr.DisplayName .. " (@" .. plr.Name .. ")"
     lbl.Parent = bb
 
     local conn
@@ -129,8 +142,8 @@ local function addESPFor(name, model)
         local dist = (cam.CFrame.Position - head.Position).Magnitude
         local hp = getHealth(model)
         local hpStr = hp and (" | HP: " .. math.floor(hp)) or ""
-        local meTag = (name == localName) and " (YOU)" or ""
-        lbl.Text = string.format("%s%s | %.1fm%s", name, meTag, dist, hpStr)
+        local meTag = (plr == me) and " (YOU)" or ""
+        lbl.Text = string.format("%s%s | %.1fm%s", plr.DisplayName .. " (@" .. plr.Name .. ")", meTag, dist, hpStr)
     end)
 
     bb:GetPropertyChangedSignal("Parent"):Connect(function()
@@ -141,12 +154,12 @@ end
 local function refreshESP()
     clearESP()
     for _, plr in ipairs(Players:GetPlayers()) do
-        local mdl = findModelByName(plr.Name)
-        if mdl then addESPFor(plr.Name, mdl) end
+        local mdl = findPlayerModel(plr)
+        if mdl then addESPFor(plr, mdl) end
     end
 end
 
---// ================== UI creation (multi-fallback) ==================
+--// ===== UI creation (multi-fallback) =====
 local UI_NAME = "BrainRotzToggleUI"
 
 local function getHiddenUi()
@@ -161,6 +174,11 @@ local function protectGui(gui)
     pcall(function() if protect_gui then protect_gui(gui) end end)
 end
 
+-- remove old copies anywhere obvious
+for _, where in ipairs({getHiddenUi(), game:GetService("CoreGui"), me:FindFirstChild("PlayerGui")}) do
+    if where and where:FindFirstChild(UI_NAME) then where[UI_NAME]:Destroy() end
+end
+
 local function tryBuildScreenGui(parentRoot)
     if not parentRoot then return nil end
     local gui = Instance.new("ScreenGui")
@@ -172,10 +190,9 @@ local function tryBuildScreenGui(parentRoot)
     protectGui(gui)
     gui.Parent = parentRoot
 
-    -- frame
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 240, 0, 140)
-    frame.Position = UDim2.new(0.5, -120, 0.5, -70) -- center to avoid “offscreen” surprises
+    frame.Size = UDim2.new(0, 260, 0, 140)
+    frame.Position = UDim2.new(0.5, -130, 0.5, -70) -- center
     frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     frame.BorderSizePixel = 0
     frame.Active = true
@@ -213,12 +230,11 @@ local function tryBuildScreenGui(parentRoot)
                 if Toggles.PlayerESP then refreshESP() else clearESP() end
             end
         end)
-        -- initial color
         b.BackgroundColor3 = Toggles[key] and Color3.fromRGB(35,120,60) or Color3.fromRGB(60,60,60)
     end
 
     makeToggle(36, "Lock PunchMeter = 100", "LockPunchMeter")
-    makeToggle(72, "Player ESP", "PlayerESP")
+    makeToggle(72, "Player ESP (Name/DisplayName)", "PlayerESP")
 
     -- watchdog to reparent if nuked
     task.spawn(function()
@@ -234,19 +250,12 @@ local function tryBuildScreenGui(parentRoot)
     return gui
 end
 
--- First, remove any old copies anywhere obvious
-for _, where in ipairs({getHiddenUi(), game:GetService("CoreGui"), me:FindFirstChild("PlayerGui")}) do
-    if where and where:FindFirstChild(UI_NAME) then
-        where[UI_NAME]:Destroy()
-    end
-end
-
 local uiParent = getHiddenUi() or game:GetService("CoreGui") or me:WaitForChild("PlayerGui")
 local ScreenGui = tryBuildScreenGui(uiParent)
 
---// =============== Drawing overlay fallback ===============
+--// ===== Drawing overlay fallback (P/O hotkeys) =====
 local drawingEnabled = false
-local drawFrame, drawTitle, drawHint, drawPM, drawESP
+local drawFrame, drawTitle, drawPM, drawESP
 
 local function canUseDrawing()
     local ok = pcall(function() local t = Drawing.new("Square"); t.Visible = false; t:Remove() end)
@@ -258,7 +267,7 @@ local function buildDrawingOverlay()
     drawingEnabled = true
 
     drawFrame = Drawing.new("Square")
-    drawFrame.Size = Vector2.new(260, 110)
+    drawFrame.Size = Vector2.new(300, 110)
     drawFrame.Position = Vector2.new(40, 60)
     drawFrame.Filled = true
     drawFrame.Transparency = 0.85
@@ -290,7 +299,6 @@ local function buildDrawingOverlay()
     end
     rerender()
 
-    -- hotkeys
     UserInput.InputBegan:Connect(function(inp, gpe)
         if gpe then return end
         if inp.KeyCode == Enum.KeyCode.P then
@@ -303,7 +311,7 @@ local function buildDrawingOverlay()
         end
     end)
 
-    print("[BrainRotz UI] Using Drawing fallback overlay")
+    print("[BrainRotz UI] Using Drawing overlay fallback")
     return true
 end
 
@@ -311,7 +319,7 @@ if not ScreenGui then
     buildDrawingOverlay()
 end
 
---// ================== Background loops ==================
+--// ===== Background loops =====
 local espTicker = 0
 RunService.RenderStepped:Connect(function(dt)
     if Toggles.PlayerESP then
