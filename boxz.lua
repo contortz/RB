@@ -13,12 +13,13 @@ local AUTO_SELECT_INTERVAL = 0.25   -- seconds between auto-base checks
 local BASE_SELECT_RADIUS   = 80     -- studs; use math.huge to pick always-nearest base
 local lastAutoSelectCheck  = 0
 
--- ========= TOGGLES (the four you asked for) =========
+-- ========= TOGGLES =========
 local Toggles = {
-    PlayerESP       = false,
-    StayBehind      = false,
-    AutoTargetBase  = false,  -- auto choose target by nearest base owner
-    FallbackClosest = true,   -- if no target, follow closest alive player
+    PlayerESP           = false,
+    StayBehind          = false,
+    AutoTargetBase      = false,  -- auto choose target by nearest base owner
+    FallbackClosest     = true,   -- if no target, follow closest alive player
+    AutoEquipRainbowrath= false,  -- NEW: keep Rainbowrath Sword equipped
 }
 
 -- ========= UI (robust parent + watchdog) =========
@@ -58,8 +59,8 @@ local function createGui()
     ScreenGui.Parent = parentRoot
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 360)
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -180)
+    Frame.Size = UDim2.new(0, 260, 0, 420) -- taller to fit new toggle
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -210)
     Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     Frame.BorderSizePixel = 0
     Frame.Active = true
@@ -110,16 +111,18 @@ local function createGui()
         end)
     end
 
-    makeToggle(36,  "Player ESP",      "PlayerESP")
-    makeToggle(68,  "Stay Behind",     "StayBehind")
-    makeToggle(100, "Auto Target Base","AutoTargetBase")
-    makeToggle(132, "Fallback Closest","FallbackClosest")
+    -- 5 toggles
+    makeToggle(36,  "Player ESP",          "PlayerESP")
+    makeToggle(68,  "Stay Behind",         "StayBehind")
+    makeToggle(100, "Auto Target Base",    "AutoTargetBase")
+    makeToggle(132, "Fallback Closest",    "FallbackClosest")
+    makeToggle(164, "Loop Equip Rainbowrath","AutoEquipRainbowrath") -- NEW
 
-    -- Target label
+    -- Target label shifted down
     local targetLabel = Instance.new("TextLabel")
     targetLabel.Name = "TargetLabel"
     targetLabel.Size = UDim2.new(0.92, 0, 0, 22)
-    targetLabel.Position = UDim2.new(0.04, 0, 0, 166)
+    targetLabel.Position = UDim2.new(0.04, 0, 0, 198)
     targetLabel.BackgroundTransparency = 1
     targetLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
     targetLabel.Font = Enum.Font.SourceSansSemibold
@@ -131,7 +134,7 @@ local function createGui()
     -- Player list header
     local hdr = Instance.new("TextLabel")
     hdr.Size = UDim2.new(0.92, 0, 0, 20)
-    hdr.Position = UDim2.new(0.04, 0, 0, 192)
+    hdr.Position = UDim2.new(0.04, 0, 0, 224)
     hdr.BackgroundTransparency = 1
     hdr.TextColor3 = Color3.fromRGB(220,220,220)
     hdr.Font = Enum.Font.SourceSansBold
@@ -143,8 +146,8 @@ local function createGui()
     -- Player list
     local list = Instance.new("ScrollingFrame")
     list.Name = "PlayerList"
-    list.Size = UDim2.new(0.92, 0, 0, 150)
-    list.Position = UDim2.new(0.04, 0, 0, 216)
+    list.Size = UDim2.new(0.92, 0, 0, 180)
+    list.Position = UDim2.new(0.04, 0, 0, 248)
     list.BackgroundColor3 = Color3.fromRGB(40,40,40)
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 6
@@ -179,7 +182,7 @@ local function createGui()
     task.spawn(function()
         while task.wait(0.3) do
             if not ScreenGui.Parent then
-                ScreenGui.Parent = getHiddenUi() or CoreGui or player:FindFirstChild("PlayerGui")
+                ScreenGui.Parent = getHiddenUi() or CoreGui or player:FindChild("PlayerGui")
             end
         end
     end)
@@ -190,7 +193,7 @@ end
 
 local UI = createGui()
 
--- ========= Health from Character (Attribute/NumberValue/Humanoid) =========
+-- ========= Health from Character =========
 local function getHealthFromCharacter(char)
     if not char then return nil end
     local attr = char:GetAttribute("Health")
@@ -359,7 +362,6 @@ local function addPlayerRow(plr, order)
     lbl.Parent = row
 
     row.MouseButton1Click:Connect(function()
-        -- manual choice; turn OFF auto if you want to keep it sticky
         selectTargetPlayer(plr)
     end)
 
@@ -440,6 +442,50 @@ local function doStayBehind(myHRP)
     myHRP.CFrame = CFrame.new(desiredPos, lookAt)
 end
 
+-- ========= Tool Helpers (Rainbowrath) =========
+local RainbowrathNames = {
+    "Rainbowrath Sword",
+    "Rainbowrath",
+    "RainbowrathSword",
+}
+
+local function findToolByNames(container, names)
+    if not container then return nil end
+    for _, n in ipairs(names) do
+        local t = container:FindFirstChild(n)
+        if t and t:IsA("Tool") then return t end
+    end
+    -- fuzzy fallback
+    for _, inst in ipairs(container:GetChildren()) do
+        if inst:IsA("Tool") then
+            local nm = inst.Name:lower()
+            for _, n in ipairs(names) do
+                if nm:find(n:lower(), 1, true) then
+                    return inst
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function keepRainbowrathEquipped()
+    if not Toggles.AutoEquipRainbowrath then return end
+    local char = player.Character
+    local backpack = player:FindFirstChild("Backpack")
+    if not char or not backpack then return end
+
+    -- Already holding it?
+    local equipped = findToolByNames(char, RainbowrathNames)
+    if equipped then return end
+
+    -- Move from Backpack -> Character
+    local tool = findToolByNames(backpack, RainbowrathNames)
+    if tool then
+        tool.Parent = char
+    end
+end
+
 -- ========= Main loop =========
 RunService.Heartbeat:Connect(function()
     local myChar = player.Character
@@ -448,6 +494,9 @@ RunService.Heartbeat:Connect(function()
 
     -- Auto-target by base proximity (runs on its own cadence)
     autoSelectOwnerByProximity()
+
+    -- NEW: keep Rainbowrath equipped if requested
+    keepRainbowrathEquipped()
 
     if Toggles.PlayerESP then
         updateESP(myHRP)
