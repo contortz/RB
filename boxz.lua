@@ -15,11 +15,12 @@ local lastAutoSelectCheck  = 0
 
 -- ========= TOGGLES =========
 local Toggles = {
-    PlayerESP           = false,
-    StayBehind          = false,
-    AutoTargetBase      = false,  -- auto choose target by nearest base owner
-    FallbackClosest     = true,   -- if no target, follow closest alive player
-    AutoEquipRainbowrath= false,  -- NEW: keep Rainbowrath Sword equipped
+    PlayerESP             = false,
+    StayBehind            = false,
+    AutoTargetBase        = false,  -- auto choose target by nearest base owner
+    FallbackClosest       = true,   -- if no target, follow closest alive player
+    AutoEquipRainbowrath  = false,  -- keep Rainbowrath equipped
+    AutoActivateRainbowrath = false -- repeatedly :Activate() Rainbowrath
 }
 
 -- ========= UI (robust parent + watchdog) =========
@@ -59,8 +60,8 @@ local function createGui()
     ScreenGui.Parent = parentRoot
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 420) -- taller to fit new toggle
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -210)
+    Frame.Size = UDim2.new(0, 260, 0, 450) -- taller to fit new toggle
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -225)
     Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     Frame.BorderSizePixel = 0
     Frame.Active = true
@@ -111,18 +112,19 @@ local function createGui()
         end)
     end
 
-    -- 5 toggles
-    makeToggle(36,  "Player ESP",          "PlayerESP")
-    makeToggle(68,  "Stay Behind",         "StayBehind")
-    makeToggle(100, "Auto Target Base",    "AutoTargetBase")
-    makeToggle(132, "Fallback Closest",    "FallbackClosest")
-    makeToggle(164, "Loop Equip Rainbowrath","AutoEquipRainbowrath") -- NEW
+    -- 6 toggles
+    makeToggle(36,  "Player ESP",            "PlayerESP")
+    makeToggle(68,  "Stay Behind",           "StayBehind")
+    makeToggle(100, "Auto Target Base",      "AutoTargetBase")
+    makeToggle(132, "Fallback Closest",      "FallbackClosest")
+    makeToggle(164, "Loop Equip Rainbowrath","AutoEquipRainbowrath")
+    makeToggle(196, "Loop Activate Rainbowrath","AutoActivateRainbowrath") -- NEW
 
     -- Target label shifted down
     local targetLabel = Instance.new("TextLabel")
     targetLabel.Name = "TargetLabel"
     targetLabel.Size = UDim2.new(0.92, 0, 0, 22)
-    targetLabel.Position = UDim2.new(0.04, 0, 0, 198)
+    targetLabel.Position = UDim2.new(0.04, 0, 0, 230)
     targetLabel.BackgroundTransparency = 1
     targetLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
     targetLabel.Font = Enum.Font.SourceSansSemibold
@@ -134,7 +136,7 @@ local function createGui()
     -- Player list header
     local hdr = Instance.new("TextLabel")
     hdr.Size = UDim2.new(0.92, 0, 0, 20)
-    hdr.Position = UDim2.new(0.04, 0, 0, 224)
+    hdr.Position = UDim2.new(0.04, 0, 0, 256)
     hdr.BackgroundTransparency = 1
     hdr.TextColor3 = Color3.fromRGB(220,220,220)
     hdr.Font = Enum.Font.SourceSansBold
@@ -146,8 +148,8 @@ local function createGui()
     -- Player list
     local list = Instance.new("ScrollingFrame")
     list.Name = "PlayerList"
-    list.Size = UDim2.new(0.92, 0, 0, 180)
-    list.Position = UDim2.new(0.04, 0, 0, 248)
+    list.Size = UDim2.new(0.92, 0, 0, 170)
+    list.Position = UDim2.new(0.04, 0, 0, 280)
     list.BackgroundColor3 = Color3.fromRGB(40,40,40)
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 6
@@ -170,7 +172,6 @@ local function createGui()
         list.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 8)
     end)
 
-    -- store widgets we need later
     local widgets = {
         ScreenGui = ScreenGui,
         Frame = Frame,
@@ -182,7 +183,7 @@ local function createGui()
     task.spawn(function()
         while task.wait(0.3) do
             if not ScreenGui.Parent then
-                ScreenGui.Parent = getHiddenUi() or CoreGui or player:FindChild("PlayerGui")
+                ScreenGui.Parent = getHiddenUi() or CoreGui or player:FindFirstChild("PlayerGui")
             end
         end
     end)
@@ -392,13 +393,13 @@ task.defer(rebuildPlayerList)
 
 -- ========= HUD label updater =========
 refreshHUD = function()
-    local manual = selectedTarget and selectedTarget.Name or "(none)"
-    local auto   = autoSelectedTarget and autoSelectedTarget.Name or "(none)"
     local active = autoSelectedTarget or selectedTarget
-    UI.TargetLabel.Text = string.format("Target: %s%s",
+    UI.TargetLabel.Text = string.format(
+        "Target: %s%s",
         (active and active.Name or "(none)"),
-        (Toggles.AutoTargetBase and active == autoSelectedTarget) and "  [AUTO]" or
-        (active and active == selectedTarget) and "  [MANUAL]" or "")
+        (Toggles.AutoTargetBase and active == autoSelectedTarget) and "  [AUTO]"
+            or (active and active == selectedTarget) and "  [MANUAL]" or ""
+    )
 end
 
 -- ========= Target selection for follow =========
@@ -481,8 +482,24 @@ local function keepRainbowrathEquipped()
 
     -- Move from Backpack -> Character
     local tool = findToolByNames(backpack, RainbowrathNames)
+    if tool then tool.Parent = char end
+end
+
+-- Throttled activation so we don't spam absurdly
+local lastRainbowActivate = 0
+local RAINBOW_ACTIVATE_INTERVAL = 0.12 -- seconds
+
+local function activateRainbowrath()
+    if not Toggles.AutoActivateRainbowrath then return end
+    local now = os.clock()
+    if now - lastRainbowActivate < RAINBOW_ACTIVATE_INTERVAL then return end
+
+    local char = player.Character
+    if not char then return end
+    local tool = findToolByNames(char, RainbowrathNames)
     if tool then
-        tool.Parent = char
+        lastRainbowActivate = now
+        pcall(function() tool:Activate() end)
     end
 end
 
@@ -495,8 +512,9 @@ RunService.Heartbeat:Connect(function()
     -- Auto-target by base proximity (runs on its own cadence)
     autoSelectOwnerByProximity()
 
-    -- NEW: keep Rainbowrath equipped if requested
+    -- Keep Rainbowrath equipped / activate if requested
     keepRainbowrathEquipped()
+    activateRainbowrath()
 
     if Toggles.PlayerESP then
         updateESP(myHRP)
