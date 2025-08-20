@@ -1,8 +1,9 @@
 --// Services
-local Players   = game:GetService("Players")
-local RunService= game:GetService("RunService")
-local Workspace = game:GetService("Workspace")
-local CoreGui   = game:GetService("CoreGui")
+local Players    = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace  = game:GetService("Workspace")
+local CoreGui    = game:GetService("CoreGui")
+local UIS        = game:GetService("UserInputService")
 
 if not game:IsLoaded() then game.Loaded:Wait() end
 local player = Players.LocalPlayer
@@ -34,6 +35,15 @@ end
 -- kill any previous copies anywhere obvious
 for _, root in ipairs({getHiddenUi(), CoreGui, player:FindFirstChild("PlayerGui")}) do
     if root and root:FindFirstChild(UI_NAME) then root[UI_NAME]:Destroy() end
+end
+
+local Buttons = {} -- key -> {btn=Instance, label=string}
+
+local function updateButtonVisual(key)
+    local info = Buttons[key]; if not info then return end
+    local on = Toggles[key]
+    info.btn.Text = ("%s: %s"):format(info.label, on and "ON" or "OFF")
+    info.btn.BackgroundColor3 = on and Color3.fromRGB(0,200,0) or Color3.fromRGB(60,60,60)
 end
 
 local function createGui()
@@ -75,20 +85,15 @@ local function createGui()
         b.TextColor3 = Color3.new(1,1,1)
         b.Font = Enum.Font.SourceSansBold
         b.TextSize = 14
-        b.Text = ("%s: OFF"):format(label)
         b.Parent = Frame
 
-        local function render()
-            b.Text = ("%s: %s"):format(label, Toggles[key] and "ON" or "OFF")
-            b.BackgroundColor3 = Toggles[key] and Color3.fromRGB(0,200,0) or Color3.fromRGB(60,60,60)
-        end
-        render()
+        Buttons[key] = { btn = b, label = label }
+        updateButtonVisual(key)
 
         b.MouseButton1Click:Connect(function()
             Toggles[key] = not Toggles[key]
-            render()
+            updateButtonVisual(key)
             if key == "PlayerESP" and not Toggles.PlayerESP then
-                -- clearing when toggled off
                 for _, p in ipairs(Players:GetPlayers()) do
                     local c = p.Character
                     if c then
@@ -123,16 +128,15 @@ local ScreenGui = createGui()
 -- =========================
 local function getHealthFromCharacter(char)
     if not char then return nil end
-    local attr = char:GetAttribute("Health")
-    if attr ~= nil then
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then return hum.Health end
+    local attr = char:GetAttribute("Health"); if attr ~= nil then
         local n = tonumber(attr); if n then return n end
     end
     local nv = char:FindFirstChild("Health")
     if nv and nv:IsA("NumberValue") then
         local n = tonumber(nv.Value); if n then return n end
     end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then return hum.Health end
     return nil
 end
 
@@ -187,7 +191,8 @@ end
 -- =========================
 -- Stay Behind Closest (no PvP check)
 -- =========================
-local BEHIND_DISTANCE, VERTICAL_OFFSET = 3.5, 1.5
+-- bumped distance "a bit more": from 3.5 -> 5.0
+local BEHIND_DISTANCE, VERTICAL_OFFSET = 5.0, 1.5
 
 local function getClosestAliveOtherPlayer(myHRP)
     local closest, best = nil, math.huge
@@ -210,14 +215,22 @@ local function doStayBehind(myHRP)
     if not target or not target.Character then return end
     local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
     if not tHRP then return end
-    -- optional soft cap: skip if very far (uncomment if you want)
-    -- if dist > 150 then return end
 
     local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
-    -- face same direction as target
     local lookAt = desiredPos + tHRP.CFrame.LookVector
     myHRP.CFrame = CFrame.new(desiredPos, lookAt)
 end
+
+-- =========================
+-- Q keybind to toggle StayBehind
+-- =========================
+UIS.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.Q then
+        Toggles.StayBehind = not Toggles.StayBehind
+        updateButtonVisual("StayBehind")
+    end
+end)
 
 -- =========================
 -- Main loop
