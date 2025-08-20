@@ -19,10 +19,15 @@ local Toggles = {
     StayBehind       = false,
     AutoTargetBase   = false,  -- auto choose target by nearest base owner
     FallbackClosest  = true,   -- if no target, follow closest alive player
+
     AutoEquipRS      = false,  -- Rainbowrath: keep equipped
     AutoActivateRS   = false,  -- Rainbowrath: loop :Activate()
+
     AutoEquipLS      = false,  -- Lava Slap: keep equipped
     AutoActivateLS   = false,  -- Lava Slap: loop :Activate()
+
+    AutoEquipBB      = false,  -- Boogie Bomb: keep equipped
+    AutoActivateBB   = false,  -- Boogie Bomb: loop :Activate()
 }
 
 -- ========= UI (robust parent + watchdog) =========
@@ -62,8 +67,8 @@ local function createGui()
     ScreenGui.Parent = parentRoot
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 260, 0, 460) -- taller to fit mini pairs
-    Frame.Position = UDim2.new(0.5, -130, 0.5, -230)
+    Frame.Size = UDim2.new(0, 260, 0, 490) -- taller to fit Boogie Bomb row
+    Frame.Position = UDim2.new(0.5, -130, 0.5, -245)
     Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     Frame.BorderSizePixel = 0
     Frame.Active = true
@@ -160,12 +165,13 @@ local function createGui()
     -- Mini pairs (side-by-side)
     makeMiniPair(164, "Equip RS", "AutoEquipRS", "Loop RS", "AutoActivateRS")
     makeMiniPair(196, "Equip LS", "AutoEquipLS", "Loop LS", "AutoActivateLS")
+    makeMiniPair(228, "Equip BB", "AutoEquipBB", "Loop BB", "AutoActivateBB") -- NEW
 
-    -- Target label
+    -- Target label (pushed down)
     local targetLabel = Instance.new("TextLabel")
     targetLabel.Name = "TargetLabel"
     targetLabel.Size = UDim2.new(0.92, 0, 0, 22)
-    targetLabel.Position = UDim2.new(0.04, 0, 0, 232)
+    targetLabel.Position = UDim2.new(0.04, 0, 0, 264)
     targetLabel.BackgroundTransparency = 1
     targetLabel.TextColor3 = Color3.fromRGB(200, 220, 255)
     targetLabel.Font = Enum.Font.SourceSansSemibold
@@ -174,10 +180,10 @@ local function createGui()
     targetLabel.Text = "Target: (none)"
     targetLabel.Parent = Frame
 
-    -- Player list header
+    -- Player list header (pushed down)
     local hdr = Instance.new("TextLabel")
     hdr.Size = UDim2.new(0.92, 0, 0, 20)
-    hdr.Position = UDim2.new(0.04, 0, 0, 258)
+    hdr.Position = UDim2.new(0.04, 0, 0, 290)
     hdr.BackgroundTransparency = 1
     hdr.TextColor3 = Color3.fromRGB(220,220,220)
     hdr.Font = Enum.Font.SourceSansBold
@@ -186,11 +192,11 @@ local function createGui()
     hdr.Text = "Players (click to select manual target)"
     hdr.Parent = Frame
 
-    -- Player list
+    -- Player list (pushed down)
     local list = Instance.new("ScrollingFrame")
     list.Name = "PlayerList"
     list.Size = UDim2.new(0.92, 0, 0, 180)
-    list.Position = UDim2.new(0.04, 0, 0, 282)
+    list.Position = UDim2.new(0.04, 0, 0, 314)
     list.BackgroundColor3 = Color3.fromRGB(40,40,40)
     list.BorderSizePixel = 0
     list.ScrollBarThickness = 6
@@ -487,6 +493,7 @@ end
 -- ========= Tool Helpers =========
 local RainbowrathNames = { "Rainbowrath Sword", "Rainbowrath", "RainbowrathSword" }
 local LavaSlapNames    = { "Lava Slap", "LavaSlap", "Lava Slap Glove" }
+local BoogieBombNames  = { "Boogie Bomb", "BoogieBomb", "Boogie", "Boogie Bombs", "BoogieBombs" } -- NEW
 
 local function findToolByNames(container, names)
     if not container then return nil end
@@ -518,7 +525,8 @@ local function keepEquipped(names, enabled)
     if tool then tool.Parent = char end
 end
 
-local lastRSActivate, lastLSActivate = 0, 0
+-- Using your current slower cadence:
+local lastRSActivate, lastLSActivate, lastBBActivate = 0, 0, 0
 local ACTIVATE_INTERVAL = 0.96
 
 local function activateTool(names, enabled, lastRefName)
@@ -535,6 +543,7 @@ local function activateTool(names, enabled, lastRefName)
 end
 _G._lastRS = lastRSActivate
 _G._lastLS = lastLSActivate
+_G._lastBB = lastBBActivate -- NEW
 
 -- ========= Main loop =========
 RunService.Heartbeat:Connect(function()
@@ -548,8 +557,11 @@ RunService.Heartbeat:Connect(function()
     -- Keep tools equipped / activate if requested
     keepEquipped(RainbowrathNames, Toggles.AutoEquipRS)
     keepEquipped(LavaSlapNames,    Toggles.AutoEquipLS)
+    keepEquipped(BoogieBombNames,  Toggles.AutoEquipBB)     -- NEW
+
     activateTool(RainbowrathNames, Toggles.AutoActivateRS, "_lastRS")
     activateTool(LavaSlapNames,    Toggles.AutoActivateLS, "_lastLS")
+    activateTool(BoogieBombNames,  Toggles.AutoActivateBB, "_lastBB") -- NEW
 
     if Toggles.PlayerESP then
         updateESP(myHRP)
