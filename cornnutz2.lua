@@ -58,6 +58,20 @@ local function isLuckyModel(model)
     return n:find("lucky", 1, true) and n:find("block", 1, true)
 end
 
+-- climb ancestors from a prompt to find a Lucky Block model
+local function findLuckyRootFromPrompt(prompt, maxDepth)
+    maxDepth = maxDepth or 6
+    local cur, depth = prompt.Parent, 0
+    while cur and depth <= maxDepth do
+        if cur:IsA("Model") and isLuckyModel(cur) then
+            return cur
+        end
+        cur = cur.Parent
+        depth += 1
+    end
+    return nil
+end
+
 -- == Basic helpers ==
 local function updateToggleColor(button, isOn)
     button.BackgroundColor3 = isOn and Color3.fromRGB(0, 200, 0) or Color3.fromRGB(70, 70, 70)
@@ -682,6 +696,11 @@ RunService.Heartbeat:Connect(function()
     -- 1) PRIORITY: walk to nearest Lucky Block (ignore threshold)
     local luckyModel, luckyPart, luckyDist = findNearestLucky(hrp)
     if luckyModel and luckyPart then
+        -- optional: face the block to help LOS prompts
+        if luckyDist <= 6 then
+            hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(luckyPart.Position.X, hrp.Position.Y, luckyPart.Position.Z))
+        end
+
         if luckyDist <= pauseDistance and (tick() - lastPause) >= pauseTime then
             if RequirePromptNearTarget and not purchasePromptActive() then
                 stopWalking(humanoid, hrp)
@@ -744,38 +763,44 @@ RunService.Heartbeat:Connect(function()
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
--- Proximity Prompt Auto Purchase (Lucky Blocks by name; bypass threshold)
+-- Proximity Prompt Auto Purchase (Lucky Blocks by name; bypass threshold, robust ancestor search)
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if not (AutoPurchaseEnabled and prompt) then return end
 
-    local model = prompt:FindFirstAncestorWhichIsA("Model")
-    if not model then return end
+    -- Find any ancestor named like Lucky Block (more reliable than just nearest model)
+    local luckyRoot = findLuckyRootFromPrompt(prompt)
+    if luckyRoot then
+        local part = luckyRoot.PrimaryPart
+                  or luckyRoot:FindFirstChild("HumanoidRootPart", true)
+                  or luckyRoot:FindFirstChildWhichIsA("BasePart", true)
 
-    local targetPart = findTargetPart(model)
-
-    -- If it's a Lucky Block by name, open it (rarity toggle + base ignore still apply)
-    if isLuckyModel(model) then
-        local r = getRarityFromName(model.Name)
+        -- Respect rarity toggle + base ignore
+        local r = getRarityFromName(luckyRoot.Name)
         if r and EnabledRarities[r] == false then return end
-        if targetPart and isInsideOrNearMyBase(targetPart.Position) then return end
+        if part and isInsideOrNearMyBase(part.Position) then return end
 
-        task.wait(0.10)
-        tryHoldPrompt(prompt, 3, 3)
+        -- Try harder: use the prompt's HoldDuration and 8 retries (like animals)
+        local hold = (typeof(prompt.HoldDuration) == "number" and prompt.HoldDuration or 0.5)
+        task.wait(0.05)
+        tryHoldPrompt(prompt, math.max(hold + 0.15, 0.5), 8)
         return
     end
 
-    -- For non-lucky, accept common verbs and keep animal threshold logic
+    -- Fallback: non-lucky flow using verbs + animal threshold
+    local model = prompt:FindFirstAncestorWhichIsA("Model")
+    if not model then return end
+
     local action = string.lower(prompt.ActionText or "")
     local allowedVerb = (action:find("purchase") or action:find("buy") or action:find("open") or action:find("unlock"))
     if not allowedVerb then return end
 
-    -- Animals by Generation (uses threshold)
     local overhead = model:FindFirstChild("AnimalOverhead", true)
     if overhead and overhead:FindFirstChild("Generation") then
         local genValue = parseGenerationText(overhead.Generation.Text)
         if genValue >= PurchaseThreshold then
+            local hold = (typeof(prompt.HoldDuration) == "number" and prompt.HoldDuration or 3)
             task.wait(0.10)
-            tryHoldPrompt(prompt, 3, 8)
+            tryHoldPrompt(prompt, math.max(hold, 3), 8)
         end
         return
     end
@@ -816,7 +841,7 @@ toggleBeeHiveBtn.MouseButton1Click:Connect(function()
     updateToggleColor(toggleBeeHiveBtn, BeeHiveImmune)
     local ok2, CharController2 = pcall(function()
         return require(ReplicatedStorage.Controllers.CharacterController)
-    end)
+    end))
     if BeeHiveImmune and ok2 and CharController2 and CharController2.originalMoveFunction then
         Controls.moveFunction = CharController2.originalMoveFunction
     end
@@ -968,11 +993,11 @@ RunService.Heartbeat:Connect(function()
                 end
             end
 
-        elseif isLuckyModel(inst) then
+        elseif inst:IsA("Model") and isLuckyModel(inst) then
             local luckyRoot = inst
             local rarity = getRarityFromName(luckyRoot.Name)
             if not (rarity and EnabledRarities[rarity] == false) then
-                local part = luckyRoot.PrimaryPart or luckyRoot:FindFirstChildWhichIsA("BasePart")
+                local part = luckyRoot.PrimaryPart or luckyRoot:FindFirstChildWhichIsA("BasePart", true)
                 if part then
                     local data  = AnimalsData[luckyRoot.Name]
                     local price = data and data.Price or 0
@@ -1007,7 +1032,7 @@ RunService.Heartbeat:Connect(function()
             local rarity = getRarityFromName(maxBlock.Name)
             local data   = AnimalsData[maxBlock.Name]
             local price  = data and data.Price or 0
-            local part   = maxBlock.PrimaryPart or maxBlock:FindFirstChildWhichIsA("BasePart")
+            local part   = maxBlock.PrimaryPart or maxBlock:FindFirstChildWhichIsA("BasePart", true)
             if part then
                 local tag   = rarity and (rarity .. " Lucky Block") or maxBlock.Name
                 local label = (price > 0) and (tag .. " | $" .. formatPrice(price)) or tag
