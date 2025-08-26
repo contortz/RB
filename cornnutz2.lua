@@ -51,11 +51,29 @@ local function getRarityFromName(objectName)
     return nil
 end
 
--- === Lucky Block detection (by model name only)
+-- === Lucky Block detection ===
 local function isLuckyModel(model)
     if not (model and model:IsA("Model")) then return false end
     local n = model.Name:lower()
     return n:find("lucky", 1, true) and n:find("block", 1, true)
+end
+
+local function hasLuckyWords(s)
+    s = tostring(s or ""):lower()
+    return s:find("lucky", 1, true) and s:find("block", 1, true)
+end
+
+local function findLuckyAncestorModel(inst, maxDepth)
+    maxDepth = maxDepth or 6
+    local cur, depth = inst, 0
+    while cur and depth <= maxDepth do
+        if cur:IsA("Model") and hasLuckyWords(cur.Name) then
+            return cur
+        end
+        cur = cur.Parent
+        depth = depth + 1
+    end
+    return nil
 end
 
 -- == Basic helpers ==
@@ -300,7 +318,7 @@ toggleIgnoreBaseBtn.Size = UDim2.new(1, -10, 0, 25)
 toggleIgnoreBaseBtn.Position = UDim2.new(0, 5, 0, 210)
 toggleIgnoreBaseBtn.TextColor3 = Color3.new(1, 1, 1)
 toggleIgnoreBaseBtn.Text = "Ignore Near My Base: ON"
-updateToggleColor(toggleIgnoreBaseBtn, IgnoreNearMyBase)
+updateToggleColor(toggleIgnoreBaseBtn, true)
 toggleIgnoreBaseBtn.Parent = frame
 toggleIgnoreBaseBtn.MouseButton1Click:Connect(function()
     IgnoreNearMyBase = not IgnoreNearMyBase
@@ -693,7 +711,7 @@ RunService.Heartbeat:Connect(function()
         return
     end
 
-    -- 2) Otherwise do your original ANIMAL walk logic (uses PurchaseThreshold)
+    -- 2) Otherwise do original ANIMAL walk logic (uses PurchaseThreshold)
     local bestModel, bestGen, bestDist = nil, -math.huge, math.huge
 
     for _, obj in ipairs(Workspace:GetDescendants()) do
@@ -744,42 +762,54 @@ RunService.Heartbeat:Connect(function()
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
--- Proximity Prompt Auto Purchase (Lucky Blocks by name; bypass threshold)
+-- =============== UPDATED Proximity Prompt Auto Purchase ===============
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if not (AutoPurchaseEnabled and prompt) then return end
 
+    -- Try to resolve to a sensible model/part
+    local promptPart = prompt.Parent and prompt.Parent:IsA("BasePart") and prompt.Parent or nil
     local model = prompt:FindFirstAncestorWhichIsA("Model")
-    if not model then return end
+    local luckyAncestor = findLuckyAncestorModel(prompt)
 
-    local targetPart = findTargetPart(model)
+    -- Decide if this prompt is a Lucky Block by ANY signal
+    local looksLucky =
+        (luckyAncestor ~= nil)
+        or (model and hasLuckyWords(model.Name))
+        or hasLuckyWords(prompt.ObjectText)
+        or hasLuckyWords(prompt.ActionText)
 
-    -- If it's a Lucky Block by name, open it (rarity toggle + base ignore still apply)
-    if isLuckyModel(model) then
-        local r = getRarityFromName(model.Name)
+    if looksLucky then
+        -- Optional rarity gating
+        local nameModel = luckyAncestor or model
+        local r = nameModel and getRarityFromName(nameModel.Name)
         if r and EnabledRarities[r] == false then return end
-        if targetPart and isInsideOrNearMyBase(targetPart.Position) then return end
+
+        -- Ignore if near your base
+        local part = promptPart or (nameModel and findTargetPart(nameModel))
+        if part and isInsideOrNearMyBase(part.Position) then return end
 
         task.wait(0.10)
-        tryHoldPrompt(prompt, 3, 3)
+        tryHoldPrompt(prompt, math.max(0.25, prompt.HoldDuration or 0.5), 3)
         return
     end
 
-    -- For non-lucky, accept common verbs and keep animal threshold logic
+    -- === Non-lucky: original animal/purchase logic ===
     local action = string.lower(prompt.ActionText or "")
     local allowedVerb = (action:find("purchase") or action:find("buy") or action:find("open") or action:find("unlock"))
     if not allowedVerb then return end
 
-    -- Animals by Generation (uses threshold)
-    local overhead = model:FindFirstChild("AnimalOverhead", true)
+    local modelForAnimal = prompt:FindFirstAncestorWhichIsA("Model")
+    local overhead = modelForAnimal and modelForAnimal:FindFirstChild("AnimalOverhead", true)
     if overhead and overhead:FindFirstChild("Generation") then
         local genValue = parseGenerationText(overhead.Generation.Text)
         if genValue >= PurchaseThreshold then
             task.wait(0.10)
-            tryHoldPrompt(prompt, 3, 8)
+            tryHoldPrompt(prompt, math.max(0.25, prompt.HoldDuration or 0.5), 8)
         end
         return
     end
 end)
+-- =====================================================================
 
 -- Speed-boost (CharacterController)
 local CharController = nil
@@ -1020,7 +1050,7 @@ RunService.Heartbeat:Connect(function()
     -- Player ESP
     if PlayerESPEnabled and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
         for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= player and plr.Character and plr.Character:FindChild("HumanoidRootPart") then
+            if plr ~= player and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
                 local dist = (player.Character.HumanoidRootPart.Position - plr.Character.HumanoidRootPart.Position).Magnitude
                 local bb = createBillboard(plr.Character.HumanoidRootPart, Color3.fromRGB(0,255,255), plr.Name .. " | " .. math.floor(dist) .. "m")
                 bb.Parent = playerESPFolder
