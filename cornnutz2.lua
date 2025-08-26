@@ -51,30 +51,36 @@ local function getRarityFromName(objectName)
     return nil
 end
 
--- === Lucky Block detection ===
+-- === Lucky Block detection (used by ESP only; shows ALL Lucky Blocks)
 local function isLuckyModel(model)
     if not (model and model:IsA("Model")) then return false end
     local n = model.Name:lower()
     return n:find("lucky", 1, true) and n:find("block", 1, true)
 end
 
-local function hasLuckyWords(s)
+-- === Lucky Block WHITELIST (walking + auto-prompt ONLY)
+local function isWantedLuckyName(s)
     s = tostring(s or ""):lower()
-    return s:find("lucky", 1, true) and s:find("block", 1, true)
+    return s:find("admin lucky block", 1, true) or s:find("secret lucky block", 1, true)
 end
 
-local function findLuckyAncestorModel(inst, maxDepth)
+local function isWhitelistedLuckyModel(model)
+    return model and model:IsA("Model") and isWantedLuckyName(model.Name)
+end
+
+local function findWantedLuckyAncestor(inst, maxDepth)
     maxDepth = maxDepth or 6
     local cur, depth = inst, 0
     while cur and depth <= maxDepth do
-        if cur:IsA("Model") and hasLuckyWords(cur.Name) then
+        if cur:IsA("Model") and isWantedLuckyName(cur.Name) then
             return cur
         end
         cur = cur.Parent
-        depth = depth + 1
+        depth += 1
     end
     return nil
 end
+-- =============================================================
 
 -- == Basic helpers ==
 local function updateToggleColor(button, isOn)
@@ -487,9 +493,9 @@ local function updateSlotCountOnly()
                             local base = podiumModule:FindFirstChild("Base")
                             local spawn = base and base:FindFirstChild("Spawn")
                             if spawn and spawn:IsA("BasePart") then
-                                total = total + 1
+                                total += 1
                                 if spawn:FindFirstChild("Attachment") then
-                                    filled = filled + 1
+                                    filled += 1
                                 end
                             end
                         end
@@ -658,14 +664,13 @@ local function stopWalking(humanoid, hrp)
     end
 end
 
--- === Find nearest Lucky Block (prefer RenderedMovingAnimals)
+-- === Find nearest *whitelisted* Lucky Block (prefer RenderedMovingAnimals)
 local function findNearestLucky(hrp)
     local container = Workspace:FindFirstChild("RenderedMovingAnimals")
     local bestModel, bestPart, bestDist
 
     local function consider(m)
-        if not (m and m:IsA("Model")) then return end
-        if not isLuckyModel(m) then return end
+        if not isWhitelistedLuckyModel(m) then return end
         local part = findTargetPart(m)
         if not (part and part:IsA("BasePart")) then return end
         if isInsideOrNearMyBase(part.Position) then return end
@@ -681,7 +686,7 @@ local function findNearestLucky(hrp)
         end
     else
         for _, m in ipairs(Workspace:GetDescendants()) do
-            consider(m)
+            if m:IsA("Model") then consider(m) end
         end
     end
 
@@ -697,7 +702,7 @@ RunService.Heartbeat:Connect(function()
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
     if not humanoid or not hrp then return end
 
-    -- 1) PRIORITY: walk to nearest Lucky Block (ignore threshold)
+    -- 1) PRIORITY: walk to nearest Admin/Secret Lucky Block (ignore threshold)
     local luckyModel, luckyPart, luckyDist = findNearestLucky(hrp)
     if luckyModel and luckyPart then
         if luckyDist <= pauseDistance and (tick() - lastPause) >= pauseTime then
@@ -762,29 +767,22 @@ RunService.Heartbeat:Connect(function()
     setWalkTarget(humanoid, targetPart.Position)
 end)
 
--- =============== UPDATED Proximity Prompt Auto Purchase ===============
+-- =============== Proximity Prompt Auto Purchase (whitelisted Lucky only) ===============
 ProximityPromptService.PromptShown:Connect(function(prompt)
     if not (AutoPurchaseEnabled and prompt) then return end
 
     -- Try to resolve to a sensible model/part
     local promptPart = prompt.Parent and prompt.Parent:IsA("BasePart") and prompt.Parent or nil
     local model = prompt:FindFirstAncestorWhichIsA("Model")
-    local luckyAncestor = findLuckyAncestorModel(prompt)
+    local wantedAncestor = findWantedLuckyAncestor(prompt)
 
-    -- Decide if this prompt is a Lucky Block by ANY signal
-    local looksLucky =
-        (luckyAncestor ~= nil)
-        or (model and hasLuckyWords(model.Name))
-        or hasLuckyWords(prompt.ObjectText)
-        or hasLuckyWords(prompt.ActionText)
-
-    if looksLucky then
-        -- Optional rarity gating
-        local nameModel = luckyAncestor or model
+    -- Only treat as Lucky Block if it's Admin/Secret Lucky Block
+    local isWantedLucky = (wantedAncestor ~= nil) or (model and isWhitelistedLuckyModel(model))
+    if isWantedLucky then
+        local nameModel = wantedAncestor or model
         local r = nameModel and getRarityFromName(nameModel.Name)
         if r and EnabledRarities[r] == false then return end
 
-        -- Ignore if near your base
         local part = promptPart or (nameModel and findTargetPart(nameModel))
         if part and isInsideOrNearMyBase(part.Position) then return end
 
@@ -872,7 +870,7 @@ local NoRagdoll = true
 local RagdollController = nil
 do
     local ok, mod = pcall(function()
-        return require(ReplicatedStorage:FindFirstChild("Controllers") and ReplicatedStorage.Controllers:FindFirstChild("RagdollController") or ReplicatedStorage:WaitForChild("Controllers"):WaitForChild("RagdollController"))
+        return require(ReplicatedStorage:FindChild("Controllers") and ReplicatedStorage.Controllers:FindFirstChild("RagdollController") or ReplicatedStorage:WaitForChild("Controllers"):WaitForChild("RagdollController"))
     end)
     if ok then
         RagdollController = mod
@@ -959,7 +957,7 @@ do
             button.Text = rarity .. ": " .. (EnabledRarities[rarity] and "ON" or "OFF")
             updateToggleColor(button, EnabledRarities[rarity])
         end)
-        y = y + 28
+        y += 28
     end
 end
 
