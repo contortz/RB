@@ -10,14 +10,15 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local player = Players.LocalPlayer
 while not player do task.wait() player = Players.LocalPlayer end
 
--- ===== Block Remote (your exact path; change if needed) =====
-local BlockEvent = ReplicatedStorage.CombatRemotesRemotes.BlockEvent -- RemoteEvent
+-- ===== Remotes (your exact paths; change if needed) =====
+local BlockEvent = ReplicatedStorage.CombatRemotesRemotes.BlockEvent  -- RemoteEvent
+local DodgeEvent = ReplicatedStorage.CombatRemotesRemotes.DodgeEvent  -- RemoteEvent
 
 --// Toggles
 local Toggles = {
-    PlayerESP  = false,
-    StayBehind = false,
-    Blocking   = false,
+    PlayerESP   = false,
+    Blocking    = false,
+    AutoDodgeOnCombat = false, -- NEW
 }
 
 -- =========================
@@ -65,8 +66,8 @@ local function createGui()
     ScreenGui.Parent = parentRoot
 
     local Frame = Instance.new("Frame")
-    Frame.Size = UDim2.new(0, 200, 0, 160)
-    Frame.Position = UDim2.new(0.5, -100, 0.5, -80) -- center
+    Frame.Size = UDim2.new(0, 220, 0, 170)
+    Frame.Position = UDim2.new(0.5, -110, 0.5, -85)
     Frame.BackgroundColor3 = Color3.fromRGB(28,28,28)
     Frame.BorderSizePixel = 0
     Frame.Active = true
@@ -117,24 +118,17 @@ local function createGui()
         end)
     end
 
-    makeToggle(40,  "Player ESP", "PlayerESP")
-    makeToggle(75,  "Stay Behind", "StayBehind")
-
-    -- === Blocking button (Z/X) ===
-    local function setBlocking(on)
-        if Toggles.Blocking == on then return end
-        Toggles.Blocking = on
+    makeToggle(40,  "Player ESP",            "PlayerESP")
+    makeToggle(75,  "Blocking (Z/X)",        "Blocking", function()
+        Toggles.Blocking = not Toggles.Blocking
         updateButtonVisual("Blocking")
-        if on then
+        if Toggles.Blocking then
             BlockEvent:FireServer("blockStart")
         else
             BlockEvent:FireServer("unblocking")
         end
-    end
-
-    makeToggle(110, "Blocking (Z/X)", "Blocking", function()
-        setBlocking(not Toggles.Blocking)
     end)
+    makeToggle(110, "Auto Dodge (closest combat)", "AutoDodgeOnCombat")
 
     -- watchdog: re-parent if nuked
     task.spawn(function()
@@ -145,10 +139,10 @@ local function createGui()
         end
     end)
 
-    return ScreenGui, setBlocking
+    return ScreenGui
 end
 
-local ScreenGui, SetBlocking = createGui()
+createGui()
 
 -- =========================
 -- Attribute sources (Model named exactly like the player)
@@ -183,7 +177,9 @@ local function findStatsModelForPlayer(targetPlayer)
     end
 
     for _, model in ipairs(candidates) do
-        if model:GetAttribute("Health") ~= nil or model:GetAttribute("UltimateLevel") ~= nil then
+        if model:GetAttribute("Health") ~= nil
+        or model:GetAttribute("UltimateLevel") ~= nil
+        or model:GetAttribute("combat") ~= nil then
             return model
         end
     end
@@ -214,7 +210,7 @@ local function ensureBillboard(hrp)
         bb = Instance.new("BillboardGui")
         bb.Name = "Player_ESP"
         bb.Adornee = hrp
-        bb.Size = UDim2.new(0, 220, 0, 44)
+        bb.Size = UDim2.new(0, 240, 0, 46)
         bb.AlwaysOnTop = true
         bb.Parent = hrp
 
@@ -264,42 +260,55 @@ local function updateESP(myHRP)
 end
 
 -- =========================
--- Stay Behind Closest
+-- Auto Dodge on closest player's combat = true
 -- =========================
-local BEHIND_DISTANCE, VERTICAL_OFFSET = 5.0, 1.5
 
-local function getClosestAliveOtherPlayer(myHRP)
+local lastCombatStateByUserId = {}  -- userId -> boolean
+local lastDodgeTime = 0
+local DODGE_COOLDOWN = 0.25 -- small safety cooldown
+
+local function getClosestOtherPlayer(myHRP)
     local closest, best = nil, math.huge
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= player and p.Character then
-            local char = p.Character
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hp = getPlayerAttribute(p, "Health")
-            if hrp and (hp == nil or tonumber(hp) == nil or tonumber(hp) > 0) then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
                 local d = (myHRP.Position - hrp.Position).Magnitude
-                if d < best then closest, best = p, d end
+                if d < best then
+                    closest, best = p, d
+                end
             end
         end
     end
     return closest, best
 end
 
-local function doStayBehind(myHRP)
-    local target = getClosestAliveOtherPlayer(myHRP)
-    if not target or not target.Character then return end
-    local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
-    if not tHRP then return end
-    local desiredPos = tHRP.Position - (tHRP.CFrame.LookVector * BEHIND_DISTANCE) + Vector3.new(0, VERTICAL_OFFSET, 0)
-    local lookAt = desiredPos + tHRP.CFrame.LookVector
-    myHRP.CFrame = CFrame.new(desiredPos, lookAt)
+local function maybeAutoDodge(myHRP)
+    if not Toggles.AutoDodgeOnCombat then return end
+    local target = getClosestOtherPlayer(myHRP)
+    if not target then return end
+
+    local combat = getPlayerAttribute(target, "combat")
+    local uid = target.UserId
+    local prev = lastCombatStateByUserId[uid]
+
+    if combat == true and prev ~= true then
+        local now = os.clock()
+        if now - lastDodgeTime >= DODGE_COOLDOWN then
+            lastDodgeTime = now
+            -- fire exactly when it flips true
+            DodgeEvent:FireServer("left")
+        end
+    end
+
+    lastCombatStateByUserId[uid] = combat == true
 end
 
 -- =========================
--- Keybinds: Z = blockStart, X = unblocking, Q = StayBehind toggle
+-- Keybinds: Z = blockStart, X = unblocking
 -- =========================
 local lastSend = 0
 local SEND_COOLDOWN = 0.08
-
 local function canSend()
     local now = os.clock()
     if now - lastSend < SEND_COOLDOWN then return false end
@@ -309,23 +318,25 @@ end
 
 UIS.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
-    if input.KeyCode == Enum.KeyCode.Q then
-        Toggles.StayBehind = not Toggles.StayBehind
-        updateButtonVisual("StayBehind")
-    elseif input.KeyCode == Enum.KeyCode.Z then
+    if input.KeyCode == Enum.KeyCode.Z then
         if canSend() then
-            SetBlocking(true)  -- fires "blockStart" and updates UI
+            Toggles.Blocking = true
+            updateButtonVisual("Blocking")
+            BlockEvent:FireServer("blockStart")
         end
     elseif input.KeyCode == Enum.KeyCode.X then
         if canSend() then
-            SetBlocking(false) -- fires "unblocking" and updates UI
+            Toggles.Blocking = false
+            updateButtonVisual("Blocking")
+            BlockEvent:FireServer("unblocking")
         end
     end
 end)
 
 -- clear block on respawn
 player.CharacterAdded:Connect(function()
-    SetBlocking(false)
+    Toggles.Blocking = false
+    updateButtonVisual("Blocking")
 end)
 
 -- =========================
@@ -340,7 +351,7 @@ RunService.Heartbeat:Connect(function()
     if Toggles.PlayerESP then
         updateESP(myHRP)
     end
-    if Toggles.StayBehind then
-        doStayBehind(myHRP)
-    end
+
+    -- Auto Dodge watcher
+    maybeAutoDodge(myHRP)
 end)
