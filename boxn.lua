@@ -10,15 +10,14 @@ if not game:IsLoaded() then game.Loaded:Wait() end
 local player = Players.LocalPlayer
 while not player do task.wait() player = Players.LocalPlayer end
 
--- ===== Block Remote (uses your exact path) =====
--- If your game actually uses a different path, just change this one line:
-local BlockEvent = ReplicatedStorage.CombatRemotesRemotes.BlockEvent  -- RemoteEvent
+-- ===== Block Remote (your exact path; change if needed) =====
+local BlockEvent = ReplicatedStorage.CombatRemotesRemotes.BlockEvent -- RemoteEvent
 
 --// Toggles
 local Toggles = {
     PlayerESP  = false,
     StayBehind = false,
-    Blocking   = false, -- NEW
+    Blocking   = false,
 }
 
 -- =========================
@@ -101,10 +100,8 @@ local function createGui()
             if onClick then
                 onClick()
             else
-                -- default behavior: flip toggle
                 Toggles[key] = not Toggles[key]
                 updateButtonVisual(key)
-                -- extra cleanup for ESP when turning off
                 if key == "PlayerESP" and not Toggles.PlayerESP then
                     for _, p in ipairs(Players:GetPlayers()) do
                         local c = p.Character
@@ -123,7 +120,7 @@ local function createGui()
     makeToggle(40,  "Player ESP", "PlayerESP")
     makeToggle(75,  "Stay Behind", "StayBehind")
 
-    -- === Blocking button ===
+    -- === Blocking button (Z/X) ===
     local function setBlocking(on)
         if Toggles.Blocking == on then return end
         Toggles.Blocking = on
@@ -148,28 +145,61 @@ local function createGui()
         end
     end)
 
-    print("[MiniHub] UI parent:", ScreenGui.Parent and ScreenGui.Parent:GetFullName() or "nil")
     return ScreenGui, setBlocking
 end
 
 local ScreenGui, SetBlocking = createGui()
 
 -- =========================
--- Health utils
+-- Attribute sources (Model named exactly like the player)
 -- =========================
-local function getHealthFromCharacter(char)
-    if not char then return nil end
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then return hum.Health end
-    local attr = char:GetAttribute("Health")
-    if attr ~= nil then
-        local n = tonumber(attr)
-        if n then return n end
+
+local function findStatsModelForPlayer(targetPlayer)
+    local candidates = {}
+
+    if targetPlayer.Character then
+        table.insert(candidates, targetPlayer.Character)
     end
-    local nv = char:FindFirstChild("Health")
-    if nv and nv:IsA("NumberValue") then
-        local n = tonumber(nv.Value)
-        if n then return n end
+    local wsNamed = Workspace:FindFirstChild(targetPlayer.Name)
+    if wsNamed and wsNamed:IsA("Model") then
+        table.insert(candidates, wsNamed)
+    end
+    local repNamed = ReplicatedStorage:FindFirstChild(targetPlayer.Name)
+    if repNamed and repNamed:IsA("Model") then
+        table.insert(candidates, repNamed)
+    end
+
+    local containerNames = { "Players", "PlayerData", "Profiles", "Stats", "Data", "ProfilesByName" }
+    for _, containerName in ipairs(containerNames) do
+        for _, parent in ipairs({ ReplicatedStorage, Workspace }) do
+            local container = parent:FindFirstChild(containerName)
+            if container then
+                local model = container:FindFirstChild(targetPlayer.Name)
+                if model and model:IsA("Model") then
+                    table.insert(candidates, model)
+                end
+            end
+        end
+    end
+
+    for _, model in ipairs(candidates) do
+        if model:GetAttribute("Health") ~= nil or model:GetAttribute("UltimateLevel") ~= nil then
+            return model
+        end
+    end
+
+    return candidates[1]
+end
+
+local function getPlayerAttribute(targetPlayer, attributeName)
+    local statsModel = findStatsModelForPlayer(targetPlayer)
+    if statsModel then
+        local val = statsModel:GetAttribute(attributeName)
+        if val ~= nil then return val end
+    end
+    if attributeName == "Health" and targetPlayer.Character then
+        local humanoid = targetPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then return humanoid.Health end
     end
     return nil
 end
@@ -177,13 +207,14 @@ end
 -- =========================
 -- Player ESP (Billboard)
 -- =========================
+
 local function ensureBillboard(hrp)
     local bb = hrp:FindFirstChild("Player_ESP")
     if not bb then
         bb = Instance.new("BillboardGui")
         bb.Name = "Player_ESP"
         bb.Adornee = hrp
-        bb.Size = UDim2.new(0, 180, 0, 40)
+        bb.Size = UDim2.new(0, 220, 0, 44)
         bb.AlwaysOnTop = true
         bb.Parent = hrp
 
@@ -191,31 +222,40 @@ local function ensureBillboard(hrp)
         label.Name = "Text"
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.fromRGB(255,0,0)
-        label.TextStrokeTransparency = 0
+        label.TextColor3 = Color3.fromRGB(255, 200, 50)
+        label.TextStrokeTransparency = 0.15
         label.TextScaled = true
+        label.Font = Enum.Font.SourceSansBold
         label.Parent = bb
     end
     return bb
 end
 
 local function updateESP(myHRP)
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= player and p.Character then
-            local char = p.Character
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
+    for _, otherPlayer in ipairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character then
+            local otherChar = otherPlayer.Character
+            local otherHRP = otherChar:FindFirstChild("HumanoidRootPart")
+            if otherHRP then
                 if Toggles.PlayerESP then
-                    local hp = getHealthFromCharacter(char)
-                    local dist = (myHRP.Position - hrp.Position).Magnitude
-                    local bb = ensureBillboard(hrp)
+                    local health = getPlayerAttribute(otherPlayer, "Health")
+                    local ultimateLevel = getPlayerAttribute(otherPlayer, "UltimateLevel")
+                    local distance = (myHRP.Position - otherHRP.Position).Magnitude
+
+                    local bb = ensureBillboard(otherHRP)
                     local label = bb:FindFirstChild("Text")
                     if label then
-                        label.Text = string.format("%s | HP: %s | %dm", p.Name, hp and math.floor(hp) or "?", math.floor(dist))
+                        label.Text = string.format(
+                            "%s | HP: %s | UL: %s | %dm",
+                            otherPlayer.Name,
+                            (health and math.floor(tonumber(health) or 0) or "?"),
+                            (ultimateLevel ~= nil and tostring(ultimateLevel) or "?"),
+                            math.floor(distance)
+                        )
                     end
                 else
-                    if hrp:FindFirstChild("Player_ESP") then
-                        hrp.Player_ESP:Destroy()
+                    if otherHRP:FindFirstChild("Player_ESP") then
+                        otherHRP.Player_ESP:Destroy()
                     end
                 end
             end
@@ -234,8 +274,8 @@ local function getClosestAliveOtherPlayer(myHRP)
         if p ~= player and p.Character then
             local char = p.Character
             local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hp = getHealthFromCharacter(char)
-            if hrp and hp and hp > 0 then
+            local hp = getPlayerAttribute(p, "Health")
+            if hrp and (hp == nil or tonumber(hp) == nil or tonumber(hp) > 0) then
                 local d = (myHRP.Position - hrp.Position).Magnitude
                 if d < best then closest, best = p, d end
             end
@@ -255,10 +295,10 @@ local function doStayBehind(myHRP)
 end
 
 -- =========================
--- Keybinds: Z = blockStart, X = unblocking
+-- Keybinds: Z = blockStart, X = unblocking, Q = StayBehind toggle
 -- =========================
 local lastSend = 0
-local SEND_COOLDOWN = 0.08 -- light debounce
+local SEND_COOLDOWN = 0.08
 
 local function canSend()
     local now = os.clock()
@@ -283,7 +323,7 @@ UIS.InputBegan:Connect(function(input, gameProcessed)
     end
 end)
 
--- ensure we clear block on respawn
+-- clear block on respawn
 player.CharacterAdded:Connect(function()
     SetBlocking(false)
 end)
