@@ -1,0 +1,57 @@
+-- minimal my-base brainrot dump (ASCII-only)
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+local lp = Players.LocalPlayer
+
+local function myPlot()
+    local plots = Workspace:FindFirstChild("Plots")
+    if not plots then return nil end
+    for _, plot in ipairs(plots:GetChildren()) do
+        local sign = plot:FindFirstChild("PlotSign")
+        local gui  = sign and sign:FindFirstChild("SurfaceGui")
+        local fr   = gui and gui:FindFirstChild("Frame")
+        local lbl  = fr and fr:FindFirstChild("TextLabel")
+        local txt  = lbl and lbl.Text or nil
+        if txt then
+            local owner = txt:match("^(.-)'s Base")
+            if owner == lp.Name then return plot end
+        end
+    end
+    return nil
+end
+
+local function collectLines()
+    local lines = {}
+    local plot = myPlot()
+    if not plot then return lines end
+    for _, inst in ipairs(plot:GetDescendants()) do
+        if inst.Name == "AnimalOverhead" then
+            local nameLabel = inst:FindFirstChild("DisplayName")
+            local genLabel  = inst:FindFirstChild("Generation")
+            local stolen    = inst:FindFirstChild("Stolen")
+            local inMachine = stolen and stolen:IsA("TextLabel") and (stolen.Text == "IN MACHINE" or stolen.Text == "FUSING")
+            if nameLabel and genLabel and not inMachine then
+                table.insert(lines, string.format("x1 | %s (%s) - $", nameLabel.Text, genLabel.Text))
+            end
+        end
+    end
+    table.sort(lines, function(a,b) return a < b end)
+    return lines
+end
+
+local lines = collectLines()
+local out = {"Username: "..lp.Name}
+for _, l in ipairs(lines) do table.insert(out, l) end
+local blob = table.concat(out, "\n")
+
+local ok = pcall(function()
+    if setclipboard then setclipboard(blob)
+    elseif toclipboard then toclipboard(blob)
+    else error("no clipboard") end
+end)
+if ok then
+    pcall(function() StarterGui:SetCore("SendNotification",{Title="Copied",Text="Brainrots copied",Duration=2}) end)
+else
+    print(blob) -- fallback if clipboard API is blocked
+end
