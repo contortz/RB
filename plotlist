@@ -1,4 +1,4 @@
--- minimal my-base brainrot dump (ASCII-only)
+-- my-base brainrot dump
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local StarterGui = game:GetService("StarterGui")
@@ -32,7 +32,8 @@ local function collectLines()
             local stolen    = inst:FindFirstChild("Stolen")
             local inMachine = stolen and stolen:IsA("TextLabel") and (stolen.Text == "IN MACHINE" or stolen.Text == "FUSING")
             if nameLabel and genLabel and not inMachine then
-                table.insert(lines, string.format("x1 | %s (%s) - $", nameLabel.Text, genLabel.Text))
+                -- use em dash here (—)
+                table.insert(lines, string.format("x1 | %s (%s) — $", nameLabel.Text, genLabel.Text))
             end
         end
     end
@@ -53,5 +54,5 @@ end)
 if ok then
     pcall(function() StarterGui:SetCore("SendNotification",{Title="Copied",Text="Brainrots copied",Duration=2}) end)
 else
-    print(blob) -- fallback if clipboard API is blocked
+    print(blob)
 end
