@@ -1,6 +1,5 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Configuration
@@ -8,8 +7,6 @@ local espEnabled = false
 local filter100k = false
 local filterMythic = false
 local filterLegendary = false
-local noclipEnabled = false
-local isTracking = false
 local espInstances = {}
 
 -- 1. UTILITY: SAFE REFERENCE
@@ -19,36 +16,26 @@ local function getCrystalFolder()
     return things:FindFirstChild("Crystals")
 end
 
--- 2. NOCLIP & MOVEMENT ENGINE
-local function setNoclip(state)
-    local char = LocalPlayer.Character
-    if not char then return end
-    for _, part in pairs(char:GetDescendants()) do
-        if part:IsA("BasePart") then part.CanCollide = not state end
-    end
-end
-
-RunService.Stepped:Connect(function()
-    if (noclipEnabled or isTracking) and LocalPlayer.Character then
-        setNoclip(true)
-    end
-end)
-
--- 3. ESP LOGIC
+-- 2. ESP LOGIC
 local function createESP(target)
     if not target or espInstances[target] then return end
     
+    -- Filter Logic
     local val = target:GetAttribute("Value") or 0
     local tier = target:GetAttribute("TierName") or "Common"
+    local weight = target:GetAttribute("WeightKg") or 0
     
     if filter100k and val < 100000 then return end
     if filterMythic and tier ~= "Mythic" then return end
     if filterLegendary and tier ~= "Legendary" then return end
     
-    local highlight = Instance.new("Highlight", target)
+    -- Create Highlight
+    local highlight = Instance.new("Highlight")
     highlight.Adornee = target
     highlight.FillColor = Color3.fromRGB(0, 255, 255)
+    highlight.Parent = target
     
+    -- Create Billboard
     local bb = Instance.new("BillboardGui", target)
     bb.Size = UDim2.new(0, 200, 0, 100)
     bb.AlwaysOnTop = true
@@ -61,9 +48,17 @@ local function createESP(target)
     label.TextScaled = true
     label.TextStrokeTransparency = 0
     
-    espInstances[target] = {Highlight = highlight, Billboard = bb, Label = label, Tier = tier, Val = val}
+    espInstances[target] = {
+        Highlight = highlight, 
+        Billboard = bb, 
+        Label = label, 
+        Tier = tier, 
+        Val = val, 
+        Weight = weight
+    }
 end
 
+-- Update Distance and Display every frame
 RunService.RenderStepped:Connect(function()
     if not espEnabled then return end
     local char = LocalPlayer.Character
@@ -74,7 +69,10 @@ RunService.RenderStepped:Connect(function()
         if target and target.Parent then
             local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
             local dist = (root.Position - targetPos).Magnitude
-            data.Label.Text = string.format("Tier: %s\nValue: %d\nDist: %d studs", data.Tier, data.Val, math.floor(dist))
+            
+            -- Updated Text to include Weight
+            data.Label.Text = string.format("Tier: %s\nValue: %d\nWeight: %dkg\nDist: %d studs", 
+                data.Tier, data.Val, data.Weight, math.floor(dist))
         else
             if data.Highlight then data.Highlight:Destroy() end
             if data.Billboard then data.Billboard:Destroy() end
@@ -89,6 +87,7 @@ local function refreshESP()
         if data.Billboard then data.Billboard:Destroy() end
     end
     espInstances = {}
+    
     if espEnabled then
         local folder = getCrystalFolder()
         if folder then
@@ -97,11 +96,11 @@ local function refreshESP()
     end
 end
 
--- 4. UI SETUP
+-- 3. UI SETUP
 local sg = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
 local main = Instance.new("Frame", sg)
-main.Size = UDim2.new(0, 220, 0, 450)
-main.Position = UDim2.new(0.5, -110, 0.5, -225)
+main.Size = UDim2.new(0, 220, 0, 350)
+main.Position = UDim2.new(0.5, -110, 0.5, -175)
 main.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
 Instance.new("UICorner", main)
 Instance.new("UIDragDetector", main)
@@ -118,20 +117,21 @@ local function createBtn(text, pos, color)
 end
 
 local espBtn = createBtn("TOGGLE ESP", UDim2.new(0.05, 0, 0.05, 0), Color3.fromRGB(200, 100, 0))
-local f100k = createBtn("100K+: OFF", UDim2.new(0.05, 0, 0.17, 0), Color3.fromRGB(50, 50, 50))
-local fMythic = createBtn("MYTHIC: OFF", UDim2.new(0.05, 0, 0.29, 0), Color3.fromRGB(50, 50, 50))
-local fLegend = createBtn("LEGENDARY: OFF", UDim2.new(0.05, 0, 0.41, 0), Color3.fromRGB(50, 50, 50))
-local noclipBtn = createBtn("NOCLIP: OFF", UDim2.new(0.05, 0, 0.53, 0), Color3.fromRGB(50, 50, 50))
-local farmBtn = createBtn("AUTO-FARM: OFF", UDim2.new(0.05, 0, 0.65, 0), Color3.fromRGB(100, 0, 150))
+local f100k = createBtn("100K+: OFF", UDim2.new(0.05, 0, 0.2, 0), Color3.fromRGB(50, 50, 50))
+local fMythic = createBtn("MYTHIC: OFF", UDim2.new(0.05, 0, 0.35, 0), Color3.fromRGB(50, 50, 50))
+local fLegend = createBtn("LEGENDARY: OFF", UDim2.new(0.05, 0, 0.5, 0), Color3.fromRGB(50, 50, 50))
 
--- Button Logic
-espBtn.MouseButton1Click:Connect(function() espEnabled = not espEnabled; espBtn.Text = espEnabled and "ESP: ON" or "TOGGLE ESP"; refreshESP() end)
-noclipBtn.MouseButton1Click:Connect(function() noclipEnabled = not noclipEnabled; noclipBtn.Text = noclipEnabled and "NOCLIP: ON" or "NOCLIP: OFF"; if not noclipEnabled then setNoclip(false) end end)
-farmBtn.MouseButton1Click:Connect(function() isTracking = not isTracking; farmBtn.Text = isTracking and "AUTO-FARM: ON" or "AUTO-FARM: OFF"; if not isTracking then setNoclip(false) end end)
+espBtn.MouseButton1Click:Connect(function()
+    espEnabled = not espEnabled
+    espBtn.Text = espEnabled and "ESP: ON" or "TOGGLE ESP"
+    refreshESP()
+end)
 
 local function toggleFilter(btn, varName, label)
-    if varName == "f100k" then filter100k = not filter100k elseif varName == "fMythic" then filterMythic = not filterMythic else filterLegendary = not filterLegendary end
-    btn.Text = (varName == "f100k" and filter100k or varName == "fMythic" and filterMythic or filterLegendary) and label..": ON" or label..": OFF"
+    if varName == "f100k" then filter100k = not filter100k; btn.Text = filter100k and label..": ON" or label..": OFF"
+    elseif varName == "fMythic" then filterMythic = not filterMythic; btn.Text = filterMythic and label..": ON" or label..": OFF"
+    elseif varName == "fLegend" then filterLegendary = not filterLegendary; btn.Text = filterLegendary and label..": ON" or label..": OFF"
+    end
     refreshESP()
 end
 
@@ -139,31 +139,9 @@ f100k.MouseButton1Click:Connect(function() toggleFilter(f100k, "f100k", "100K+")
 fMythic.MouseButton1Click:Connect(function() toggleFilter(fMythic, "fMythic", "MYTHIC") end)
 fLegend.MouseButton1Click:Connect(function() toggleFilter(fLegend, "fLegend", "LEGENDARY") end)
 
--- 5. AUTO-FARM ENGINE
-task.spawn(function()
-    while true do
-        task.wait(0.5)
-        if isTracking and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            local folder = getCrystalFolder()
-            local best, maxV = nil, -1
-            if folder then
-                for _, c in pairs(folder:GetChildren()) do
-                    local v = c:GetAttribute("Value") or 0
-                    if v > maxV then maxV = v; best = c end
-                end
-                if best then
-                    local targetPart = best:IsA("Model") and best.PrimaryPart or best:FindFirstChildWhichIsA("BasePart")
-                    if targetPart then
-                        local hrp = LocalPlayer.Character.HumanoidRootPart
-                        hrp.Anchored = true
-                        TweenService:Create(hrp, TweenInfo.new(0.3), {CFrame = targetPart.CFrame + Vector3.new(0, 3, 0)}):Play()
-                        task.wait(0.3)
-                        hrp.Anchored = false
-                    end
-                end
-            end
-        end
-    end
-end)
-
-if folder then folder.ChildAdded:Connect(function(c) if espEnabled then task.wait(0.5); createESP(c) end end) end
+local folder = getCrystalFolder()
+if folder then
+    folder.ChildAdded:Connect(function(child)
+        if espEnabled then task.wait(0.5); createESP(child) end
+    end)
+end
