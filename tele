@@ -2,6 +2,9 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local UserInputService = game:GetService("UserInputService")
 
+-- Ensure we have a character to reference immediately upon execution
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
 ---------------------------------------------------------
 -- DATA STORAGE
 ---------------------------------------------------------
@@ -23,12 +26,12 @@ mainFrame.Size = UDim2.new(0, 240, 0, 190)
 mainFrame.Position = UDim2.new(0, 20, 0.6, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
+mainFrame.Active = true -- Important for dragging
 Instance.new("UICorner", mainFrame)
 
 local title = Instance.new("TextLabel", mainFrame)
 title.Size = UDim2.new(1, 0, 0, 35)
-title.Text = "Dreamz Teleporter ;)"
+title.Text = "Universal Teleporter"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.BackgroundTransparency = 1
 title.Font = Enum.Font.SourceSansBold
@@ -71,18 +74,18 @@ UserInputService.InputChanged:Connect(function(input)
 end)
 
 ---------------------------------------------------------
--- CORE TP LOGIC
+-- CORE TP LOGIC (UPDATED FOR COMPATIBILITY)
 ---------------------------------------------------------
 local function getMyRoot()
-    -- Priority 1: Use the standard API reference
+    -- 1. Try the standard API path first
     local char = LocalPlayer.Character
     
-    -- Priority 2: Fallback search if Character is nil
+    -- 2. Fallback: If standard path fails, look directly in Workspace by name
     if not char then
         char = workspace:FindFirstChild(LocalPlayer.Name)
     end
     
-    -- Priority 3: Search common custom folders (like Workspace.Game.Characters)
+    -- 3. Custom Path Fallback: Look inside Workspace.Game.Characters
     if not char then
         local gameFolder = workspace:FindFirstChild("Game")
         if gameFolder then
@@ -120,6 +123,10 @@ local function createSlot(id, yPos)
         if root then
             Locations[slotId] = root.CFrame
             save.Text = "SAVED!"
+            task.wait(0.6)
+            save.Text = "SAVE " .. id
+        else
+            save.Text = "ERROR!"
             task.wait(0.6)
             save.Text = "SAVE " .. id
         end
