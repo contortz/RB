@@ -1,0 +1,126 @@
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
+
+---------------------------------------------------------
+-- DATA STORAGE
+---------------------------------------------------------
+local Locations = {
+    Slot1 = nil,
+    Slot2 = nil,
+    Slot3 = nil
+}
+
+---------------------------------------------------------
+-- GUI SETUP
+---------------------------------------------------------
+local screenGui = Instance.new("ScreenGui", LocalPlayer:WaitForChild("PlayerGui"))
+screenGui.Name = "DraggableLocationSaver"
+screenGui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame", screenGui)
+mainFrame.Size = UDim2.new(0, 240, 0, 190)
+-- Positioned lower (0.6 instead of 0.4/0.5)
+mainFrame.Position = UDim2.new(0, 20, 0.6, 0)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true -- Important for dragging
+Instance.new("UICorner", mainFrame)
+
+local title = Instance.new("TextLabel", mainFrame)
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Text = "Dreamz Teleporter ;)"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 14
+
+---------------------------------------------------------
+-- DRAGGING LOGIC
+---------------------------------------------------------
+local dragging, dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+mainFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = mainFrame.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+---------------------------------------------------------
+-- CORE TP LOGIC
+---------------------------------------------------------
+local function getMyRoot()
+    local char = workspace:FindFirstChild(LocalPlayer.Name)
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function createSlot(id, yPos)
+    local slotId = "Slot" .. id
+    
+    local save = Instance.new("TextButton", mainFrame)
+    save.Size = UDim2.new(0, 100, 0, 40)
+    save.Position = UDim2.new(0, 15, 0, yPos)
+    save.BackgroundColor3 = Color3.fromRGB(50, 120, 200)
+    save.Text = "SAVE " .. id
+    save.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", save)
+
+    local tp = Instance.new("TextButton", mainFrame)
+    tp.Size = UDim2.new(0, 100, 0, 40)
+    tp.Position = UDim2.new(0, 125, 0, yPos)
+    tp.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+    tp.Text = "TP " .. id
+    tp.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", tp)
+
+    save.MouseButton1Click:Connect(function()
+        local root = getMyRoot()
+        if root then
+            Locations[slotId] = root.CFrame
+            save.Text = "SAVED!"
+            task.wait(0.6)
+            save.Text = "SAVE " .. id
+        end
+    end)
+
+    tp.MouseButton1Click:Connect(function()
+        local root = getMyRoot()
+        local target = Locations[slotId]
+        if root and target then
+            root.CFrame = target
+        else
+            tp.Text = "EMPTY!"
+            task.wait(0.6)
+            tp.Text = "TP " .. id
+        end
+    end)
+end
+
+createSlot(1, 45)
+createSlot(2, 90)
+createSlot(3, 135)
