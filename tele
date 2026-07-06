@@ -20,11 +20,10 @@ screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame", screenGui)
 mainFrame.Size = UDim2.new(0, 240, 0, 190)
--- Positioned lower (0.6 instead of 0.4/0.5)
 mainFrame.Position = UDim2.new(0, 20, 0.6, 0)
 mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 mainFrame.BorderSizePixel = 0
-mainFrame.Active = true -- Important for dragging
+mainFrame.Active = true
 Instance.new("UICorner", mainFrame)
 
 local title = Instance.new("TextLabel", mainFrame)
@@ -75,7 +74,25 @@ end)
 -- CORE TP LOGIC
 ---------------------------------------------------------
 local function getMyRoot()
-    local char = workspace:FindFirstChild(LocalPlayer.Name)
+    -- Priority 1: Use the standard API reference
+    local char = LocalPlayer.Character
+    
+    -- Priority 2: Fallback search if Character is nil
+    if not char then
+        char = workspace:FindFirstChild(LocalPlayer.Name)
+    end
+    
+    -- Priority 3: Search common custom folders (like Workspace.Game.Characters)
+    if not char then
+        local gameFolder = workspace:FindFirstChild("Game")
+        if gameFolder then
+            local charsFolder = gameFolder:FindFirstChild("Characters")
+            if charsFolder then
+                char = charsFolder:FindFirstChild(LocalPlayer.Name)
+            end
+        end
+    end
+
     return char and char:FindFirstChild("HumanoidRootPart")
 end
 
