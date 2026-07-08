@@ -93,7 +93,6 @@ local function getDebrisItems()
     
     local items = {}
     for _, child in pairs(debrisField:GetChildren()) do
-        -- Check if it's a part/model with a name that looks like an item ID
         if child:IsA("BasePart") or child:IsA("Model") then
             table.insert(items, child)
         end
@@ -113,13 +112,10 @@ local function teleportItemToPlayer(item, targetPosition)
     if not item or not item.Parent then return false end
     
     local success, err = pcall(function()
-        -- Handle different item types
         if item:IsA("Model") and item.PrimaryPart then
-            -- Move the entire model
             local offset = item.PrimaryPart.CFrame - item.PrimaryPart.CFrame.Position
             item:SetPrimaryPartCFrame(CFrame.new(targetPosition) * offset)
         elseif item:IsA("BasePart") then
-            -- Move the part
             item.CFrame = CFrame.new(targetPosition)
         else
             return false
@@ -146,10 +142,8 @@ local function animateItemToPlayer(item, targetPosition)
             return false
         end
         
-        -- Create a tween to move the item smoothly
         local endCFrame = CFrame.new(targetPosition) * (offset or CFrame.new())
         
-        -- If it's a model with primary part
         if item:IsA("Model") and item.PrimaryPart then
             local tweenInfo = TweenInfo.new(
                 0.5 + math.random() * 0.3,
@@ -157,7 +151,6 @@ local function animateItemToPlayer(item, targetPosition)
                 Enum.EasingDirection.Out
             )
             
-            -- Move the model using TweenService
             local tween = TweenService:Create(item.PrimaryPart, tweenInfo, {
                 CFrame = endCFrame
             })
@@ -218,7 +211,6 @@ local function collectAllItems(animate)
     local failed = 0
     local targetPos = humanoidRootPart.Position + Vector3.new(0, 2, 0)
     
-    -- Create a random offset so items don't stack on top of each other
     local function getRandomOffset(index)
         local angle = index * 1.2
         local radius = 1 + (index % 3) * 0.8
@@ -252,7 +244,6 @@ local function collectAllItems(animate)
             failed = failed + 1
         end
         
-        -- Update status every 5 items
         if i % 5 == 0 then
             StatusLabel.Text = "🔄 Collected " .. collected .. "/" .. #items
         end
@@ -264,28 +255,23 @@ local function collectAllItems(animate)
     CollectButton.Text = "🔄 COLLECT ALL"
     CollectButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
     
-    -- Update count
     local remaining = #getDebrisItems()
     StatusLabel.Text = "✅ Collected " .. collected .. " items (" .. failed .. " failed, " .. remaining .. " remaining)"
     CountLabel.Text = "Items: " .. remaining
     
-    -- Play a success sound if available
     if collected > 0 then
         print("[DebrisCollector] Successfully collected " .. collected .. " items!")
     end
 end
 
--- Collect all with animation
 CollectButton.MouseButton1Click:Connect(function()
     collectAllItems(true)
 end)
 
--- Teleport all instantly
 TeleportButton.MouseButton1Click:Connect(function()
     collectAllItems(false)
 end)
 
--- Auto-update count
 local function startAutoUpdate()
     RunService.Heartbeat:Connect(function()
         if not isCollecting then
@@ -294,7 +280,6 @@ local function startAutoUpdate()
     end)
 end
 
--- Initial setup
 local function init()
     local debrisField = getDebrisField()
     if debrisField then
@@ -308,17 +293,14 @@ local function init()
     startAutoUpdate()
 end
 
--- Clean up when GUI is destroyed
 ScreenGui.AncestryChanged:Connect(function()
     if not ScreenGui.Parent then
-        -- Cleanup collected items reference
         collectedItems = nil
     end
 end)
 
 init()
 
--- Keyboard shortcut: Press 'C' to collect, 'T' to teleport
 local UserInputService = game:GetService("UserInputService")
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if gameProcessed then return end
