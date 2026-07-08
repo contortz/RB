@@ -1,0 +1,333 @@
+-- DebrisFieldCollector.lua
+-- Run this as a LocalScript
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+-- Create GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DebrisCollector"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+MainFrame.BackgroundTransparency = 0.1
+MainFrame.BorderSizePixel = 2
+MainFrame.BorderColor3 = Color3.fromRGB(0, 255, 0)
+MainFrame.Parent = ScreenGui
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Position = UDim2.new(0, 0, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "🗑️ DEBRIS COLLECTOR"
+Title.TextColor3 = Color3.fromRGB(0, 255, 0)
+Title.TextScaled = true
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, -10, 0, 30)
+StatusLabel.Position = UDim2.new(0, 5, 0, 35)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Text = "Ready"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextScaled = true
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Parent = MainFrame
+
+local CountLabel = Instance.new("TextLabel")
+CountLabel.Size = UDim2.new(1, -10, 0, 30)
+CountLabel.Position = UDim2.new(0, 5, 0, 65)
+CountLabel.BackgroundTransparency = 1
+CountLabel.Text = "Items: 0"
+CountLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+CountLabel.TextScaled = true
+CountLabel.Font = Enum.Font.Gotham
+CountLabel.TextXAlignment = Enum.TextXAlignment.Left
+CountLabel.Parent = MainFrame
+
+local CollectButton = Instance.new("TextButton")
+CollectButton.Size = UDim2.new(0.8, 0, 0, 40)
+CollectButton.Position = UDim2.new(0.1, 0, 0, 105)
+CollectButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+CollectButton.Text = "🔄 COLLECT ALL"
+CollectButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CollectButton.TextScaled = true
+CollectButton.Font = Enum.Font.GothamBold
+CollectButton.Parent = MainFrame
+
+local TeleportButton = Instance.new("TextButton")
+TeleportButton.Size = UDim2.new(0.8, 0, 0, 40)
+TeleportButton.Position = UDim2.new(0.1, 0, 0, 150)
+TeleportButton.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+TeleportButton.Text = "📦 TELEPORT TO ME"
+TeleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+TeleportButton.TextScaled = true
+TeleportButton.Font = Enum.Font.GothamBold
+TeleportButton.Parent = MainFrame
+
+-- Variables
+local collectedItems = {}
+local isCollecting = false
+
+-- Find DebrisField
+local function getDebrisField()
+    local debrisField = workspace:FindFirstChild("DebrisField")
+    if not debrisField then
+        StatusLabel.Text = "❌ DebrisField not found!"
+        return nil
+    end
+    return debrisField
+end
+
+-- Get all items in DebrisField
+local function getDebrisItems()
+    local debrisField = getDebrisField()
+    if not debrisField then return {} end
+    
+    local items = {}
+    for _, child in pairs(debrisField:GetChildren()) do
+        -- Check if it's a part/model with a name that looks like an item ID
+        if child:IsA("BasePart") or child:IsA("Model") then
+            table.insert(items, child)
+        end
+    end
+    return items
+end
+
+-- Update item count display
+local function updateCount()
+    local items = getDebrisItems()
+    CountLabel.Text = "Items: " .. #items
+    return #items
+end
+
+-- Teleport a single item to the player
+local function teleportItemToPlayer(item, targetPosition)
+    if not item or not item.Parent then return false end
+    
+    local success, err = pcall(function()
+        -- Handle different item types
+        if item:IsA("Model") and item.PrimaryPart then
+            -- Move the entire model
+            local offset = item.PrimaryPart.CFrame - item.PrimaryPart.CFrame.Position
+            item:SetPrimaryPartCFrame(CFrame.new(targetPosition) * offset)
+        elseif item:IsA("BasePart") then
+            -- Move the part
+            item.CFrame = CFrame.new(targetPosition)
+        else
+            return false
+        end
+    end)
+    
+    return success
+end
+
+-- Animate item coming to player with tween
+local function animateItemToPlayer(item, targetPosition)
+    if not item or not item.Parent then return false end
+    
+    local success, err = pcall(function()
+        local startCFrame
+        local offset = CFrame.new()
+        
+        if item:IsA("Model") and item.PrimaryPart then
+            startCFrame = item.PrimaryPart.CFrame
+            offset = startCFrame - startCFrame.Position
+        elseif item:IsA("BasePart") then
+            startCFrame = item.CFrame
+        else
+            return false
+        end
+        
+        -- Create a tween to move the item smoothly
+        local endCFrame = CFrame.new(targetPosition) * (offset or CFrame.new())
+        
+        -- If it's a model with primary part
+        if item:IsA("Model") and item.PrimaryPart then
+            local tweenInfo = TweenInfo.new(
+                0.5 + math.random() * 0.3,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
+            
+            -- Move the model using TweenService
+            local tween = TweenService:Create(item.PrimaryPart, tweenInfo, {
+                CFrame = endCFrame
+            })
+            tween:Play()
+            tween.Completed:Wait()
+        elseif item:IsA("BasePart") then
+            local tweenInfo = TweenInfo.new(
+                0.5 + math.random() * 0.3,
+                Enum.EasingStyle.Quad,
+                Enum.EasingDirection.Out
+            )
+            
+            local tween = TweenService:Create(item, tweenInfo, {
+                CFrame = endCFrame
+            })
+            tween:Play()
+            tween.Completed:Wait()
+        end
+    end)
+    
+    return success
+end
+
+-- Main collection function
+local function collectAllItems(animate)
+    if isCollecting then
+        StatusLabel.Text = "⏳ Already collecting..."
+        return
+    end
+    
+    local character = LocalPlayer.Character
+    if not character then
+        StatusLabel.Text = "❌ No character found!"
+        return
+    end
+    
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then
+        StatusLabel.Text = "❌ No HumanoidRootPart!"
+        return
+    end
+    
+    local debrisField = getDebrisField()
+    if not debrisField then return end
+    
+    local items = getDebrisItems()
+    if #items == 0 then
+        StatusLabel.Text = "✅ No items to collect!"
+        return
+    end
+    
+    isCollecting = true
+    CollectButton.Text = "⏳ COLLECTING..."
+    CollectButton.BackgroundColor3 = Color3.fromRGB(150, 150, 0)
+    StatusLabel.Text = "🔄 Collecting " .. #items .. " items..."
+    
+    local collected = 0
+    local failed = 0
+    local targetPos = humanoidRootPart.Position + Vector3.new(0, 2, 0)
+    
+    -- Create a random offset so items don't stack on top of each other
+    local function getRandomOffset(index)
+        local angle = index * 1.2
+        local radius = 1 + (index % 3) * 0.8
+        return Vector3.new(
+            math.cos(angle) * radius,
+            (index % 2) * 0.5,
+            math.sin(angle) * radius
+        )
+    end
+    
+    for i, item in pairs(items) do
+        if not item or not item.Parent then
+            failed = failed + 1
+            goto continue
+        end
+        
+        local offset = getRandomOffset(i)
+        local itemPos = targetPos + offset
+        
+        local success
+        if animate then
+            success = animateItemToPlayer(item, itemPos)
+        else
+            success = teleportItemToPlayer(item, itemPos)
+        end
+        
+        if success then
+            collected = collected + 1
+            table.insert(collectedItems, item)
+        else
+            failed = failed + 1
+        end
+        
+        -- Update status every 5 items
+        if i % 5 == 0 then
+            StatusLabel.Text = "🔄 Collected " .. collected .. "/" .. #items
+        end
+        
+        ::continue::
+    end
+    
+    isCollecting = false
+    CollectButton.Text = "🔄 COLLECT ALL"
+    CollectButton.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    
+    -- Update count
+    local remaining = #getDebrisItems()
+    StatusLabel.Text = "✅ Collected " .. collected .. " items (" .. failed .. " failed, " .. remaining .. " remaining)"
+    CountLabel.Text = "Items: " .. remaining
+    
+    -- Play a success sound if available
+    if collected > 0 then
+        print("[DebrisCollector] Successfully collected " .. collected .. " items!")
+    end
+end
+
+-- Collect all with animation
+CollectButton.MouseButton1Click:Connect(function()
+    collectAllItems(true)
+end)
+
+-- Teleport all instantly
+TeleportButton.MouseButton1Click:Connect(function()
+    collectAllItems(false)
+end)
+
+-- Auto-update count
+local function startAutoUpdate()
+    RunService.Heartbeat:Connect(function()
+        if not isCollecting then
+            updateCount()
+        end
+    end)
+end
+
+-- Initial setup
+local function init()
+    local debrisField = getDebrisField()
+    if debrisField then
+        StatusLabel.Text = "✅ DebrisField found!"
+        local count = updateCount()
+        print("[DebrisCollector] Found " .. count .. " items in DebrisField")
+    else
+        StatusLabel.Text = "❌ DebrisField not found!"
+    end
+    
+    startAutoUpdate()
+end
+
+-- Clean up when GUI is destroyed
+ScreenGui.AncestryChanged:Connect(function()
+    if not ScreenGui.Parent then
+        -- Cleanup collected items reference
+        collectedItems = nil
+    end
+end)
+
+init()
+
+-- Keyboard shortcut: Press 'C' to collect, 'T' to teleport
+local UserInputService = game:GetService("UserInputService")
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Enum.KeyCode.C then
+        collectAllItems(true)
+    elseif input.KeyCode == Enum.KeyCode.T then
+        collectAllItems(false)
+    end
+end)
+
+print("[DebrisCollector] Loaded! Press 'C' to collect with animation, 'T' to teleport instantly")
