@@ -1,4 +1,4 @@
--- Combat Exploit GUI (No Sliders - Simplified)
+-- Combat Exploit GUI (No Sliders - Fully Fixed)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
