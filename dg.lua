@@ -1,4 +1,4 @@
--- LocalScript in StarterPlayerScripts or StarterGui
+-- Fixed Combat Exploit GUI (No Slider Error)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -22,8 +22,8 @@ local function CreateMainGUI()
     -- Main Frame
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
-    mainFrame.Size = UDim2.new(0, 350, 0, 500)
-    mainFrame.Position = UDim2.new(0.5, -175, 0.5, -250)
+    mainFrame.Size = UDim2.new(0, 350, 0, 520)
+    mainFrame.Position = UDim2.new(0.5, -175, 0.5, -260)
     mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
     mainFrame.BackgroundTransparency = 0.1
     mainFrame.BorderSizePixel = 0
@@ -103,24 +103,24 @@ local function CreateMainGUI()
     -- Hitbox Size Slider
     local hitboxSizeLabel = CreateLabel(hitboxSection, "Hitbox Size: 1.0x", 10)
     local hitboxSlider = CreateSlider(hitboxSection, 30, 1, 5, 1)
-    hitboxSlider:GetPropertyChangedSignal("Value"):Connect(function()
-        hitboxSizeLabel.Text = string.format("Hitbox Size: %.1fx", hitboxSlider.Value)
-        UpdateHitboxSize(hitboxSlider.Value)
+    hitboxSlider.ValueChanged:Connect(function(value)
+        hitboxSizeLabel.Text = string.format("Hitbox Size: %.1fx", value)
+        UpdateHitboxSize(value)
     end)
     
     -- Hitbox Offset
     local offsetLabel = CreateLabel(hitboxSection, "Hitbox Offset: 0 studs", 65)
     local offsetSlider = CreateSlider(hitboxSection, 85, -10, 10, 0)
-    offsetSlider:GetPropertyChangedSignal("Value"):Connect(function()
-        offsetLabel.Text = string.format("Hitbox Offset: %.1f studs", offsetSlider.Value)
-        UpdateHitboxOffset(offsetSlider.Value)
+    offsetSlider.ValueChanged:Connect(function(value)
+        offsetLabel.Text = string.format("Hitbox Offset: %.1f studs", value)
+        UpdateHitboxOffset(value)
     end)
     
     -- Hitbox Toggle
     local hitboxToggle = CreateToggle(hitboxSection, "Enable Hitbox Manipulation", 120)
     local hitboxEnabled = false
-    hitboxToggle:GetPropertyChangedSignal("Text"):Connect(function()
-        hitboxEnabled = hitboxToggle.Text == "✅ Enabled"
+    hitboxToggle.MouseButton1Click:Connect(function()
+        hitboxEnabled = not hitboxEnabled
         if hitboxEnabled then
             StartHitboxManipulation()
         else
@@ -134,8 +134,8 @@ local function CreateMainGUI()
     -- Invincibility Toggle
     local invincToggle = CreateToggle(invincSection, "God Mode", 10)
     local invincEnabled = false
-    invincToggle:GetPropertyChangedSignal("Text"):Connect(function()
-        invincEnabled = invincToggle.Text == "✅ Enabled"
+    invincToggle.MouseButton1Click:Connect(function()
+        invincEnabled = not invincEnabled
         if invincEnabled then
             EnableInvincibility()
         else
@@ -146,8 +146,8 @@ local function CreateMainGUI()
     -- Auto-Parry (Bonus)
     local parryToggle = CreateToggle(invincSection, "Auto Parry", 45)
     local parryEnabled = false
-    parryToggle:GetPropertyChangedSignal("Text"):Connect(function()
-        parryEnabled = parryToggle.Text == "✅ Enabled"
+    parryToggle.MouseButton1Click:Connect(function()
+        parryEnabled = not parryEnabled
         if parryEnabled then
             StartAutoParry()
         else
@@ -158,8 +158,8 @@ local function CreateMainGUI()
     -- Position Freeze
     local freezeToggle = CreateToggle(invincSection, "Freeze Position", 80)
     local freezeEnabled = false
-    freezeToggle:GetPropertyChangedSignal("Text"):Connect(function()
-        freezeEnabled = freezeToggle.Text == "✅ Enabled"
+    freezeToggle.MouseButton1Click:Connect(function()
+        freezeEnabled = not freezeEnabled
         if freezeEnabled then
             FreezePosition()
         else
@@ -173,8 +173,8 @@ local function CreateMainGUI()
     -- ESP
     local espToggle = CreateToggle(visualSection, "ESP Players", 10)
     local espEnabled = false
-    espToggle:GetPropertyChangedSignal("Text"):Connect(function()
-        espEnabled = espToggle.Text == "✅ Enabled"
+    espToggle.MouseButton1Click:Connect(function()
+        espEnabled = not espEnabled
         if espEnabled then
             EnableESP()
         else
@@ -185,9 +185,9 @@ local function CreateMainGUI()
     -- Speed
     local speedLabel = CreateLabel(visualSection, "Speed: 1.0x", 55)
     local speedSlider = CreateSlider(visualSection, 70, 0.5, 5, 1)
-    speedSlider:GetPropertyChangedSignal("Value"):Connect(function()
-        speedLabel.Text = string.format("Speed: %.1fx", speedSlider.Value)
-        SetSpeed(speedSlider.Value)
+    speedSlider.ValueChanged:Connect(function(value)
+        speedLabel.Text = string.format("Speed: %.1fx", value)
+        SetSpeed(value)
     end)
     
     -- Close Button
@@ -240,19 +240,103 @@ function CreateLabel(parent, text, yPos)
     return label
 end
 
+-- FIXED SLIDER FUNCTION (replaces the broken "Slider" instance)
 function CreateSlider(parent, yPos, min, max, default)
-    local slider = Instance.new("Slider")
-    slider.Size = UDim2.new(0.8, 0, 0, 20)
-    slider.Position = UDim2.new(0, 0, 0, yPos)
-    slider.Min = min
-    slider.Max = max
-    slider.Value = default
-    slider.Step = 0.1
-    slider.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    slider.BorderSizePixel = 0
-    slider.Parent = parent
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(0.8, 0, 0, 20)
+    sliderFrame.Position = UDim2.new(0, 0, 0, yPos)
+    sliderFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    sliderFrame.BorderSizePixel = 0
+    sliderFrame.Parent = parent
     
-    return slider
+    -- Background track
+    local track = Instance.new("Frame")
+    track.Size = UDim2.new(1, 0, 0.4, 0)
+    track.Position = UDim2.new(0, 0, 0.3, 0)
+    track.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+    track.BorderSizePixel = 0
+    track.Parent = sliderFrame
+    
+    -- Fill bar
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0.5, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
+    fill.BorderSizePixel = 0
+    fill.Parent = track
+    
+    -- Slider button
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(0, 16, 0, 16)
+    button.Position = UDim2.new(0.5, -8, 0.5, -8)
+    button.BackgroundColor3 = Color3.fromRGB(200, 200, 255)
+    button.BorderSizePixel = 0
+    button.Text = ""
+    button.Parent = sliderFrame
+    
+    -- Value display
+    local valueLabel = Instance.new("TextLabel")
+    valueLabel.Size = UDim2.new(0.2, 0, 1, 0)
+    valueLabel.Position = UDim2.new(1.05, 0, 0, 0)
+    valueLabel.BackgroundTransparency = 1
+    valueLabel.Text = tostring(default)
+    valueLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    valueLabel.TextSize = 12
+    valueLabel.Parent = sliderFrame
+    
+    local currentValue = default
+    local function updateSlider(input)
+        local mousePos = input.Position.X
+        local framePos = sliderFrame.AbsolutePosition.X
+        local frameWidth = sliderFrame.AbsoluteSize.X
+        
+        local percent = math.clamp((mousePos - framePos) / frameWidth, 0, 1)
+        currentValue = min + (max - min) * percent
+        currentValue = math.round(currentValue * 10) / 10
+        
+        fill.Size = UDim2.new(percent, 0, 1, 0)
+        button.Position = UDim2.new(percent, -8, 0.5, -8)
+        valueLabel.Text = tostring(currentValue)
+        
+        if sliderFrame.ValueChanged then
+            sliderFrame.ValueChanged:Fire(currentValue)
+        end
+    end
+    
+    button.MouseButton1Down:Connect(function()
+        local connection
+        connection = UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                updateSlider(input)
+            end
+        end)
+        
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                connection:Disconnect()
+            end
+        end)
+    end)
+    
+    -- Click on track to jump
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            updateSlider(input)
+        end
+    end)
+    
+    -- Add ValueChanged event
+    sliderFrame.ValueChanged = Instance.new("BindableEvent")
+    sliderFrame.GetValue = function()
+        return currentValue
+    end
+    
+    -- Initialize at default
+    local defaultPercent = (default - min) / (max - min)
+    fill.Size = UDim2.new(defaultPercent, 0, 1, 0)
+    button.Position = UDim2.new(defaultPercent, -8, 0.5, -8)
+    valueLabel.Text = tostring(default)
+    
+    return sliderFrame
 end
 
 function CreateToggle(parent, text, yPos)
@@ -268,8 +352,12 @@ function CreateToggle(parent, text, yPos)
     toggle.TextXAlignment = Enum.TextXAlignment.Left
     toggle.Parent = parent
     
+    toggle.isEnabled = false
+    
+    local originalClick = toggle.MouseButton1Click
     toggle.MouseButton1Click:Connect(function()
-        if toggle.Text == "❌ Disabled" then
+        toggle.isEnabled = not toggle.isEnabled
+        if toggle.isEnabled then
             toggle.Text = "✅ Enabled"
             toggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
         else
@@ -281,12 +369,11 @@ function CreateToggle(parent, text, yPos)
     return toggle
 end
 
--- Exploit Functions
+-- Exploit Functions (same as before, shortened for brevity)
 local hitboxConnections = {}
 local originalHitboxes = {}
 
 function UpdateHitboxSize(scale)
-    -- Manipulate hitbox size by scaling collision parts
     local character = player.Character
     if not character then return end
     
@@ -302,7 +389,6 @@ function UpdateHitboxSize(scale)
 end
 
 function UpdateHitboxOffset(offset)
-    -- Move hitbox positions
     local character = player.Character
     if not character then return end
     
@@ -318,9 +404,7 @@ function UpdateHitboxOffset(offset)
 end
 
 function StartHitboxManipulation()
-    -- Continuously update hitboxes
     hitboxConnections.hitboxLoop = RunService.Heartbeat:Connect(function()
-        if not hitboxEnabled then return end
         -- Additional hitbox manipulation can go here
     end)
 end
@@ -331,7 +415,6 @@ function StopHitboxManipulation()
     end
     hitboxConnections = {}
     
-    -- Reset hitboxes
     for part, size in pairs(originalHitboxes) do
         if part and part.Parent then
             part.Size = size
@@ -340,14 +423,12 @@ function StopHitboxManipulation()
     originalHitboxes = {}
 end
 
--- Invincibility Functions
 local invincConnections = {}
 
 function EnableInvincibility()
     local character = player.Character
     if not character then return end
     
-    -- Method 1: Set health to max constantly
     invincConnections.healthLoop = RunService.Heartbeat:Connect(function()
         local humanoid = character and character:FindFirstChild("Humanoid")
         if humanoid then
@@ -355,23 +436,9 @@ function EnableInvincibility()
         end
     end)
     
-    -- Method 2: Remove all humanoid limbs (makes you invincible to some attacks)
-    invincConnections.limbRemover = RunService.Heartbeat:Connect(function()
-        local humanoid = character and character:FindFirstChild("Humanoid")
-        if humanoid then
-            for _, limb in pairs(humanoid:GetChildren()) do
-                if limb:IsA("HumanoidBone") and limb.Name == "RootRigAttachment" then
-                    -- This is a bit aggressive, be careful
-                end
-            end
-        end
-    end)
-    
-    -- Method 3: Manipulate character state
     invincConnections.stateManipulator = RunService.Stepped:Connect(function()
         local humanoid = character and character:FindFirstChild("Humanoid")
         if humanoid then
-            -- Prevent death state
             if humanoid:GetState() == Enum.HumanoidStateType.Dead then
                 humanoid:ChangeState(Enum.HumanoidStateType.Running)
             end
@@ -386,25 +453,18 @@ function DisableInvincibility()
     invincConnections = {}
 end
 
--- Auto Parry Functions
 local parryConnections = {}
 
 function StartAutoParry()
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local ImpactRemote = ReplicatedStorage.Remotes.Combat.Impact
-    
     parryConnections.autoParry = RunService.Heartbeat:Connect(function()
-        -- Look for incoming attacks and automatically parry
         for _, otherPlayer in pairs(Players:GetPlayers()) do
             if otherPlayer ~= player then
                 local otherChar = otherPlayer.Character
                 if otherChar and otherChar:FindFirstChild("Humanoid") then
-                    -- Check if they're attacking
                     local actionManager = CharacterController and CharacterController._actionManager
                     if actionManager then
                         local currentAction = actionManager.CurrentAction
                         if currentAction and currentAction.ActionType == "BasicAttack" then
-                            -- Automatically parry
                             CombatController:Impact(nil, "Parry", character, otherChar, {})
                         end
                     end
@@ -421,7 +481,6 @@ function StopAutoParry()
     parryConnections = {}
 end
 
--- Position Freeze
 local freezeConnections = {}
 local frozenPosition = nil
 
@@ -448,8 +507,8 @@ function UnfreezePosition()
     frozenPosition = nil
 end
 
--- ESP Functions
 local espObjects = {}
+local espConnections = {}
 
 function EnableESP()
     for _, otherPlayer in pairs(Players:GetPlayers()) do
@@ -469,7 +528,6 @@ function EnableESP()
         end
     end
     
-    -- Watch for new players
     espConnections.playerAdded = Players.PlayerAdded:Connect(function(newPlayer)
         if newPlayer ~= player then
             local character = newPlayer.Character or newPlayer.CharacterAdded:Wait()
@@ -498,7 +556,6 @@ function DisableESP()
     end
 end
 
--- Speed Functions
 function SetSpeed(speedMultiplier)
     local character = player.Character
     if not character then return end
@@ -515,14 +572,11 @@ CreateMainGUI()
 
 -- Cleanup on death
 player.CharacterAdded:Connect(function()
-    -- Reset everything
     StopHitboxManipulation()
     DisableInvincibility()
     StopAutoParry()
     UnfreezePosition()
     DisableESP()
-    
-    -- Update references
     character = player.Character
 end)
 
