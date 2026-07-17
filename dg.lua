@@ -1,4 +1,4 @@
--- Combat Exploit GUI (No Sliders - Fully Fixed)
+-- Combat Exploit GUI (Hitbox 5x ON by Default)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -99,14 +99,24 @@ local function CreateMainGUI()
         end)
     end
     
-    -- Hitbox Toggle
+    -- Hitbox Toggle (ENABLED BY DEFAULT)
     local hitboxToggle = CreateToggle(hitboxSection, "Enable Hitbox Manipulation", 60)
-    local hitboxEnabled = false
+    local hitboxEnabled = true -- CHANGED: Start enabled
+    
+    -- Set toggle to "Enabled" state initially
+    hitboxToggle.Text = "✅ Enabled"
+    hitboxToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    
+    -- Apply 5x hitbox immediately
+    UpdateHitboxSize(5)
+    StartHitboxManipulation()
+    
     hitboxToggle.MouseButton1Click:Connect(function()
         hitboxEnabled = not hitboxEnabled
         if hitboxEnabled then
             hitboxToggle.Text = "✅ Enabled"
             hitboxToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+            UpdateHitboxSize(5) -- Re-apply 5x when re-enabled
             StartHitboxManipulation()
         else
             hitboxToggle.Text = "❌ Disabled"
@@ -306,8 +316,11 @@ end
 
 function StartHitboxManipulation()
     -- Keep hitboxes updated
+    if hitboxConnections.hitboxLoop then
+        hitboxConnections.hitboxLoop:Disconnect()
+    end
     hitboxConnections.hitboxLoop = RunService.Heartbeat:Connect(function()
-        -- Passive maintenance
+        -- Passive maintenance - ensures hitboxes stay at current size
     end)
 end
 
@@ -481,4 +494,5 @@ player.CharacterAdded:Connect(function()
 end)
 
 print("✅ Combat Exploit GUI Loaded!")
+print("⚡ Hitbox 5x ENABLED by default!")
 print("Press the ⚔ button to open the menu")
