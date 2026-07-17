@@ -1,4 +1,4 @@
--- Fixed Combat Exploit GUI (No Slider Error)
+-- Fixed Combat Exploit GUI (No Errors)
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -33,7 +33,7 @@ local function CreateMainGUI()
     -- Make it draggable
     local function makeDraggable(frame)
         local dragging = false
-        local dragInput, dragStart, startPos
+        local dragStart, startPos
         
         frame.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -103,7 +103,7 @@ local function CreateMainGUI()
     -- Hitbox Size Slider
     local hitboxSizeLabel = CreateLabel(hitboxSection, "Hitbox Size: 1.0x", 10)
     local hitboxSlider = CreateSlider(hitboxSection, 30, 1, 5, 1)
-    hitboxSlider.ValueChanged:Connect(function(value)
+    hitboxSlider.ValueChanged.Event:Connect(function(value)
         hitboxSizeLabel.Text = string.format("Hitbox Size: %.1fx", value)
         UpdateHitboxSize(value)
     end)
@@ -111,19 +111,22 @@ local function CreateMainGUI()
     -- Hitbox Offset
     local offsetLabel = CreateLabel(hitboxSection, "Hitbox Offset: 0 studs", 65)
     local offsetSlider = CreateSlider(hitboxSection, 85, -10, 10, 0)
-    offsetSlider.ValueChanged:Connect(function(value)
+    offsetSlider.ValueChanged.Event:Connect(function(value)
         offsetLabel.Text = string.format("Hitbox Offset: %.1f studs", value)
         UpdateHitboxOffset(value)
     end)
     
     -- Hitbox Toggle
-    local hitboxToggle = CreateToggle(hitboxSection, "Enable Hitbox Manipulation", 120)
-    local hitboxEnabled = false
+    local hitboxToggle, hitboxEnabled = CreateToggle(hitboxSection, "Enable Hitbox Manipulation", 120)
     hitboxToggle.MouseButton1Click:Connect(function()
-        hitboxEnabled = not hitboxEnabled
-        if hitboxEnabled then
+        hitboxEnabled.Value = not hitboxEnabled.Value
+        if hitboxEnabled.Value then
+            hitboxToggle.Text = "✅ Enabled"
+            hitboxToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
             StartHitboxManipulation()
         else
+            hitboxToggle.Text = "❌ Disabled"
+            hitboxToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
             StopHitboxManipulation()
         end
     end)
@@ -132,37 +135,46 @@ local function CreateMainGUI()
     local invincSection = CreateSection(mainFrame, "🛡️ Invincibility", 190)
     
     -- Invincibility Toggle
-    local invincToggle = CreateToggle(invincSection, "God Mode", 10)
-    local invincEnabled = false
+    local invincToggle, invincEnabled = CreateToggle(invincSection, "God Mode", 10)
     invincToggle.MouseButton1Click:Connect(function()
-        invincEnabled = not invincEnabled
-        if invincEnabled then
+        invincEnabled.Value = not invincEnabled.Value
+        if invincEnabled.Value then
+            invincToggle.Text = "✅ Enabled"
+            invincToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
             EnableInvincibility()
         else
+            invincToggle.Text = "❌ Disabled"
+            invincToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
             DisableInvincibility()
         end
     end)
     
     -- Auto-Parry (Bonus)
-    local parryToggle = CreateToggle(invincSection, "Auto Parry", 45)
-    local parryEnabled = false
+    local parryToggle, parryEnabled = CreateToggle(invincSection, "Auto Parry", 45)
     parryToggle.MouseButton1Click:Connect(function()
-        parryEnabled = not parryEnabled
-        if parryEnabled then
+        parryEnabled.Value = not parryEnabled.Value
+        if parryEnabled.Value then
+            parryToggle.Text = "✅ Enabled"
+            parryToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
             StartAutoParry()
         else
+            parryToggle.Text = "❌ Disabled"
+            parryToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
             StopAutoParry()
         end
     end)
     
     -- Position Freeze
-    local freezeToggle = CreateToggle(invincSection, "Freeze Position", 80)
-    local freezeEnabled = false
+    local freezeToggle, freezeEnabled = CreateToggle(invincSection, "Freeze Position", 80)
     freezeToggle.MouseButton1Click:Connect(function()
-        freezeEnabled = not freezeEnabled
-        if freezeEnabled then
+        freezeEnabled.Value = not freezeEnabled.Value
+        if freezeEnabled.Value then
+            freezeToggle.Text = "✅ Enabled"
+            freezeToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
             FreezePosition()
         else
+            freezeToggle.Text = "❌ Disabled"
+            freezeToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
             UnfreezePosition()
         end
     end)
@@ -171,13 +183,16 @@ local function CreateMainGUI()
     local visualSection = CreateSection(mainFrame, "👁️ Visual Options", 280)
     
     -- ESP
-    local espToggle = CreateToggle(visualSection, "ESP Players", 10)
-    local espEnabled = false
+    local espToggle, espEnabled = CreateToggle(visualSection, "ESP Players", 10)
     espToggle.MouseButton1Click:Connect(function()
-        espEnabled = not espEnabled
-        if espEnabled then
+        espEnabled.Value = not espEnabled.Value
+        if espEnabled.Value then
+            espToggle.Text = "✅ Enabled"
+            espToggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
             EnableESP()
         else
+            espToggle.Text = "❌ Disabled"
+            espToggle.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
             DisableESP()
         end
     end)
@@ -185,7 +200,7 @@ local function CreateMainGUI()
     -- Speed
     local speedLabel = CreateLabel(visualSection, "Speed: 1.0x", 55)
     local speedSlider = CreateSlider(visualSection, 70, 0.5, 5, 1)
-    speedSlider.ValueChanged:Connect(function(value)
+    speedSlider.ValueChanged.Event:Connect(function(value)
         speedLabel.Text = string.format("Speed: %.1fx", value)
         SetSpeed(value)
     end)
@@ -240,7 +255,7 @@ function CreateLabel(parent, text, yPos)
     return label
 end
 
--- FIXED SLIDER FUNCTION (replaces the broken "Slider" instance)
+-- FIXED SLIDER FUNCTION
 function CreateSlider(parent, yPos, min, max, default)
     local sliderFrame = Instance.new("Frame")
     sliderFrame.Size = UDim2.new(0.8, 0, 0, 20)
@@ -284,10 +299,16 @@ function CreateSlider(parent, yPos, min, max, default)
     valueLabel.Parent = sliderFrame
     
     local currentValue = default
+    
+    -- Create ValueChanged event
+    sliderFrame.ValueChanged = Instance.new("BindableEvent")
+    
     local function updateSlider(input)
         local mousePos = input.Position.X
         local framePos = sliderFrame.AbsolutePosition.X
         local frameWidth = sliderFrame.AbsoluteSize.X
+        
+        if frameWidth <= 0 then return end
         
         local percent = math.clamp((mousePos - framePos) / frameWidth, 0, 1)
         currentValue = min + (max - min) * percent
@@ -297,9 +318,7 @@ function CreateSlider(parent, yPos, min, max, default)
         button.Position = UDim2.new(percent, -8, 0.5, -8)
         valueLabel.Text = tostring(currentValue)
         
-        if sliderFrame.ValueChanged then
-            sliderFrame.ValueChanged:Fire(currentValue)
-        end
+        sliderFrame.ValueChanged:Fire(currentValue)
     end
     
     button.MouseButton1Down:Connect(function()
@@ -310,9 +329,11 @@ function CreateSlider(parent, yPos, min, max, default)
             end
         end)
         
-        UserInputService.InputEnded:Connect(function(input)
+        local endedConnection
+        endedConnection = UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
-                connection:Disconnect()
+                if connection then connection:Disconnect() end
+                if endedConnection then endedConnection:Disconnect() end
             end
         end)
     end)
@@ -324,12 +345,6 @@ function CreateSlider(parent, yPos, min, max, default)
         end
     end)
     
-    -- Add ValueChanged event
-    sliderFrame.ValueChanged = Instance.new("BindableEvent")
-    sliderFrame.GetValue = function()
-        return currentValue
-    end
-    
     -- Initialize at default
     local defaultPercent = (default - min) / (max - min)
     fill.Size = UDim2.new(defaultPercent, 0, 1, 0)
@@ -339,6 +354,7 @@ function CreateSlider(parent, yPos, min, max, default)
     return sliderFrame
 end
 
+-- FIXED TOGGLE FUNCTION
 function CreateToggle(parent, text, yPos)
     local toggle = Instance.new("TextButton")
     toggle.Size = UDim2.new(0.8, 0, 0, 25)
@@ -352,24 +368,12 @@ function CreateToggle(parent, text, yPos)
     toggle.TextXAlignment = Enum.TextXAlignment.Left
     toggle.Parent = parent
     
-    toggle.isEnabled = false
+    local enabled = {Value = false}
     
-    local originalClick = toggle.MouseButton1Click
-    toggle.MouseButton1Click:Connect(function()
-        toggle.isEnabled = not toggle.isEnabled
-        if toggle.isEnabled then
-            toggle.Text = "✅ Enabled"
-            toggle.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-        else
-            toggle.Text = "❌ Disabled"
-            toggle.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
-        end
-    end)
-    
-    return toggle
+    return toggle, enabled
 end
 
--- Exploit Functions (same as before, shortened for brevity)
+-- Exploit Functions
 local hitboxConnections = {}
 local originalHitboxes = {}
 
